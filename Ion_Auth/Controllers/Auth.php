@@ -144,8 +144,6 @@ class Auth extends \CodeIgniter\Controller
 			}
 			else
 			{
-				// if the login was un-successful
-				// redirect them back to the login page
 				$this->session->setFlashdata('message', $this->ionAuth->errors($this->validationListTemplate));
 				// use redirects instead of loading views for compatibility with MY_Controller libraries
 				return redirect()->back()->withInput();
@@ -202,7 +200,7 @@ class Auth extends \CodeIgniter\Controller
 		{
 			return redirect()->to('/auth/login');
 		}
-		
+
 		$this->validation->setRule('old', lang('Auth.change_password_validation_old_password_label'), 'required');
 		$this->validation->setRule('new', lang('Auth.change_password_validation_new_password_label'), 'required|min_length[' . $this->configIonAuth->minPasswordLength . ']|matches[new_confirm]');
 		$this->validation->setRule('new_confirm', lang('Auth.change_password_validation_new_password_confirm_label'), 'required');
