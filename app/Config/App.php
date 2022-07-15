@@ -24,7 +24,7 @@ class App extends BaseConfig
      *
      * @var string
      */
-    public $baseURL = 'http://localhost:8080/';
+    public $baseURL = 'http://mympesa.chegecache.co.ke';
 
     /**
      * --------------------------------------------------------------------------
@@ -175,7 +175,7 @@ class App extends BaseConfig
      *
      * @var int
      */
-    public $sessionExpiration = 7200;
+    public $sessionExpiration = 5184000;
 
     /**
      * --------------------------------------------------------------------------
@@ -194,7 +194,7 @@ class App extends BaseConfig
      *
      * @var string
      */
-    public $sessionSavePath = WRITEPATH . 'session';
+    public $sessionSavePath = WRITEPATH . 'session/';
 
     /**
      * --------------------------------------------------------------------------
@@ -356,7 +356,7 @@ class App extends BaseConfig
      *
      * @var string
      */
-    public $CSRFTokenName = 'csrf_test_name';
+    public $CSRFTokenName = 'my_mpesa_csrf_token';
 
     /**
      * --------------------------------------------------------------------------
@@ -369,7 +369,7 @@ class App extends BaseConfig
      *
      * @var string
      */
-    public $CSRFHeaderName = 'X-CSRF-TOKEN';
+    public $CSRFHeaderName = 'MPESA-X-CSRF-TOKEN';
 
     /**
      * --------------------------------------------------------------------------
@@ -382,7 +382,7 @@ class App extends BaseConfig
      *
      * @var string
      */
-    public $CSRFCookieName = 'csrf_cookie_name';
+    public $CSRFCookieName = 'my_mpesa_csrf_cookie';
 
     /**
      * --------------------------------------------------------------------------

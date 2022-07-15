@@ -45,6 +45,8 @@ $routes->group('auth', function ($routes) {
     $routes->add('logout', 'Auths::user_logout');
 });
 
+$routes->get('/profile', 'ProfileController::index',['filter' => 'authGuard']);
+
 /*$routes->group('auth', ['namespace' => 'IonAuth\Controllers'], function ($routes) {
     $routes->add('login', 'Auth::login');
     $routes->get('logout', 'Auth::logout');

@@ -4,9 +4,6 @@ namespace App\Controllers;
 
 class Home extends BaseController
 {
-    public function __construct(){
-        //parent::__construct();
-    }
     public function index(){
         $session = session();
 
@@ -15,7 +12,7 @@ class Home extends BaseController
         }
         echo "<br>Welcome user_name back, ".$session->get('user_name');
         echo "<br>Welcome user_email back, ".$session->get('user_email');
-        echo "<br>Welcome user_Id back, ".$session->get('user_email');
+        echo "<br>Welcome user_Id back, ".$session->get('user_id');
         //return view('welcome_message');
     }
 }

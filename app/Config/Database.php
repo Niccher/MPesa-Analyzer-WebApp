@@ -32,10 +32,10 @@ class Database extends Config
      */
     public $default = [
         'DSN'      => '',
-        'hostname' => '127.0.0.1',
-        'username' => 'root',
-        'password' => '',
-        'database' => 'Mpesa_Analyzer',
+        'hostname' => 'localhost',
+        'username' => 'chegecac_mpesa',
+        'password' => '9*5Uhv)GsDME',
+        'database' => 'chegecac_My_Mpesa',
         'DBDriver' => 'MySQLi',
         'DBPrefix' => '',
         'pConnect' => false,

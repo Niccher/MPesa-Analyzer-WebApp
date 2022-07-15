@@ -48,27 +48,44 @@ class Auths extends BaseController//\IonAuth\Controllers\Auth
     }
     public function register(){
         $mod_user = new ModUser();
+        helper(['form']);
 
         if ($this->request->getPost()){
-            $data = [
-                'user_Name' => $this->request->getVar('varUsername'),
-                'user_Email' => $this->request->getVar('varEmail'),
-                'user_Password' => password_hash($this->request->getVar('varPassword'), PASSWORD_DEFAULT),
-                'user_Created' => time(),
-            ];
-            $pushed = $mod_user->user_register($data);
 
-            if ($pushed){
-                return $this->respond([
-                    'status' => 1,
-                    'message' => "User Added to Database"
-                ]);
+            $rules = [
+                'varUsername'=> 'required|min_length[5]|max_length[20]',
+                'varEmail'=> 'required|min_length[8]|max_length[30]|valid_email|is_unique[tbl_users.user_Email]',
+                'varPassword'=> 'required|min_length[3]|max_length[20]'
+            ];
+
+            if($this->validate($rules)){
+                $data = [
+                    'user_Name' => $this->request->getVar('varUsername'),
+                    'user_Email' => $this->request->getVar('varEmail'),
+                    'user_Password' => password_hash($this->request->getVar('varPassword'), PASSWORD_DEFAULT),
+                    'user_Created' => time(),
+                ];
+                $pushed = $mod_user->user_register($data);
+                if ($pushed){
+                    return $this->respond([
+                        'status' => 1,
+                        'message' => "User Added to Database"
+                    ]);
+                }else{
+                    return $this->respond([
+                        'status' => 0,
+                        'message' => "User Not Added to Database"
+                    ]);
+                }
+
             }else{
+                $validation = $this->validator;
                 return $this->respond([
                     'status' => 0,
-                    'message' => "User Not Added to Database"
+                    'message' => trim(strip_tags($validation->listErrors()))
                 ]);
             }
+
         }else{
             //echo "Ordinary Get";
         }
