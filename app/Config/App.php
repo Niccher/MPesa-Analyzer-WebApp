@@ -24,7 +24,7 @@ class App extends BaseConfig
      *
      * @var string
      */
-    public $baseURL = 'http://mympesa.chegecache.co.ke';
+    public $baseURL = 'https://mympesa.chegecache.co.ke';
 
     /**
      * --------------------------------------------------------------------------

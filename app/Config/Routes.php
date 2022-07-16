@@ -45,6 +45,9 @@ $routes->group('auth', function ($routes) {
     $routes->add('logout', 'Auths::user_logout');
 });
 
+$routes->add('/process/upload', 'Upload::upload');
+$routes->add('/process/device', 'Upload::device_print');
+
 $routes->get('/profile', 'ProfileController::index',['filter' => 'authGuard']);
 
 /*$routes->group('auth', ['namespace' => 'IonAuth\Controllers'], function ($routes) {

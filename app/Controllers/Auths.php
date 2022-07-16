@@ -43,7 +43,10 @@ class Auths extends BaseController//\IonAuth\Controllers\Auth
                 return "No such user";// redirect()->to('/login');
             }
         }else{
-            //echo "Ordinary Get";
+            return $this->respond([
+                'status' => 2,
+                'message' => "Unexpected request sent"
+            ]);
         }
     }
     public function register(){
@@ -87,7 +90,10 @@ class Auths extends BaseController//\IonAuth\Controllers\Auth
             }
 
         }else{
-            //echo "Ordinary Get";
+            return $this->respond([
+                'status' => 2,
+                'message' => "Unexpected request sent"
+            ]);
         }
     }
 
@@ -108,7 +114,10 @@ class Auths extends BaseController//\IonAuth\Controllers\Auth
                 ]);
             }
         }else{
-            //echo "Ordinary Get";
+            return $this->respond([
+                'status' => 2,
+                'message' => "Unexpected request sent"
+            ]);
         }
     }
 
