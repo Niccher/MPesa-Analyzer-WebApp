@@ -33,22 +33,39 @@ class Auths extends BaseController//\IonAuth\Controllers\Auth
                         'logged_in'     => TRUE
                     ];
                     $session->set($ses_data);
-                    return "Passed credentials";//redirect()->to('/home');
+                    return $this->respond([
+                        'status' => 1,
+                        'message' => "Logged Succesfully",
+                        'time' => time(),
+                        'userid' => $data['user_Id']
+                    ]);
                 }else{
-                    $session->setFlashdata('msg', 'Wrong Password');
-                    return "Wrong credentials";//redirect()->to('/login');
+                    //$session->setFlashdata('msg', 'Wrong Password');
+                    return $this->respond([
+                        'status' => 0,
+                        'message' => "Wrong credentials",
+                        'time' => time(),
+                        'userid' => "null"
+                    ]);
                 }
             }else{
-                $session->setFlashdata('msg', 'Email not Found');
-                return "No such user";// redirect()->to('/login');
+                //$session->setFlashdata('msg', 'Email not Found');
+                return $this->respond([
+                    'status' => 0,
+                    'message' => "No such user",
+                    'time' => time(),
+                    'userid' => "null"
+                ]);
             }
         }else{
             return $this->respond([
                 'status' => 2,
-                'message' => "Unexpected request sent"
+                'message' => "Unexpected request sent",
+                'time' => time()
             ]);
         }
     }
+
     public function register(){
         $mod_user = new ModUser();
         helper(['form']);
@@ -70,14 +87,19 @@ class Auths extends BaseController//\IonAuth\Controllers\Auth
                 ];
                 $pushed = $mod_user->user_register($data);
                 if ($pushed){
+                    $user_id = $mod_user->user_last_created();
                     return $this->respond([
                         'status' => 1,
-                        'message' => "User Added to Database"
+                        'message' => "User Added to Database",
+                        'time' => time(),
+                        'userid' => $user_id
                     ]);
                 }else{
                     return $this->respond([
                         'status' => 0,
-                        'message' => "User Not Added to Database"
+                        'message' => "Unknown Error, Please try again",
+                        'time' => time(),
+                        'userid' => "Null"
                     ]);
                 }
 
@@ -92,7 +114,8 @@ class Auths extends BaseController//\IonAuth\Controllers\Auth
         }else{
             return $this->respond([
                 'status' => 2,
-                'message' => "Unexpected request sent"
+                'message' => "Unexpected request sent",
+                'time' => time()
             ]);
         }
     }

@@ -15,6 +15,11 @@ class ModUser extends Model
         return $this->db ->table('tbl_users')->insert($data);
     }
 
+    public function user_last_created(){
+        $result = $this->db->table('tbl_users')->selectMax('user_Id')->get();
+        return $result->getResult()[0]->user_Id;
+    }
+
     public function user_info($userid){
         $builder = $this->db->table('tbl_users');
         $result = $builder->select('user_Name, user_Email')

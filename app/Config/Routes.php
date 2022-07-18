@@ -47,6 +47,7 @@ $routes->group('auth', function ($routes) {
 
 $routes->add('/process/upload', 'Upload::upload');
 $routes->add('/process/device', 'Upload::device_print');
+$routes->add('/process/get/my_uploads', 'Upload::upload_listing');
 
 $routes->get('/profile', 'ProfileController::index',['filter' => 'authGuard']);
 

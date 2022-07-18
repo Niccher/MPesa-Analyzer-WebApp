@@ -6,6 +6,7 @@ use CodeIgniter\API\ResponseTrait;
 use CodeIgniter\Controller;
 
 use App\Models\ModUploads;
+use App\Models\ModCryption;
 
 
 class Upload extends BaseController//\IonAuth\Controllers\Auth
@@ -14,10 +15,13 @@ class Upload extends BaseController//\IonAuth\Controllers\Auth
 
     public function upload(){
         $mod_upload = new ModUploads();
+        $mod_cryption = new ModCryption();
         $session = session();
 
+        helper("filesystem");
+
         if (empty($session->get('user_name'))){
-            return "Not Logged In";
+            //return "Not Logged In";
         }
 
         if ($this->request->getPost()){
@@ -39,7 +43,9 @@ class Upload extends BaseController//\IonAuth\Controllers\Auth
             ];
 
             $pushed = $mod_upload->file_upload($data);
-
+            $loot_id = $mod_upload->loot_last_uploaded();
+            $mod_upload->loot_parse_sms(5);
+            
             if ($pushed){
                 return $this->respond([
                     'status' => 1,
@@ -94,14 +100,16 @@ class Upload extends BaseController//\IonAuth\Controllers\Auth
                     return $this->respond([
                         'status' => 1,
                         'message' => "New Id assigned device_id as ",
-                        'pd_id' => $dev_check[0]->p_Id
+                        'print_id' => $dev_check[0]->p_Id,
+                        'time' => time()
                     ]);
                 }else{}
             }else{
                 return $this->respond([
                     'status' => 1,
                     'message' => "Old Id re-assigned device_id as ",
-                    'pd_id' => $dev_check[0]->p_Id
+                    'print_id' => $dev_check[0]->p_Id,
+                    'time' => time()
                 ]);
             }
         }else{
@@ -110,5 +118,23 @@ class Upload extends BaseController//\IonAuth\Controllers\Auth
                 'message' => "Unexpected request sent"
             ]);
         }
+    }
+
+    public function upload_listing(){
+        $mod_upload = new ModUploads();
+        $mod_cryption = new ModCryption();
+        $session = session();
+
+        if (empty($session->get('user_name'))){
+            //echo "Not Logged In";
+        }
+
+        $loot_list = $mod_upload->file_listing();
+        foreach ($loot_list as $loot_info) {
+            echo $loot_info->loot_Name;
+            echo $loot_info->loot_Id;
+            echo $loot_info->loot_Created;
+        }
+        //print_r($loot_list);
     }
 }
