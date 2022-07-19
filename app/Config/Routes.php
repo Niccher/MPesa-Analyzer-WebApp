@@ -49,6 +49,8 @@ $routes->add('/process/upload', 'Upload::upload');
 $routes->add('/process/device', 'Upload::device_print');
 $routes->add('/process/get/my_uploads', 'Upload::upload_listing');
 
+$routes->add('/process/get/my_summary', 'Upload::upload_summary');
+
 $routes->get('/profile', 'ProfileController::index',['filter' => 'authGuard']);
 
 /*$routes->group('auth', ['namespace' => 'IonAuth\Controllers'], function ($routes) {

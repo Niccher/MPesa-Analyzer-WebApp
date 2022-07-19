@@ -44,7 +44,7 @@ class Upload extends BaseController//\IonAuth\Controllers\Auth
 
             $pushed = $mod_upload->file_upload($data);
             $loot_id = $mod_upload->loot_last_uploaded();
-            $mod_upload->loot_parse_sms(5);
+            $mod_upload->loot_parse_sms($loot_id);
             
             if ($pushed){
                 return $this->respond([
@@ -129,12 +129,28 @@ class Upload extends BaseController//\IonAuth\Controllers\Auth
             //echo "Not Logged In";
         }
 
+        $loot_array = array();
         $loot_list = $mod_upload->file_listing();
+        
         foreach ($loot_list as $loot_info) {
-            echo $loot_info->loot_Name;
-            echo $loot_info->loot_Id;
-            echo $loot_info->loot_Created;
+            $loot_meta = $mod_upload->loot_summary($loot_info->loot_Id);
+            $data = [
+                'loot_summary_Name' =>  $loot_info->loot_Name,
+                'loot_summary_Type'  => $loot_info->loot_Type,
+                'loot_summary_Extension'  => $loot_info->loot_Extension,
+                'loot_summary_Size'  => $loot_info->loot_Size,
+                'loot_summary_Owner'  => $loot_info->loot_Owner,
+                'loot_summary_Device'  => $loot_info->loot_Device,
+                'loot_summary_Created'  => $loot_info->loot_Created,
+
+                'loot_summary_Count'  => $loot_meta[0]->info_Count,
+                'loot_summary_Received'  => $loot_meta[0]->info_Received,
+                'loot_summary_Sent'  => $loot_meta[0]->info_Sent,
+                'loot_summary_Unknown'  => $loot_meta[0]->info_Unknown
+            ];
+            array_push($loot_array,$data);
         }
-        //print_r($loot_list);
+
+        print_r($loot_array);
     }
 }

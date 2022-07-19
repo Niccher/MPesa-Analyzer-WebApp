@@ -30,6 +30,12 @@ class ModUploads extends Model
         return $result->getResult();
     }
 
+    public function loot_summary($loot_id){
+        $builder = $this->db->table('tbl_Loot_Summary');
+        $result = $builder->where('info_Loot_Id', $loot_id)->get();
+        return $result->getResult();
+    }
+
     public function loot_parse_sms($loot_id){
         $mod_cryption = new ModCryption();
         $query_name = $this->db->table('tbl_Loot')->select('loot_Name')
@@ -50,24 +56,51 @@ class ModUploads extends Model
         $data1 = json_decode($data);
         $data2 = json_decode($data1);
 
-        foreach ($data2 as $smsdata) {
+        $receive = "Confirmed.You have received Ksh";
+        $sent = " Confirmed. Ksh";
+        $count_sent = 0; $count_receive = 0; $count_other = 0;
 
-            $thread_id = 'Thread Id';
-            $data = array(
-                'sms_type' => $smsdata->Type,
-                'sms_number' => $smsdata->Number,
-                'sms_thread_id' => $smsdata->$thread_id,
-                'sms_time' => $smsdata->Date,
-                'sms_seen' => $smsdata->Seen,
-                'sms__id' => $smsdata->ID,
-                'sms_body' => $smsdata->Body,
-                'meta_uploaded' => time(),
-                'meta_seen' => '0',
-                'meta_owner' => 020,
-                'meta_Print' => 010,
-            );
-            $this->db ->table('tbl_Sms')->insert($data);
+        foreach ($data2 as $smsdata) {
+            if($smsdata->Number == "MPESA"){
+                $sms_clean = base64_decode($smsdata->Body);
+
+                if (stripos($sms_clean, $receive)){
+                    $count_receive+=1;
+                }else if (stripos($sms_clean, $sent)){
+                    $count_sent+=1;
+                }else{
+                    $count_other+=1;
+                }
+
+                $thread_id = 'Thread Id';
+                $data = array(
+                    'sms_type' => $smsdata->Type,
+                    'sms_number' => $smsdata->Number,
+                    'sms_thread_id' => $smsdata->$thread_id,
+                    'sms_time' => $smsdata->Date,
+                    'sms_seen' => $smsdata->Seen,
+                    'sms__id' => $smsdata->ID,
+                    'sms_body' => $smsdata->Body,
+                    'meta_uploaded' => time(),
+                    'meta_seen' => '0',
+                    'meta_owner' => 020,
+                    'meta_Print' => 010,
+                );
+                $this->db ->table('tbl_Sms')->insert($data);
+            }
         }
+
+        $data = array(
+            'info_Loot_Id' => $loot_id,
+            'info_Count' => $count_receive + $count_sent + $count_other,
+            'info_Received' => $count_receive,
+            'info_Sent' => $count_sent,
+            'info_Unknown' => $count_other,
+            'info_All' => $count_receive + $count_sent + $count_other,
+            'info_Created' => time()
+        );
+        $this->db ->table('tbl_Loot_Summary')->insert($data);
+
     }
 
     public function file_listing(){
