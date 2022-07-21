@@ -131,26 +131,34 @@ class Upload extends BaseController//\IonAuth\Controllers\Auth
 
         $loot_array = array();
         $loot_list = $mod_upload->file_listing();
-        
+        echo '{ "summarizer":[';
+        $counter = 0;
+        $loot_size = count($loot_list);
         foreach ($loot_list as $loot_info) {
+            $counter +=1;
             $loot_meta = $mod_upload->loot_summary($loot_info->loot_Id);
             $data = [
-                'loot_summary_Name' =>  $loot_info->loot_Name,
-                'loot_summary_Type'  => $loot_info->loot_Type,
-                'loot_summary_Extension'  => $loot_info->loot_Extension,
-                'loot_summary_Size'  => $loot_info->loot_Size,
-                'loot_summary_Owner'  => $loot_info->loot_Owner,
-                'loot_summary_Device'  => $loot_info->loot_Device,
-                'loot_summary_Created'  => $loot_info->loot_Created,
-
-                'loot_summary_Count'  => $loot_meta[0]->info_Count,
-                'loot_summary_Received'  => $loot_meta[0]->info_Received,
-                'loot_summary_Sent'  => $loot_meta[0]->info_Sent,
-                'loot_summary_Unknown'  => $loot_meta[0]->info_Unknown
+                'summary_Name' =>  $loot_info->loot_Name,
+                'summary_Type'  => $loot_info->loot_Type,
+                'summary_Extension'  => $loot_info->loot_Extension,
+                'summary_Size'  => $loot_info->loot_Size,
+                'summary_Owner'  => $loot_info->loot_Owner,
+                'summary_Device'  => $loot_info->loot_Device,
+                'summary_Created'  => $loot_info->loot_Created,
+                'summary_Count'  => $loot_meta[0]->info_Count,
+                'summary_Received'  => $loot_meta[0]->info_Received,
+                'summary_Sent'  => $loot_meta[0]->info_Sent,
+                'summary_Unknown' => $loot_meta[0]->info_Unknown
             ];
             array_push($loot_array,$data);
+            if ($counter == ($loot_size)){
+                print json_encode($data);
+            }else{
+                print json_encode($data).",";
+            }
         }
-
-        print_r($loot_array);
+        //print_r($loot_array);
+        echo "]}";
+        //echo json_encode($loot_array);
     }
 }
