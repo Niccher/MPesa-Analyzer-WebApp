@@ -17,7 +17,7 @@ class App extends BaseConfig
      *
      *    http://example.com/
      */
-    public string $baseURL = 'http://localhost:8080/';
+    public string $baseURL = 'http://localhost:8080/'; //'https://mympesa.chegecache.co.ke';
 
     /**
      * Allowed Hostnames in the Site URL other than the hostname in the baseURL.
@@ -42,7 +42,7 @@ class App extends BaseConfig
      * something else. If you are using mod_rewrite to remove the page set this
      * variable so that it is blank.
      */
-    public string $indexPage = 'index.php';
+    public string $indexPage = '';
 
     /**
      * --------------------------------------------------------------------------
@@ -106,7 +106,7 @@ class App extends BaseConfig
      * The default timezone that will be used in your application to display
      * dates with the date helper, and can be retrieved through app_timezone()
      */
-    public string $appTimezone = 'UTC';
+    public string $appTimezone = 'UTC';//Africa/Nairobi
 
     /**
      * --------------------------------------------------------------------------
@@ -168,7 +168,7 @@ class App extends BaseConfig
      *
      * @deprecated use Config\Session::$expiration instead.
      */
-    public int $sessionExpiration = 7200;
+    public int $sessionExpiration = 5184000;
 
     /**
      * --------------------------------------------------------------------------
@@ -349,7 +349,7 @@ class App extends BaseConfig
      *
      * @deprecated Use `Config\Security` $tokenName property instead of using this property.
      */
-    public string $CSRFTokenName = 'csrf_test_name';
+    public string $CSRFTokenName = 'my_mpesa_csrf_token';
 
     /**
      * --------------------------------------------------------------------------
@@ -360,7 +360,7 @@ class App extends BaseConfig
      *
      * @deprecated Use `Config\Security` $headerName property instead of using this property.
      */
-    public string $CSRFHeaderName = 'X-CSRF-TOKEN';
+    public string $CSRFHeaderName = 'MPESA-X-CSRF-TOKEN';
 
     /**
      * --------------------------------------------------------------------------
@@ -371,7 +371,7 @@ class App extends BaseConfig
      *
      * @deprecated Use `Config\Security` $cookieName property instead of using this property.
      */
-    public string $CSRFCookieName = 'csrf_cookie_name';
+    public string $CSRFCookieName = 'my_mpesa_csrf_cookie';
 
     /**
      * --------------------------------------------------------------------------

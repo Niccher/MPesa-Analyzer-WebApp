@@ -9,7 +9,7 @@ use App\Models\ModUploads;
 use App\Models\ModCryption;
 
 
-class Upload extends BaseController//\IonAuth\Controllers\Auth
+class Upload extends BaseController
 {
     use ResponseTrait;
 
@@ -126,39 +126,44 @@ class Upload extends BaseController//\IonAuth\Controllers\Auth
         $session = session();
 
         if (empty($session->get('user_name'))){
-            //echo "Not Logged In";
-        }
-
-        $loot_array = array();
-        $loot_list = $mod_upload->file_listing();
-        echo '{ "summarizer":[';
-        $counter = 0;
-        $loot_size = count($loot_list);
-        foreach ($loot_list as $loot_info) {
-            $counter +=1;
-            $loot_meta = $mod_upload->loot_summary($loot_info->loot_Id);
-            $data = [
-                'summary_Name' =>  $loot_info->loot_Name,
-                'summary_Type'  => $loot_info->loot_Type,
-                'summary_Extension'  => $loot_info->loot_Extension,
-                'summary_Size'  => $loot_info->loot_Size,
-                'summary_Owner'  => $loot_info->loot_Owner,
-                'summary_Device'  => $loot_info->loot_Device,
-                'summary_Created'  => $loot_info->loot_Created,
-                'summary_Count'  => $loot_meta[0]->info_Count,
-                'summary_Received'  => $loot_meta[0]->info_Received,
-                'summary_Sent'  => $loot_meta[0]->info_Sent,
-                'summary_Unknown' => $loot_meta[0]->info_Unknown
-            ];
-            array_push($loot_array,$data);
-            if ($counter == ($loot_size)){
-                print json_encode($data);
-            }else{
-                print json_encode($data).",";
+            echo "Not Logged In";
+        }else{
+            $loot_array = array();
+            $loot_list = $mod_upload->file_listing();
+            echo '{ "summarizer":[';
+            $counter = 0;
+            $loot_size = count($loot_list);
+            foreach ($loot_list as $loot_info) {
+                $counter +=1;
+                $loot_meta = $mod_upload->loot_summary($loot_info->loot_Id);
+                $data = [
+                    'summary_Name' =>  $loot_info->loot_Name,
+                    'summary_Type'  => $loot_info->loot_Type,
+                    'summary_Extension'  => $loot_info->loot_Extension,
+                    'summary_Size'  => $loot_info->loot_Size,
+                    'summary_Owner'  => $loot_info->loot_Owner,
+                    'summary_Device'  => $loot_info->loot_Device,
+                    'summary_Created'  => $loot_info->loot_Created,
+                    'summary_Count'  => $loot_meta[0]->info_Count,
+                    'summary_Received'  => $loot_meta[0]->info_Received,
+                    'summary_Sent'  => $loot_meta[0]->info_Sent,
+                    'summary_Unknown' => $loot_meta[0]->info_Unknown
+                ];
+                array_push($loot_array,$data);
+                if ($counter == ($loot_size)){
+                    print json_encode($data);
+                }else{
+                    print json_encode($data).",";
+                }
             }
+            //print_r($loot_array);
+            echo "]}";
+            //echo json_encode($loot_array);
         }
-        //print_r($loot_array);
-        echo "]}";
-        //echo json_encode($loot_array);
     }
+
+    public function upload_summary(){
+        echo "info";
+    }
+
 }

@@ -8,7 +8,7 @@ use CodeIgniter\Controller;
 use App\Models\ModUser;
 
 
-class Auths extends BaseController//\IonAuth\Controllers\Auth
+class Auths extends BaseController
 {
     use ResponseTrait;
 
