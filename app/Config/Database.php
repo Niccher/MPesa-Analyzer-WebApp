@@ -23,13 +23,16 @@ class Database extends Config
 
     /**
      * The default database connection.
+     * 'username' => 'chegecac_mpesa',
+    'password' => '9*5Uhv)GsDME',
+    'database' => 'chegecac_My_Mpesa',
      */
     public array $default = [
         'DSN'      => '',
-        'hostname' => 'localhost',
-        'username' => 'chegecac_mpesa',
-        'password' => '9*5Uhv)GsDME',
-        'database' => 'chegecac_My_Mpesa',
+        'hostname' => '127.0.0.1',
+        'username' => 'root',
+        'password' => '',
+        'database' => 'Mpesa_Analyzer',
         'DBDriver' => 'MySQLi',
         'DBPrefix' => '',
         'pConnect' => false,
