@@ -14,7 +14,11 @@ class Auths extends BaseController
 
     public function login(){
         $mod_user = new ModUser();
-        $session = session();
+        //$this->session = session();
+        $session = \Config\Services::session();
+
+        $dated = date('Y-m-d H:i:s');
+
         if ($this->request->getPost()){
 
             $lg_eml = $this->request->getVar('varEmail');
@@ -32,11 +36,12 @@ class Auths extends BaseController
                         'user_email'    => $data['user_Email'],
                         'logged_in'     => TRUE
                     ];
-                    $session->set($ses_data);
+                    $this->session->set($ses_data);
                     return $this->respond([
                         'status' => 1,
-                        'message' => "Logged Succesfully",
-                        'time' => time(),
+                        'message' => "Logged Successfully",
+                        'time' => $dated,
+                        'uuid' => $data['user_Code'],
                         'userid' => $data['user_Id']
                     ]);
                 }else{
@@ -44,7 +49,7 @@ class Auths extends BaseController
                     return $this->respond([
                         'status' => 0,
                         'message' => "Wrong credentials",
-                        'time' => time(),
+                        'time' => $dated,
                         'userid' => "null"
                     ]);
                 }
@@ -53,7 +58,7 @@ class Auths extends BaseController
                 return $this->respond([
                     'status' => 0,
                     'message' => "No such user",
-                    'time' => time(),
+                    'time' => $dated,
                     'userid' => "null"
                 ]);
             }
@@ -61,15 +66,16 @@ class Auths extends BaseController
             return $this->respond([
                 'status' => 2,
                 'message' => "Unexpected request sent",
-                'time' => time()
+                'time' => $dated
             ]);
         }
     }
 
     public function register(){
         $mod_user = new ModUser();
-        helper(['form']);
+        //helper(['form']);
 
+        $dated = date('Y-m-d H:i:s');
         if ($this->request->getPost()){
 
             $rules = [
@@ -79,11 +85,14 @@ class Auths extends BaseController
             ];
 
             if($this->validate($rules)){
+                $uuid = random_string('alnum', 16);
                 $data = [
                     'user_Name' => $this->request->getVar('varUsername'),
                     'user_Email' => $this->request->getVar('varEmail'),
+                    'user_Code' => $uuid,
                     'user_Password' => password_hash($this->request->getVar('varPassword'), PASSWORD_DEFAULT),
-                    'user_Created' => time(),
+                    'user_Created' => $dated,
+                    //'user_Created' => time(),
                 ];
                 $pushed = $mod_user->user_register($data);
                 if ($pushed){
@@ -91,14 +100,15 @@ class Auths extends BaseController
                     return $this->respond([
                         'status' => 1,
                         'message' => "User Added to Database",
-                        'time' => time(),
-                        'userid' => $user_id
+                        'time' => $dated,
+                        'userid' => $user_id,
+                        'uuid' => $uuid,
                     ]);
                 }else{
                     return $this->respond([
                         'status' => 0,
                         'message' => "Unknown Error, Please try again",
-                        'time' => time(),
+                        'time' => $dated,
                         'userid' => "Null"
                     ]);
                 }
@@ -107,6 +117,7 @@ class Auths extends BaseController
                 $validation = $this->validator;
                 return $this->respond([
                     'status' => 0,
+                    'time' => $dated,
                     'message' => trim(strip_tags($validation->listErrors()))
                 ]);
             }
@@ -114,31 +125,36 @@ class Auths extends BaseController
         }else{
             return $this->respond([
                 'status' => 2,
-                'message' => "Unexpected request sent",
-                'time' => time()
+                'time' => $dated,
+                'message' => "Unexpected request sent"
             ]);
         }
     }
 
     public function user_info(){
         $mod_user = new ModUser();
+        $dated = date('Y-m-d H:i:s');
+
         if ($this->request->getPost()){
             $u_id = $this->request->getVar('varId');
             $pushed = $mod_user->user_info($u_id);
             if ($pushed){
                 return $this->respond([
                     'status' => 1,
+                    'time' => $dated,
                     'message' => $pushed
                 ]);
             }else{
                 return $this->respond([
                     'status' => 0,
+                    'time' => $dated,
                     'message' => "No Such user Added to Database"
                 ]);
             }
         }else{
             return $this->respond([
                 'status' => 2,
+                'time' => $dated,
                 'message' => "Unexpected request sent"
             ]);
         }

@@ -17,7 +17,7 @@ class App extends BaseConfig
      *
      *    http://example.com/
      */
-    public string $baseURL = 'http://localhost:8080/'; //'https://mympesa.chegecache.co.ke';
+    public string $baseURL = 'https://mympesa.chegecache.co.ke';
 
     /**
      * Allowed Hostnames in the Site URL other than the hostname in the baseURL.
@@ -106,7 +106,7 @@ class App extends BaseConfig
      * The default timezone that will be used in your application to display
      * dates with the date helper, and can be retrieved through app_timezone()
      */
-    public string $appTimezone = 'UTC';//Africa/Nairobi
+    public string $appTimezone = 'Africa/Nairobi';
 
     /**
      * --------------------------------------------------------------------------
@@ -156,7 +156,7 @@ class App extends BaseConfig
      *
      * @deprecated use Config\Session::$cookieName  instead.
      */
-    public string $sessionCookieName = 'ci_session';
+    public string $sessionCookieName = 'mpesa_sess_c_name';
 
     /**
      * --------------------------------------------------------------------------
@@ -349,7 +349,7 @@ class App extends BaseConfig
      *
      * @deprecated Use `Config\Security` $tokenName property instead of using this property.
      */
-    public string $CSRFTokenName = 'my_mpesa_csrf_token';
+    public string $CSRFTokenName = 'mpesa_csrf_token';
 
     /**
      * --------------------------------------------------------------------------
@@ -360,7 +360,7 @@ class App extends BaseConfig
      *
      * @deprecated Use `Config\Security` $headerName property instead of using this property.
      */
-    public string $CSRFHeaderName = 'MPESA-X-CSRF-TOKEN';
+    public string $CSRFHeaderName = 'mpesa_csrf_header';
 
     /**
      * --------------------------------------------------------------------------
@@ -371,7 +371,7 @@ class App extends BaseConfig
      *
      * @deprecated Use `Config\Security` $cookieName property instead of using this property.
      */
-    public string $CSRFCookieName = 'my_mpesa_csrf_cookie';
+    public string $CSRFCookieName = 'mpesa_csrf_cookie';
 
     /**
      * --------------------------------------------------------------------------

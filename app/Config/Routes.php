@@ -33,12 +33,12 @@ $routes->set404Override();
 $routes->get('/', 'Home::index');
 $routes->get('/home', 'Home::index');
 
-/*$routes->group('auth', function ($routes) {
+$routes->group('auth', function ($routes) {
     $routes->add('login', 'Auths::login');
     $routes->add('register', 'Auths::register');
     $routes->add('search', 'Auths::user_info');
     $routes->add('logout', 'Auths::user_logout');
-});*/
+});
 
 $routes->group('auth', function ($routes) {
     $routes->add('auth_login', 'UserAuth::user_login');
@@ -51,7 +51,9 @@ $routes->add('/process/get/my_uploads', 'Upload::upload_listing');
 
 $routes->add('/process/get/my_summary', 'Upload::upload_summary');
 
-service('auth')->routes($routes);
+$routes->add('/process/test', 'Testar::random');
+
+//service('auth')->routes($routes);##Disable Shield
 
 /*
  * --------------------------------------------------------------------

@@ -103,8 +103,13 @@ class ModUploads extends Model
 
     }
 
-    public function file_listing(){
-        return $this->db->table('tbl_Loot')->get()->getResult();
+    public function file_listing($loot_owner, $loot_device){
+        $builder = $this->db->table('tbl_Loot');
+        $get_all = $builder
+            ->where('loot_Device', $loot_device)
+            ->where('loot_Owner', $loot_owner)
+            ->get();
+        return $get_all->getResult();
     }
 
     public function file_delete($userid){

@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Models\ModUser;
 use CodeIgniter\API\ResponseTrait;
 use CodeIgniter\Controller;
 
@@ -18,7 +19,7 @@ class Upload extends BaseController
         $mod_cryption = new ModCryption();
         $session = session();
 
-        helper("filesystem");
+        $dated = date('Y-m-d H:i:s');
 
         if (empty($session->get('user_name'))){
             //return "Not Logged In";
@@ -39,7 +40,7 @@ class Upload extends BaseController
                 'loot_Size'  => $uploaded_File->getSize(),
                 'loot_Owner'  => $uploaded_Token,
                 'loot_Device'  => $uploaded_DevId,
-                'loot_Created'  => time()
+                'loot_Created'  => $dated
             ];
 
             $pushed = $mod_upload->file_upload($data);
@@ -49,11 +50,13 @@ class Upload extends BaseController
             if ($pushed){
                 return $this->respond([
                     'status' => 1,
+                    'time' => $dated,
                     'message' => "File Uploaded Successfully"
                 ]);
             }else{
                 return $this->respond([
                     'status' => 0,
+                    'time' => $dated,
                     'message' => "File Uploaded has encountered an error"
                 ]);
             }
@@ -61,6 +64,7 @@ class Upload extends BaseController
         }else{
             return $this->respond([
                 'status' => 2,
+                'time' => $dated,
                 'message' => "Unexpected request sent"
             ]);
         }
@@ -69,6 +73,8 @@ class Upload extends BaseController
     public function device_print(){
         $mod_upload = new ModUploads();
         $session = session();
+
+        $dated = date('Y-m-d H:i:s');
 
         if (empty($session->get('user_name'))){
             //echo "Not Logged In";
@@ -101,7 +107,7 @@ class Upload extends BaseController
                         'status' => 1,
                         'message' => "New Id assigned device_id as ",
                         'print_id' => $dev_check[0]->p_Id,
-                        'time' => time()
+                        'time' => $dated,
                     ]);
                 }else{}
             }else{
@@ -109,12 +115,13 @@ class Upload extends BaseController
                     'status' => 1,
                     'message' => "Old Id re-assigned device_id as ",
                     'print_id' => $dev_check[0]->p_Id,
-                    'time' => time()
+                    'time' => $dated,
                 ]);
             }
         }else{
             return $this->respond([
                 'status' => 2,
+                'time' => $dated,
                 'message' => "Unexpected request sent"
             ]);
         }
@@ -123,13 +130,24 @@ class Upload extends BaseController
     public function upload_listing(){
         $mod_upload = new ModUploads();
         $mod_cryption = new ModCryption();
+        $mod_user = new ModUser();
+
         $session = session();
+        $dated = date('Y-m-d H:i:s');
+
+        #echo "Username as ".$this->session->get('user_name').$session->get('user_name');
 
         if (empty($session->get('user_name'))){
-            echo "Not Logged In";
-        }else{
+            #echo "Not Logged In";
+        }
+
+        if ($this->request->getPost()){
+            $summ_owner_uuid = $this->request->getVar('varUser');
+            $summ_device = $this->request->getVar('varDev');
+            $summ_owner = $mod_user->user_get_id($summ_owner_uuid);
+
             $loot_array = array();
-            $loot_list = $mod_upload->file_listing();
+            $loot_list = $mod_upload->file_listing($summ_owner_uuid, $summ_device);
             echo '{ "summarizer":[';
             $counter = 0;
             $loot_size = count($loot_list);

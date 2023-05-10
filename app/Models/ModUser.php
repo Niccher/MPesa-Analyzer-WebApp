@@ -20,6 +20,14 @@ class ModUser extends Model
         return $result->getResult()[0]->user_Id;
     }
 
+    public function user_get_id($uuid){
+        $builder = $this->db->table('tbl_users');
+        $result = $builder->select('user_Id, user_Email')
+            ->where('user_Code', $uuid)
+            ->get();
+        return $result->getResult()[0]->user_Id;
+    }
+
     public function user_info($userid){
         $builder = $this->db->table('tbl_users');
         $result = $builder->select('user_Name, user_Email')
