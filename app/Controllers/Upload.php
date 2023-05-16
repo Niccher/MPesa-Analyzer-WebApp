@@ -162,7 +162,7 @@ class Upload extends BaseController
             $loot_size = count($loot_list);
             foreach ($loot_list as $loot_info) {
                 $counter +=1;
-                $loot_meta = $mod_upload->loot_summary($loot_info->loot_Uuid);
+                $loot_meta = $mod_upload->loot_summary($loot_info->loot_Uuid); //tbl_Loot_Summary
                 $data = [
                     'summary_Name' =>  $loot_info->loot_Name,
                     //'summary_Type'  => $loot_info->loot_Type,
@@ -196,6 +196,8 @@ class Upload extends BaseController
 
         $session = session();
 
+        $dated = date('Y-m-d H:i:s');
+
         #echo "Username as ".$this->session->get('user_name').$session->get('user_name');
 
         if (empty($session->get('user_name'))){
@@ -206,38 +208,26 @@ class Upload extends BaseController
             $summ_owner_uuid = $this->request->getVar('varUser');
             $summ_device = $this->request->getVar('varDev');
             $summ_owner = $mod_user->user_get_id($summ_owner_uuid);
+            $summ_loot_name = $this->request->getVar('varLootName');
 
-            $loot_array = array();
-            $loot_list = $mod_upload->file_listing($summ_owner_uuid, $summ_device);
-            echo '{ "summarizer":[';
-            $counter = 0;
-            $loot_size = count($loot_list);
-            foreach ($loot_list as $loot_info) {
-                $counter +=1;
-                $loot_meta = $mod_upload->loot_summary($loot_info->loot_Id);
-                $data = [
-                    'summary_Name' =>  $loot_info->loot_Name,
-                    'summary_Type'  => $loot_info->loot_Type,
-                    'summary_Extension'  => $loot_info->loot_Extension,
-                    'summary_Size'  => $loot_info->loot_Size,
-                    'summary_Owner'  => $loot_info->loot_Owner,
-                    'summary_Device'  => $loot_info->loot_Device,
-                    'summary_Created'  => $loot_info->loot_Created,
-                    'summary_Count'  => $loot_meta[0]->info_Count,
-                    'summary_Received'  => $loot_meta[0]->info_Received,
-                    'summary_Sent'  => $loot_meta[0]->info_Sent,
-                    'summary_Unknown' => $loot_meta[0]->info_Unknown
-                ];
-                array_push($loot_array,$data);
-                if ($counter == ($loot_size)){
-                    print json_encode($data);
-                }else{
-                    print json_encode($data).",";
-                }
-            }
-            //print_r($loot_array);
-            echo "]}";
-            //echo json_encode($loot_array);
+            $loot__uuid = $mod_upload->get_loot_uuid($summ_loot_name);
+            $loot__summary = $mod_upload->loot_summary($loot__uuid);
+
+            /*print("<pre>".print_r($loot__summary,true)."</pre>");
+            echo "Received Sms ". $loot__summary[0]->info_Received;*/
+
+            return $this->respond([
+                'val_status' => 1,
+                'val_all' => $loot__summary[0]->info_All,
+                'val_balance' => $loot__summary[0]->info_Balance,
+                'val_fuliza' => $loot__summary[0]->info_Fuliza,
+                'val_received' => $loot__summary[0]->info_Received,
+                'val_sent' => $loot__summary[0]->info_Sent,
+                'val_withdraw' => $loot__summary[0]->info_Withdrew,
+                'val_wrong_pin' => $loot__summary[0]->info_Wrong_Pin,
+                'val_unknown' => $loot__summary[0]->info_Unknown,
+                'time' => $dated,
+            ]);
         }
     }
 
