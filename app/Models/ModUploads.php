@@ -31,6 +31,13 @@ class ModUploads extends Model
         return $result->getResult();
     }
 
+    public function loot_info_all($loot_uuid){
+        $builder = $this->db->table('tbl_Loot');
+        $result = $builder->where('loot_Uuid', $loot_uuid)
+            ->get();
+        return $result->getResult();
+    }
+
     public function loot_summary($loot_uuid){
         $builder = $this->db->table('tbl_Loot_Summary');
         $result = $builder->where('loot_Uuid', $loot_uuid)->get();

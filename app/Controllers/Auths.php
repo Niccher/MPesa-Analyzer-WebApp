@@ -42,7 +42,9 @@ class Auths extends BaseController
                         'message' => "Logged Successfully",
                         'time' => $dated,
                         'uuid' => $data['user_Code'],
-                        'userid' => $data['user_Id']
+                        'userid' => $data['user_Id'],
+                        'user_name' => $data['user_Name'],
+                        'user_email' => $data['user_Email'],
                     ]);
                 }else{
                     //$session->setFlashdata('msg', 'Wrong Password');

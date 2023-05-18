@@ -211,10 +211,8 @@ class Upload extends BaseController
             $summ_loot_name = $this->request->getVar('varLootName');
 
             $loot__uuid = $mod_upload->get_loot_uuid($summ_loot_name);
+            $loot__info = $mod_upload->loot_info_all($loot__uuid);
             $loot__summary = $mod_upload->loot_summary($loot__uuid);
-
-            /*print("<pre>".print_r($loot__summary,true)."</pre>");
-            echo "Received Sms ". $loot__summary[0]->info_Received;*/
 
             return $this->respond([
                 'val_status' => 1,
@@ -226,6 +224,8 @@ class Upload extends BaseController
                 'val_withdraw' => $loot__summary[0]->info_Withdrew,
                 'val_wrong_pin' => $loot__summary[0]->info_Wrong_Pin,
                 'val_unknown' => $loot__summary[0]->info_Unknown,
+                'val_created' => $loot__summary[0]->loot_Created,
+                //'val_name' => $loot__info[0]->loot_Name,
                 'time' => $dated,
             ]);
         }
