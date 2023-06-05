@@ -231,4 +231,33 @@ class Upload extends BaseController
         }
     }
 
+    public function loot_uploaded_count(){
+        $mod_upload = new ModUploads();
+        $mod_user = new ModUser();
+
+        $dated = date('Y-m-d H:i:s');
+
+        if ($this->request->getPost()){
+            $loot_owner_uuid = $this->request->getVar('varUser');
+            $loot_device = $this->request->getVar('varDev');
+            //$loot_owner = $mod_user->user_get_id($loot_owner_uuid);
+            //$loot_name = $this->request->getVar('varLootName');
+
+            $loot_count = $mod_upload->file_listing($loot_owner_uuid, $loot_device);
+
+            if ($loot_count){
+                return $this->respond([
+                    'msg_status' => 1,
+                    'msg_count' => count($loot_count),
+                    'msg_time' => $dated,
+                ]);
+            }else{
+                return $this->respond([
+                    'msg_status' => 2,
+                    'msg_time' => $dated,
+                ]);
+            }
+        }
+    }
+
 }
