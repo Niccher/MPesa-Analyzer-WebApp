@@ -260,4 +260,59 @@ class Upload extends BaseController
         }
     }
 
+	public function loot_uploaded_category_count(){
+        $mod_upload = new ModUploads();
+        $mod_user = new ModUser();
+
+        $dated = date('Y-m-d H:i:s');
+
+        if ($this->request->getPost()){
+            $loot_owner_uuid = $this->request->getVar('varUser');
+            $loot_device = $this->request->getVar('varDev');
+            //$loot_owner = $mod_user->user_get_id($loot_owner_uuid);
+            //$loot_name = $this->request->getVar('varLootName');
+
+            $loot_entries = $mod_upload->file_listing($loot_owner_uuid, $loot_device);
+			$loot_uuids = array();
+
+			foreach ($loot_entries as $loot_entry){
+				array_push($loot_uuids, $loot_entry->loot_Uuid);
+			}
+
+	        $loot_category_count = $mod_upload->get_loot_summary_from_uuids($loot_uuids);
+
+	        //$loot_json = '';
+	        //$loot_json .= '{"loot_summarizer":[';
+	        echo '{"loot_summarizer":[';
+	        $counter = 0;
+	        $loot_size = count($loot_category_count);
+	        $loot_summary = array();
+	        foreach ($loot_category_count as $loot_info) {
+		        $counter +=1;
+		        $data = [
+			        'val_all' => $loot_info->info_All,
+			        'val_balance' => $loot_info->info_Balance,
+			        'val_fuliza' => $loot_info->info_Fuliza,
+			        'val_received' => $loot_info->info_Received,
+			        'val_sent' => $loot_info->info_Sent,
+			        'val_withdraw' => $loot_info->info_Withdrew,
+			        'val_wrong_pin' => $loot_info->info_Wrong_Pin,
+			        'val_unknown' => $loot_info->info_Unknown,
+			        'val_created' => $loot_info->loot_Created,
+		        ];
+		        array_push($loot_summary,$data);
+		        if ($counter == ($loot_size)){
+			        print json_encode($data);
+			        //$loot_json .= json_encode($data);
+		        }else{
+			        print json_encode($data).",";
+			        //$loot_json .= json_encode($data).",";
+		        }
+	        }
+	        echo "]}";
+	        //$loot_json .= "]}";
+			//return json_encode($loot_json);
+        }
+    }
+
 }

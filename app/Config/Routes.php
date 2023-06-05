@@ -49,6 +49,7 @@ $routes->add('/process/upload', 'Upload::upload');
 $routes->add('/process/device', 'Upload::device_print');
 $routes->add('/process/get/my_uploads', 'Upload::upload_listing');
 $routes->add('/process/get/my_uploads_count', 'Upload::loot_uploaded_count');
+$routes->add('/process/get/my_uploads_category_count', 'Upload::loot_uploaded_category_count');
 
 $routes->add('/process/get/my_summary', 'Upload::upload_summary');
 $routes->add('/process/get/my_summary_calculations', 'Upload::upload_summary_calculation');

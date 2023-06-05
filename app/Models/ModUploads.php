@@ -176,6 +176,14 @@ class ModUploads extends Model
                 ->get();
         return $get_all->getResult()[0]->loot_Uuid;
     }
+
+	public function get_loot_summary_from_uuids($loot_aray_uuids){
+        $builder = $this->db->table('tbl_Loot_Summary');
+        $get_all = $builder->select('*')
+                ->whereIn('loot_Uuid', $loot_aray_uuids)
+                ->get();
+        return $get_all->getResult();
+    }
     
     public function device_make_print($print_dump){
         return $this->db->table('tbl_Devices')->insert($print_dump);
