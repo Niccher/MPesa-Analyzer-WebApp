@@ -34,7 +34,9 @@ class Upload extends BaseController
 
             $uploaded_File = $this->request->getFile('varLoot');
 
-            $uploaded_File->move(WRITEPATH . 'uploads/txt_loot');
+            echo $uploaded_File->getSize();
+
+            $uploaded_File->move(WRITEPATH . 'uploads/txt_loot/');
 
             $data = [
                 'loot_Name' =>  $uploaded_File->getName(),
@@ -252,10 +254,19 @@ class Upload extends BaseController
                     'msg_time' => $dated,
                 ]);
             }else{
-                return $this->respond([
-                    'msg_status' => 2,
-                    'msg_time' => $dated,
-                ]);
+                if (empty($loot_count)){
+                    return $this->respond([
+                        'msg_status' => 1,
+                        'msg_state' => "empty",
+                        'msg_count' => 0,
+                        'msg_time' => $dated,
+                    ]);
+                }else{
+                    return $this->respond([
+                        'msg_status' => 2,
+                        'msg_time' => $dated,
+                    ]);
+                }
             }
         }
     }

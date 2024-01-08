@@ -65,38 +65,147 @@ class ModUploads extends Model
         $data1 = json_decode($data);
         $data2 = json_decode($data1);
 
-        $receive = "Confirmed.You have received Ksh";
-        $receive2 = "Confirmed. You have received Ksh";
-        $sent = " Confirmed. Ksh";
-        $withdrew = "Confirmed.on";
-        $balance = "Confirmed. Your account balance";
-        $wrong_pin = "You have entered the wrong PIN.";
+        $sms_get_receive = "confirmed.you have received ksh";;
+        $sms_get_bank = "confirmed.you have received ksh";
+        $sms_get_mshwari = "transferred from m-shwari account on";
+        $sms_get_from_ncba = "from ncba bank on";
+        $sms_get_from_im_bank = "from im bank limited- app on";
+
+        $sms_get_bal = " confirmed. your account balance was";
+        $sms_get_bal_kcb = "confirmed. your kcb m-pesa";
+        $sms_get_bal_mshwari = "confirmed . your m-shwari deposit account";
+        $sms_get_reversal = "confirmed. reversal of transaction";
+
+        $sms_loan_limit = "confirmed. your loan limit is";
+        ##your kcb m-pesa loan request will be processed shortly.
+
+        $sms_sent = strtolower(" confirmed. ksh");
+        $sms_sent_mini = strtolower(" confirmed. you have transfered ksh");
+        $sms_sent_mshwari = strtolower("transferred to m-shwari account on");
+        $sms_sent_cancel = strtolower("you have cancelled the transaction");
+
+        $sms_error_failed = "failed.";
+        $sms_error_pay_merchant = strtolower("the username does not exist or the security credential is incorrect.");
+        $sms_error_pin = strtolower("you have entered the wrong pin");
+        $sms_error_less = strtolower("insufficient funds in your");
+        $sms_error_receiver = strtolower("the number you are trying to pay has not joined the service");
+        $sms_error_receiver_org = strtolower("transaction failed, m-pesa cannot complete payment of");
+
+        $sms_withdraw = strtolower("confirmed.on");
+
+        $sms_fuliza_leave = strtolower("you have successfully opted out of fuliza m-pesa service.");
+        $sms_fuliza_opt_in = strtolower("you have successfully opted into fuliza m-pesa.");
+        $sms_fuliza_limit = strtolower("your fuliza m-pesa limit is ksh");
+        $sms_fuliza_mini_statement = strtolower("your fuliza m-pesa mini statement is as follows");
+        $sms_fuliza_loan_taken = strtolower("confirmed. fuliza m-pesa amount is");
         $fuliza = "Confirmed. Fuliza M-PESA";
-        $count_sent = 0; $count_receive = 0; $count_other = 0;
+
+        $sms_similar_transaction = strtolower("m-pesa is unable to process your request because a similar transaction is currently underway. please wait while we complete your initial request");
+
+        $count_get_bank = 0;
+        $count_get_receive = 0; $count_get_mshwari = 0; $count_get_from_ncba = 0; $count_get_from_im_bank = 0;
+        $count_get_bal = 0; $count_get_bal_kcb = 0; $count_get_bal_mshwari = 0; $count_get_reversal = 0; $count_loan_limit = 0;
+        $count_sent = 0; $count_sent_mini = 0; $count_sent_mshwari = 0; $count_sent_cancel = 0;
+        $count_error_failed = 0; $count_error_pay_merchant = 0; $count_error_pin = 0; $count_error_less = 0; $count_error_receiver = 0;
+        $count_error_receiver_org = 0; $count_withdraw = 0;
+        $count_fuliza = 0;
+        $count_fuliza_leave = 0; $count_fuliza_opt_in = 0; $count_fuliza_limit = 0; $count_fuliza_mini_statement = 0;
+        $count_fuliza_loan_taken = 0; $count_similar_transaction = 0;
 
         foreach ($data2 as $smsdata) {
             if($smsdata->Number == "MPESA"){
-                $sms_clean = base64_decode($smsdata->Body);
+                $sms_clean = strtolower(base64_decode($smsdata->Body));
 
-                if (stripos($sms_clean, $receive)){
-                    $count_receive+=1;
-                    $sms_cat = "Received";
-                }else if (stripos($sms_clean, $sent)){
-                    $count_sent+=1;
-                    $sms_cat = "Sent";
-                }else if (stripos($sms_clean, $withdrew) ){
-                    $sms_cat = "Withdrew";
-                }else if (stripos($sms_clean, $balance)){
-                    $sms_cat = "Balance";
-                }else if (stripos($sms_clean, $receive2)){
-                    $sms_cat = "Received";
-                }else if (stripos($sms_clean, $wrong_pin)){
-                    $sms_cat = "Wrong Pin";
+                if (stripos($sms_clean, $sms_similar_transaction)){
+                    $count_similar_transaction+=1;
+                    $sms_cat = "Similar Transaction";
+                }else if (stripos($sms_clean, $sms_fuliza_loan_taken)){
+                    $count_fuliza_loan_taken+=1;
+                    $sms_cat = "Fuliza Loan Taken";
+                }else if (stripos($sms_clean, $sms_fuliza_mini_statement) ){
+                    $count_fuliza_mini_statement+=1;
+                    $sms_cat = "Fuliza Mini Statement";
+                }else if (stripos($sms_clean, $sms_fuliza_limit)){
+                    $count_fuliza_limit+=1;
+                    $sms_cat = "Fuliza Limit";
+                }else if (stripos($sms_clean, $sms_fuliza_opt_in)){
+                    $count_fuliza_opt_in+=1;
+                    $sms_cat = "Fuliza Opt In";
+                }else if (stripos($sms_clean, $sms_fuliza_leave)){
+                    $count_fuliza_leave+=1;
+                    $sms_cat = "Fuliza Leave";
                 }else if (stripos($sms_clean, $fuliza)){
+                    $count_fuliza+=1;
                     $sms_cat = "Fuliza";
-                }else {
+                }
+
+                else if (stripos($sms_clean, $sms_get_receive) ){
+                    $count_get_receive+=1;
+                    $sms_cat = "Received from Mpesa";
+                }else if (stripos($sms_clean, $sms_get_mshwari)){
+                    $count_get_mshwari+=1;
+                    $sms_cat = "Received from Mshwari";
+                }else if (stripos($sms_clean, $sms_get_from_ncba)){
+                    $count_get_from_ncba+=1;
+                    $sms_cat = "Received from NCBA";
+                }else if (stripos($sms_clean, $sms_get_from_im_bank) ){
+                    $count_get_from_im_bank+=1;
+                    $sms_cat = "Received from IM";
+                }else if (stripos($sms_clean, $sms_get_bal)){
+                    $count_get_bal+=1;
+                    $sms_cat = "Get MPESA Balance";
+                }else if (stripos($sms_clean, $sms_get_bal_kcb)){
+                    $count_get_bal_kcb+=1;
+                    $sms_cat = "Get KCB Balance";
+                }else if (stripos($sms_clean, $sms_get_bal_mshwari)){
+                    $count_get_bal_mshwari+=1;
+                    $sms_cat = "Get MShwari Balance";
+                }else if (stripos($sms_clean, $sms_get_reversal) ){
+                    $count_get_reversal+=1;
+                    $sms_cat = "Received from Reversal";
+                }else if (stripos($sms_clean, $sms_loan_limit)){
+                    $count_loan_limit+=1;
+                    $sms_cat = "Get Limit";
+                }
+
+                else if (stripos($sms_clean, $sms_sent)){
+                    $count_sent+=1;
+                    $sms_cat = "Sent to Mpesa";
+                }else if (stripos($sms_clean, $sms_sent_mini)){
+                    $count_sent_mini+=1;
+                    $sms_cat = "Sent Statement";
+                }else if (stripos($sms_clean, $sms_sent_mshwari)){
+                    $count_sent_mshwari+=1;
+                    $sms_cat = "Sent to Mshwari";
+                }else if (stripos($sms_clean, $sms_sent_cancel)){
+                    $count_sent_cancel+=1;
+                    $sms_cat = "Transaction Cancelled";
+                }
+
+                else if (stripos($sms_clean, $sms_error_pin)){
+                    $count_error_pin+=1;
+                    $sms_cat = "Wrong Pin";
+                }else if (stripos($sms_clean, $sms_error_less)){
+                    $count_error_less+=1;
+                    $sms_cat = "Insufficient funds";
+                }else if (stripos($sms_clean, $sms_error_receiver)){
+                    $count_error_receiver+=1;
+                    $sms_cat = "Receiver not in Service";
+                }else if (stripos($sms_clean, $sms_error_receiver_org)){
+                    $count_error_receiver_org+=1;
+                    $sms_cat = "Org not in Service";
+                }else if (stripos($sms_clean, $sms_error_pay_merchant)){
+                    $count_error_pay_merchant+=1;
+                    $sms_cat = "Wrong Merchant";
+                }
+
+                else if (stripos($sms_clean, $sms_withdraw)){
+                    $count_withdraw+=1;
+                    $sms_cat = "Withdraw";
+                }
+                else {
+                    $count_error_failed+=1;
                     $sms_cat = "Unknown";
-                    $count_other+=1;
                 }
 
                 $thread_id = 'Thread Id';
@@ -119,28 +228,45 @@ class ModUploads extends Model
 
         $builder1 = $this->db->table('tbl_Sms');
         $get_all = $builder1
-            ->select('sms_category, COUNT(*) as counted')
+            ->select('*')//sms_category, COUNT(*) as counted
             ->where('sms_device', $loot_device)
             ->where('sms_owner', $loot_owner)
             ->where('sms_loot_source', $loot_uuid)
-            ->groupBy('sms_category')
+            //->groupBy('sms_category')
             ->get();
         $loot_summary_sms_categories =  $get_all->getResult();
-
-        //print("<pre>".print_r($loot_summary_sms_categories,true)."</pre>");
-
-        $all_count = $loot_summary_sms_categories[0]->counted + $loot_summary_sms_categories[1]->counted + $loot_summary_sms_categories[2]->counted + $loot_summary_sms_categories[3]->counted + $loot_summary_sms_categories[4]->counted + $loot_summary_sms_categories[5]->counted + $loot_summary_sms_categories[6]->counted;
+        $count_all_sms_count = count($loot_summary_sms_categories);
 
         $data1 = array(
             'Loot_Uuid' => $loot_uuid,
-            'info_Received' => $loot_summary_sms_categories[2]->counted,
-            'info_Sent' => $loot_summary_sms_categories[3]->counted,
-            'info_Unknown' => $loot_summary_sms_categories[4]->counted,
-            'info_Balance' => $loot_summary_sms_categories[0]->counted,
-            'info_Fuliza' => $loot_summary_sms_categories[1]->counted,
-            'info_Withdrew' => $loot_summary_sms_categories[5]->counted,
-            'info_Wrong_Pin' => $loot_summary_sms_categories[6]->counted,
-            'info_All' => $all_count,
+            'info_Get_Receive' => $count_get_receive,
+            'info_Get_Bank' => $count_get_bank,
+            'info_Get_Mshwari' => $count_get_bal_mshwari,
+            'info_Get_from_NCBA' => $count_get_from_ncba,
+            'info_Get_from_IM' => $count_get_from_im_bank,
+            'info_Get_Bal' => $count_get_bal,
+            'info_Get_Bal_KCB' => $count_get_bal_kcb,
+            'info_Get_Bal_Mshwari' => $count_get_bal_mshwari,
+            'info_Get_Reversal' => $count_get_reversal,
+            'info_Loan_Limit' => $count_loan_limit,
+            'info_Sent' => $count_sent,
+            'info_Sent_Mini' => $count_sent_mini,
+            'info_Sent_Mshwari' => $count_sent_mshwari,
+            'info_Sent_Cancel' => $count_sent_cancel,
+            'info_Error_Failed' => $count_error_failed,
+            'info_Error_Pay_Merchant' => $count_error_pay_merchant,
+            'info_Error_Pin' => $count_error_pin,
+            'info_Error_Less' => $count_error_less,
+            'info_Error_Receiver' => $count_error_receiver,
+            'info_Error_Receiver_Org' => $count_error_receiver_org,
+            'info_Withdraw' => $count_withdraw,
+            'info_Fuliza_Leave' => $count_fuliza_leave,
+            'info_Fuliza_Opt_In' => $count_fuliza_opt_in,
+            'info_Fuliza_Limit' => $count_fuliza_limit,
+            'info_Fuliza_Mini_Statement' => $count_fuliza_mini_statement,
+            'info_Fuliza_Loan_Taken' => $count_fuliza_loan_taken,
+            'info_Similar_Transaction' => $count_similar_transaction,
+            'info_All' => $count_all_sms_count,
             'loot_Created' => $dated
         );
         $this->db ->table('tbl_Loot_Summary')->insert($data1);
