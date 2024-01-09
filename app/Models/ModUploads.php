@@ -108,7 +108,7 @@ class ModUploads extends Model
         $count_sent = 0; $count_sent_mini = 0; $count_sent_mshwari = 0; $count_sent_cancel = 0;
         $count_error_failed = 0; $count_error_pay_merchant = 0; $count_error_pin = 0; $count_error_less = 0; $count_error_receiver = 0;
         $count_error_receiver_org = 0; $count_withdraw = 0;
-        $count_fuliza = 0;
+        $count_fuliza = 0; $count_unknown = 0;
         $count_fuliza_leave = 0; $count_fuliza_opt_in = 0; $count_fuliza_limit = 0; $count_fuliza_mini_statement = 0;
         $count_fuliza_loan_taken = 0; $count_similar_transaction = 0;
 
@@ -204,7 +204,7 @@ class ModUploads extends Model
                     $sms_cat = "Withdraw";
                 }
                 else {
-                    $count_error_failed+=1;
+                    $count_unknown+=1;
                     $sms_cat = "Unknown";
                 }
 
@@ -266,6 +266,7 @@ class ModUploads extends Model
             'info_Fuliza_Mini_Statement' => $count_fuliza_mini_statement,
             'info_Fuliza_Loan_Taken' => $count_fuliza_loan_taken,
             'info_Similar_Transaction' => $count_similar_transaction,
+            'info_Unknown' => $count_unknown,
             'info_All' => $count_all_sms_count,
             'loot_Created' => $dated
         );

@@ -166,7 +166,6 @@ class Upload extends BaseController
                 $counter +=1;
                 $loot_meta = $mod_upload->loot_summary($loot_info->loot_Uuid); //tbl_Loot_Summary
                 $data = [
-                    'summary_Name' =>  $loot_info->loot_Name,
                     //'summary_Type'  => $loot_info->loot_Type,
                     //'summary_Extension'  => $loot_info->loot_Extension,
                     //'summary_Size'  => $loot_info->loot_Size,
@@ -174,7 +173,7 @@ class Upload extends BaseController
                     //'summary_Device'  => $loot_info->loot_Device,
                     'summary_Created'  => $loot_info->loot_Created,
                     'summary_Count'  => $loot_meta[0]->info_All,
-                    'summary_Received'  => $loot_meta[0]->info_Received,
+                    'summary_Received'  => $loot_meta[0]->info_Get_Receive,
                     'summary_Sent'  => $loot_meta[0]->info_Sent,
                     'summary_Unknown' => $loot_meta[0]->info_Unknown
                 ];
@@ -217,16 +216,37 @@ class Upload extends BaseController
             $loot__summary = $mod_upload->loot_summary($loot__uuid);
 
             return $this->respond([
-                'val_status' => 1,
-                'val_all' => $loot__summary[0]->info_All,
-                'val_balance' => $loot__summary[0]->info_Balance,
-                'val_fuliza' => $loot__summary[0]->info_Fuliza,
-                'val_received' => $loot__summary[0]->info_Received,
-                'val_sent' => $loot__summary[0]->info_Sent,
-                'val_withdraw' => $loot__summary[0]->info_Withdrew,
-                'val_wrong_pin' => $loot__summary[0]->info_Wrong_Pin,
-                'val_unknown' => $loot__summary[0]->info_Unknown,
-                'val_created' => $loot__summary[0]->loot_Created,
+                'status' => 1,
+                'count_Get_Receive' => $loot__summary[0]->info_Get_Receive,
+                'count_Get_Bank' => $loot__summary[0]->info_Get_Bank,
+                'count_Get_Mshwari' => $loot__summary[0]->info_Get_Mshwari,
+                'count_Get_from_NCBA' => $loot__summary[0]->info_Get_from_NCBA,
+                'count_Get_from_IM' => $loot__summary[0]->info_Get_from_IM,
+                'count_Get_Bal' => $loot__summary[0]->info_Get_Bal,
+                'count_Get_Bal_KCB' => $loot__summary[0]->info_Get_Bal_KCB,
+                'count_Get_Bal_Mshwari' => $loot__summary[0]->info_Get_Bal_Mshwari,
+                'count_Get_Reversal' => $loot__summary[0]->info_Get_Reversal,
+                'count_Loan_Limit' => $loot__summary[0]->info_Loan_Limit,
+                'count_Sent' => $loot__summary[0]->info_Sent,
+                'count_Sent_Mini' => $loot__summary[0]->info_Sent_Mini,
+                'count_Sent_Mshwari' => $loot__summary[0]->info_Sent_Mshwari,
+                'count_Sent_Cancel' => $loot__summary[0]->info_Sent_Cancel,
+                'count_Error_Failed' => $loot__summary[0]->info_Error_Failed,
+                'count_Error_Pay_Merchant' => $loot__summary[0]->info_Error_Pay_Merchant,
+                'count_Error_Pin' => $loot__summary[0]->info_Error_Pin,
+                'count_Error_Less' => $loot__summary[0]->info_Error_Less,
+                'count_Error_Receiver' => $loot__summary[0]->info_Error_Receiver,
+                'count_Error_Receiver_Org' => $loot__summary[0]->info_Error_Receiver_Org,
+                'count_Withdraw' => $loot__summary[0]->info_Withdraw,
+                'count_Fuliza_Leave' => $loot__summary[0]->info_Fuliza_Leave,
+                'count_Fuliza_Opt_In' => $loot__summary[0]->info_Fuliza_Opt_In,
+                'count_Fuliza_Limit' => $loot__summary[0]->info_Fuliza_Limit,
+                'count_Fuliza_Mini_Statement' => $loot__summary[0]->info_Fuliza_Mini_Statement,
+                'count_Fuliza_Loan_Taken' => $loot__summary[0]->info_Fuliza_Loan_Taken,
+                'count_Similar_Transaction' => $loot__summary[0]->info_Similar_Transaction,
+                'count_All' => $loot__summary[0]->info_All,
+                'count_Unknown' => $loot__summary[0]->info_Unknown,
+                'created' => $loot__summary[0]->loot_Created,
                 //'val_name' => $loot__info[0]->loot_Name,
                 'time' => $dated,
             ]);
@@ -302,12 +322,12 @@ class Upload extends BaseController
 		        $counter +=1;
 		        $data = [
 			        'val_all' => $loot_info->info_All,
-			        'val_balance' => $loot_info->info_Balance,
-			        'val_fuliza' => $loot_info->info_Fuliza,
-			        'val_received' => $loot_info->info_Received,
+			        'val_balance' => $loot_info->info_Get_Bal,
+			        'val_fuliza' => $loot_info->info_Fuliza_Loan_Taken,
+			        'val_received' => $loot_info->info_Get_Receive,
 			        'val_sent' => $loot_info->info_Sent,
-			        'val_withdraw' => $loot_info->info_Withdrew,
-			        'val_wrong_pin' => $loot_info->info_Wrong_Pin,
+			        'val_withdraw' => $loot_info->info_Withdraw,
+			        'val_wrong_pin' => $loot_info->info_Error_Pin,
 			        'val_unknown' => $loot_info->info_Unknown,
 			        'val_created' => $loot_info->loot_Created,
 		        ];
