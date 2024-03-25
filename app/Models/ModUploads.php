@@ -18,6 +18,19 @@ class ModUploads extends Model
         return $this->db->table('tbl_Loot')->insert($data);
     }
 
+    public function loot_zip_extract($loot_zip_file_name){
+        $zip = new ZipArchive();
+        $filename = $loot_zip_file_name;
+
+        if ($zip->open($filename) === TRUE) {
+            $zip->extractTo(WRITEPATH . 'uploads/txt_loot/');
+            $zip->close();
+            echo 'Archive extracted!';
+        } else {
+            echo 'Failed to extract archive.';
+        }
+    }
+
     public function loot_last_uploaded(){
         $result = $this->db->table('tbl_Loot')->selectMax('loot_Id')->get();
         //return $result->getResult()[0]->loot_Id;
@@ -390,11 +403,12 @@ class ModUploads extends Model
             //->where('loot_Id', $loot_id)->get()->getResult();
             ->where('loot_Uuid', $loot_uuid)->get()->getResult();
         $loot_name = $query_name[0]->loot_Name;
+        echo "Loot name as ".$loot_name;
         $loot_file = WRITEPATH."uploads/txt_loot/".$loot_name;
 
         $loot_data = file_get_contents($loot_file);
         $loot_decoded = $mod_cryption->decode_content($loot_data);
-        //echo gettype($loot_decoded);
+        echo "file gettype as " .gettype($loot_decoded);
 
         $data_dump1 = str_replace("-------(//)--------", "", $loot_decoded);
         $data_dump2 = str_replace("\n", '****', $data_dump1);

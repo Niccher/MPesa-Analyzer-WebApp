@@ -27,6 +27,11 @@ class Validation extends BaseConfig
         CreditCardRules::class,
     ];
 
+    public $uploaded = [
+        'max_size' => 51200, // Maximum file size in kilobytes (5,120 KB = 5 MB).
+    ];
+
+
     /**
      * Specifies the views that are used to display the
      * errors.

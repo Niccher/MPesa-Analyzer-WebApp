@@ -16,16 +16,9 @@ class Upload extends BaseController
 
     public function upload(){
         $mod_upload = new ModUploads();
-        $mod_user = new ModUser();
-        $mod_cryption = new ModCryption();
-        $session = session();
 
         $dated = date('Y-m-d H:i:s');
         $uuid = random_string('alnum', 16);
-
-        if (empty($session->get('user_name'))){
-            //return "Not Logged In";
-        }
 
         if ($this->request->getPost()){
             //$loot_owner = $mod_user->user_get_id($this->request->getVar('varToken'));
@@ -34,9 +27,7 @@ class Upload extends BaseController
 
             $uploaded_File = $this->request->getFile('varLoot');
 
-            //echo $uploaded_File->getSize();
-
-            $uploaded_File->move(WRITEPATH . 'uploads/txt_loot/');
+            move_uploaded_file($_FILES["varLoot"]["tmp_name"], WRITEPATH .'uploads/txt_loot/'.$uploaded_File->getName());
 
             $data = [
                 'loot_Name' =>  $uploaded_File->getName(),
@@ -48,11 +39,14 @@ class Upload extends BaseController
                 'loot_Device'  => $loot_device,
                 'loot_Created'  => $dated
             ];
+//            echo '<pre>'.print_r($data, true).'</pre>';
+//            echo '<pre>'.print_r($_POST, true).'</pre>';
+//            echo '<pre>'.print_r($_FILES, true).'</pre>';
 
             $pushed = $mod_upload->file_upload($data);
             $loot_uuid = $uuid; //$mod_upload->loot_last_uploaded();
             $mod_upload->loot_parse_sms($loot_uuid, $loot_owner, $loot_device, $dated);
-            
+
             if ($pushed){
                 return $this->respond([
                     'status' => 1,
@@ -174,8 +168,8 @@ class Upload extends BaseController
                     'summary_Loot_Uuid'  => $loot_info->loot_Uuid,
                     'summary_Created'  => $loot_info->loot_Created,
                     'summary_Count'  => $loot_meta[0]->info_All,
-                    'summary_Received'  => $loot_meta[0]->info_Get_Receive,
-                    'summary_Sent'  => $loot_meta[0]->info_Sent,
+                    'summary_Received'  => $loot_meta[0]->info_Get_from_MPESA,
+                    'summary_Sent'  => $loot_meta[0]->info_Sent_to_MPESA,
                     'summary_Unknown' => $loot_meta[0]->info_Unknown
                 ];
                 array_push($loot_array,$data);
@@ -211,38 +205,39 @@ class Upload extends BaseController
 
             return $this->respond([
                 'status' => 1,
-                'count_Get_Receive' => $loot__summary[0]->info_Get_Receive,
-                'count_Get_Bank' => $loot__summary[0]->info_Get_Bank,
-                'count_Get_Mshwari' => $loot__summary[0]->info_Get_Mshwari,
+                'count_Get_from_MPESA' => $loot__summary[0]->info_Get_from_MPESA,
+                'count_Get_from_KCB' => $loot__summary[0]->info_Get_from_KCB,
+                'count_Get_from_Mshwari' => $loot__summary[0]->info_Get_from_Mshwari,
                 'count_Get_from_NCBA' => $loot__summary[0]->info_Get_from_NCBA,
                 'count_Get_from_IM' => $loot__summary[0]->info_Get_from_IM,
-                'count_Get_Bal' => $loot__summary[0]->info_Get_Bal,
+                'count_Get_from_Reversal' => $loot__summary[0]->info_Get_from_Reversal,
+                'count_Get_Bal_MPESA' => $loot__summary[0]->info_Get_Bal_MPESA,
                 'count_Get_Bal_KCB' => $loot__summary[0]->info_Get_Bal_KCB,
                 'count_Get_Bal_Mshwari' => $loot__summary[0]->info_Get_Bal_Mshwari,
-                'count_Get_Reversal' => $loot__summary[0]->info_Get_Reversal,
                 'count_Loan_Limit' => $loot__summary[0]->info_Loan_Limit,
-                'count_Sent' => $loot__summary[0]->info_Sent,
+                'count_Sent_to_MPESA' => $loot__summary[0]->info_Sent_to_MPESA,
+                'count_Sent_to_Mshwari' => $loot__summary[0]->info_Sent_to_Mshwari,
+                'count_Sent_to_LNM' => $loot__summary[0]->info_Sent_to_LNM,
                 'count_Sent_Mini' => $loot__summary[0]->info_Sent_Mini,
-                'count_Sent_Mshwari' => $loot__summary[0]->info_Sent_Mshwari,
                 'count_Sent_Cancel' => $loot__summary[0]->info_Sent_Cancel,
                 'count_Error_Failed' => $loot__summary[0]->info_Error_Failed,
-                'count_Error_Pay_Merchant' => $loot__summary[0]->info_Error_Pay_Merchant,
                 'count_Error_Pin' => $loot__summary[0]->info_Error_Pin,
                 'count_Error_Less' => $loot__summary[0]->info_Error_Less,
                 'count_Error_Receiver' => $loot__summary[0]->info_Error_Receiver,
                 'count_Error_Receiver_Org' => $loot__summary[0]->info_Error_Receiver_Org,
                 'count_Withdraw' => $loot__summary[0]->info_Withdraw,
-                'count_Fuliza_Leave' => $loot__summary[0]->info_Fuliza_Leave,
+                'count_Fuliza_Opt_Out' => $loot__summary[0]->info_Fuliza_Opt_Out,
                 'count_Fuliza_Opt_In' => $loot__summary[0]->info_Fuliza_Opt_In,
                 'count_Fuliza_Limit' => $loot__summary[0]->info_Fuliza_Limit,
+                'count_Fuliza_Loan_Paid' => $loot__summary[0]->info_Fuliza_Loan_Paid,
                 'count_Fuliza_Mini_Statement' => $loot__summary[0]->info_Fuliza_Mini_Statement,
                 'count_Fuliza_Loan_Taken' => $loot__summary[0]->info_Fuliza_Loan_Taken,
                 'count_Similar_Transaction' => $loot__summary[0]->info_Similar_Transaction,
                 'count_All' => $loot__summary[0]->info_All,
                 'count_Unknown' => $loot__summary[0]->info_Unknown,
-                'created' => $loot__summary[0]->loot_Created,
-                'count_Loot_Uuid' => $loot__summary[0]->loot_Uuid,//
-                'time' => $dated,
+                'loot_Created' => $loot__summary[0]->loot_Created,
+                'loot_Uuid' => $loot__summary[0]->loot_Uuid,//
+                //'time' => $dated,
             ]);
         }
     }
@@ -315,36 +310,37 @@ class Upload extends BaseController
 	        foreach ($loot_category_count as $loot_info) {
 		        $counter +=1;
 		        $data = [
-                    'count_Get_Receive' => $loot_info->info_Get_Receive,
-                    'count_Get_Bank' => $loot_info->info_Get_Bank,
-                    'count_Get_Mshwari' => $loot_info->info_Get_Mshwari,
+                    'count_Get_from_MPESA' => $loot_info->info_Get_from_MPESA,
+                    'count_Get_from_KCB' => $loot_info->info_Get_from_KCB,
+                    'count_Get_from_Mshwari' => $loot_info->info_Get_from_Mshwari,
                     'count_Get_from_NCBA' => $loot_info->info_Get_from_NCBA,
                     'count_Get_from_IM' => $loot_info->info_Get_from_IM,
-                    'count_Get_Bal' => $loot_info->info_Get_Bal,
+                    'count_Get_from_Reversal' => $loot_info->info_Get_from_Reversal,
+                    'count_Get_Bal_MPESA' => $loot_info->info_Get_Bal_MPESA,
                     'count_Get_Bal_KCB' => $loot_info->info_Get_Bal_KCB,
                     'count_Get_Bal_Mshwari' => $loot_info->info_Get_Bal_Mshwari,
-                    'count_Get_Reversal' => $loot_info->info_Get_Reversal,
                     'count_Loan_Limit' => $loot_info->info_Loan_Limit,
-                    'count_Sent' => $loot_info->info_Sent,
+                    'count_Sent_to_MPESA' => $loot_info->info_Sent_to_MPESA,
+                    'count_Sent_to_Mshwari' => $loot_info->info_Sent_to_Mshwari,
+                    'count_Sent_to_LNM' => $loot_info->info_Sent_to_LNM,
                     'count_Sent_Mini' => $loot_info->info_Sent_Mini,
-                    'count_Sent_Mshwari' => $loot_info->info_Sent_Mshwari,
                     'count_Sent_Cancel' => $loot_info->info_Sent_Cancel,
                     'count_Error_Failed' => $loot_info->info_Error_Failed,
-                    'count_Error_Pay_Merchant' => $loot_info->info_Error_Pay_Merchant,
                     'count_Error_Pin' => $loot_info->info_Error_Pin,
                     'count_Error_Less' => $loot_info->info_Error_Less,
                     'count_Error_Receiver' => $loot_info->info_Error_Receiver,
                     'count_Error_Receiver_Org' => $loot_info->info_Error_Receiver_Org,
                     'count_Withdraw' => $loot_info->info_Withdraw,
-                    'count_Fuliza_Leave' => $loot_info->info_Fuliza_Leave,
+                    'count_Fuliza_Opt_Out' => $loot_info->info_Fuliza_Opt_Out,
                     'count_Fuliza_Opt_In' => $loot_info->info_Fuliza_Opt_In,
                     'count_Fuliza_Limit' => $loot_info->info_Fuliza_Limit,
+                    'count_Fuliza_Loan_Paid' => $loot_info->info_Fuliza_Loan_Paid,
                     'count_Fuliza_Mini_Statement' => $loot_info->info_Fuliza_Mini_Statement,
                     'count_Fuliza_Loan_Taken' => $loot_info->info_Fuliza_Loan_Taken,
                     'count_Similar_Transaction' => $loot_info->info_Similar_Transaction,
                     'count_All' => $loot_info->info_All,
                     'count_Unknown' => $loot_info->info_Unknown,
-			        'created' => $loot_info->loot_Created,
+                    'loot_Created' => $loot_info->loot_Created,
 		        ];
 		        array_push($loot_summary,$data);
 		        if ($counter == ($loot_size)){

@@ -20,7 +20,8 @@ class ModCryption extends Model
 
         $dec_val=openssl_decrypt ($value,  $cipher_algo, $crypt_key, $options, $crypt_iv);
 
-        return (base64_decode($dec_val));
+        //return (base64_decode($dec_val));
+        return $dec_val;
     }
 
     public function encode_content($value){
