@@ -60,72 +60,16 @@ class ModUploads extends Model
 
     function clean_sms_by_trimming_messages($sms_messages){
         $message_trimmed = array();
-
-        $sms_term_transaction = "transaction cost,";
-        $sms_term_amount      = "amount you can transact";
-        $sms_term_download    = ".download m-pesa";
-        $sms_term_get         = "get stamped m-pesa statemen";
-        $sms_term_you         = "you can now access";
-        $sms_term_separate    = "separate personal and business";
-        $sms_term_to          = "to register for m-pesa";
-        $sms_term_for         = "for terms and conditions visit";
-        $sms_term_dial        = "dial *334# now";
-        $sms_term_dial_1      = "dial *234*0*3#";
-        $sms_term_dial_2      = "dial *234*0#";
-        $sms_term_kindly      = "kindly ask the recipient";
-        $sms_term_kindly_1    = "kindly note that if you";
-        $sms_term_late        = "late repayment attracts a";
-        $sms_term_check       = "to check daily charges, dial";
-        $sms_term_check_1     = "to check daily charges,";
-        $sms_term_cost       = "transaction cost";
+        $sms_term_transaction = "transaction cost";
 
         foreach ($sms_messages as $sms_single_array) {
             if($sms_single_array->Number == "MPESA") {
                 $sms_obj_string = strtolower(base64_decode($sms_single_array->Body));
                 // Clean based on terminators
                 if (strpos($sms_obj_string, $sms_term_transaction) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_transaction));
-                } elseif (strpos($sms_obj_string, $sms_term_amount) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_amount));
-                } elseif (strpos($sms_obj_string, $sms_term_download) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_download));
-                } elseif (strpos($sms_obj_string, $sms_term_get) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_get));
-                } elseif (strpos($sms_obj_string, $sms_term_you) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_you));
-                } elseif (strpos($sms_obj_string, $sms_term_separate) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_separate));
-                } elseif (strpos($sms_obj_string, $sms_term_to) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_to));
-                } elseif (strpos($sms_obj_string, $sms_term_for) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_for));
-                } elseif (strpos($sms_obj_string, $sms_term_dial) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_dial));
-                } elseif (strpos($sms_obj_string, $sms_term_dial_1) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_dial_1));
-                } elseif (strpos($sms_obj_string, $sms_term_dial_2) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_dial_2));
-                } elseif (strpos($sms_obj_string, $sms_term_kindly) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_kindly));
-                } elseif (strpos($sms_obj_string, $sms_term_kindly_1) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_kindly_1));
-                } elseif (strpos($sms_obj_string, $sms_term_late) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_late));
-                } elseif (strpos($sms_obj_string, $sms_term_check) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_check));
-                } elseif (strpos($sms_obj_string, $sms_term_check_1) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_check_1));
-                } elseif (strpos($sms_obj_string, $sms_term_cost) !== false) {
-                    $cleaned_message = substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_cost));
+                    $cleaned_message = base64_encode(substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_transaction)));
                 } else {
-                    $cleaned_message = $sms_obj_string;
-                }
-
-                // Remove leading "confirmed" or "confirmed."
-                $words = explode(' ', $cleaned_message);
-                if (in_array('confirmed', $words, true) || in_array('confirmed.', $words, true)) {
-                    array_shift($words);
-                    $cleaned_message = implode(' ', $words);
+                    $cleaned_message = base64_encode($sms_obj_string);
                 }
 
                 array_push($message_trimmed, $cleaned_message);
@@ -198,7 +142,8 @@ class ModUploads extends Model
         $sms_count_similar_transaction  = 0;
         $sms_count_unknown              = 0;
 
-        foreach ($sms_messages as $sms_body) {
+        foreach ($sms_messages as $b64_sms_body) {
+            $sms_body = base64_decode($b64_sms_body);
             $sms_re_get_receive = preg_match("/" . preg_quote($sms_get_receive, "/") . "/", $sms_body);
             $sms_re_get_from_mshwari = preg_match("/" . preg_quote($sms_get_from_mshwari, "/") . "/", $sms_body);
             $sms_re_get_from_ncba = preg_match("/" . preg_quote($sms_get_from_ncba, "/") . "/", $sms_body);
@@ -314,7 +259,7 @@ class ModUploads extends Model
                     $sms_count_withdraw++;
                     break;
                 case $sms_re_fuliza_leave:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_fuliza_opt_out"))); 
+                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_fuliza_opt_out")));
                     $sms_count_fuliza_opt_out++;
                     break;
                 case $sms_re_fuliza_opt_in:
@@ -403,12 +348,10 @@ class ModUploads extends Model
             //->where('loot_Id', $loot_id)->get()->getResult();
             ->where('loot_Uuid', $loot_uuid)->get()->getResult();
         $loot_name = $query_name[0]->loot_Name;
-        echo "Loot name as ".$loot_name;
         $loot_file = WRITEPATH."uploads/txt_loot/".$loot_name;
 
         $loot_data = file_get_contents($loot_file);
         $loot_decoded = $mod_cryption->decode_content($loot_data);
-        echo "file gettype as " .gettype($loot_decoded);
 
         $data_dump1 = str_replace("-------(//)--------", "", $loot_decoded);
         $data_dump2 = str_replace("\n", '****', $data_dump1);
@@ -421,7 +364,6 @@ class ModUploads extends Model
 
         $data2_sms_terminated = $this->clean_sms_by_trimming_messages($data2);
         list($data2_sms_category, $data2_sms_category_counter_arr) =  $this->clean_sms_by_categorizing($data2_sms_terminated);
-        $data2_sms_category_body_uncleaned = $this->clean_sms_by_returning_column($data2, "Body");
         $data2_sms_category_date_uncleaned = $this->clean_sms_by_returning_column($data2, "Date");
         $data2_sms_category_type_uncleaned = $this->clean_sms_by_returning_column($data2, "Type");
         $data2_sms_category_number_uncleaned = $this->clean_sms_by_returning_column($data2, "Number");
@@ -439,7 +381,7 @@ class ModUploads extends Model
                     'sms_category'      => $data2_sms_category[$counter],
                     'sms_seen'          => $data2_sms_category_seen_uncleaned[$counter],
                     'sms__id'           => $data2_sms_category__id_uncleaned[$counter],
-                    'sms_body'          => $data2_sms_category_body_uncleaned[$counter],
+                    'sms_body'          => $data2_sms_terminated[$counter],
                     //'sms_body_cleaned'  => $data2_sms_terminated,
                     'sms_loot_source'   => $loot_uuid,
                     'sms_owner'         => $loot_owner,
@@ -503,27 +445,27 @@ class ModUploads extends Model
     public function device_check_print($print_dump){
         $builder = $this->db->table('tbl_Devices');
         $get_all = $builder->select('device_Uuid')
-                ->where($print_dump)
-                ->get();
+            ->where($print_dump)
+            ->get();
         return $get_all->getResult();
     }
 
     public function get_loot_uuid($loot_name){
         $builder = $this->db->table('tbl_Loot');
         $get_all = $builder->select('loot_Uuid')
-                ->where('loot_Name', $loot_name)
-                ->get();
+            ->where('loot_Name', $loot_name)
+            ->get();
         return $get_all->getResult()[0]->loot_Uuid;
     }
 
-	public function get_loot_summary_from_uuids($loot_aray_uuids){
+    public function get_loot_summary_from_uuids($loot_aray_uuids){
         $builder = $this->db->table('tbl_Loot_Summary');
         $get_all = $builder->select('*')
-                ->whereIn('loot_Uuid', $loot_aray_uuids)
-                ->get();
+            ->whereIn('loot_Uuid', $loot_aray_uuids)
+            ->get();
         return $get_all->getResult();
     }
-    
+
     public function device_make_print($print_dump){
         return $this->db->table('tbl_Devices')->insert($print_dump);
     }

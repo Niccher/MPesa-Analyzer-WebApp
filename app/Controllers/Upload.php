@@ -39,9 +39,6 @@ class Upload extends BaseController
                 'loot_Device'  => $loot_device,
                 'loot_Created'  => $dated
             ];
-//            echo '<pre>'.print_r($data, true).'</pre>';
-//            echo '<pre>'.print_r($_POST, true).'</pre>';
-//            echo '<pre>'.print_r($_FILES, true).'</pre>';
 
             $pushed = $mod_upload->file_upload($data);
             $loot_uuid = $uuid; //$mod_upload->loot_last_uploaded();
@@ -357,4 +354,18 @@ class Upload extends BaseController
         }
     }
 
+    public function loot_delete_by_uuid(){
+        $mod_upload = new ModUploads();
+        $mod_user = new ModUser();
+
+        $dated = date('Y-m-d H:i:s');
+
+        if ($this->request->getPost()){
+            $loot_owner_uuid = $this->request->getVar('varUser');
+            $loot_device = $this->request->getVar('varDev');
+            $loot_uuid = $this->request->getVar('varLootUuid');
+            //$loot_owner = $mod_user->user_get_id($loot_owner_uuid);
+            //$loot_name = $this->request->getVar('varLootName');
+        }
+    }
 }
