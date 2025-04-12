@@ -137,8 +137,6 @@ class Upload extends BaseController
 
         $session = session();
 
-        #echo "Username as ".$this->session->get('user_name').$session->get('user_name');
-
         if (empty($session->get('user_name'))){
             #echo "Not Logged In";
         }
@@ -173,7 +171,7 @@ class Upload extends BaseController
                 if ($counter == ($loot_size)){
                     print json_encode($data);
                 }else{
-                    print json_encode($data).","; 
+                    print json_encode($data).",";
                 }
             }
             //print_r($loot_array);

