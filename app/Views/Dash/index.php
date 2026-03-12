@@ -4,167 +4,140 @@
 
 <?= $this->section('styles') ?>
 <style>
-    .dashboard-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-        gap: 24px;
-    }
-
     .summary-card {
-        background: var(--card-light);
-        border-radius: var(--radius);
-        padding: 24px;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        border: none;
+        border-radius: 16px;
         color: white;
         transition: transform 0.3s ease;
-        position: relative;
         overflow: hidden;
     }
+    
+    .summary-card:hover {  transform: translateY(-5px); }
 
-    .summary-card:hover {
-        transform: translateY(-5px);
-    }
-
-    .summary-card h2 {
-        margin: 0 0 20px 0;
-        font-size: 1.4rem;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .metrics-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 15px;
-        text-align: center;
-    }
-
-    .metric-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-        background: rgba(255, 255, 255, 0.15);
-        padding: 15px 10px;
-        border-radius: 12px;
-        backdrop-filter: blur(5px);
-    }
-
-    .metric-icon {
-        font-size: 1.8rem;
-        margin-bottom: 5px;
-    }
-
-    .metric-value {
-        font-size: 1.2rem;
-        font-weight: 700;
-    }
-
-    .metric-label {
-        font-size: 0.8rem;
-        opacity: 0.9;
-        font-weight: 500;
-    }
-
-    .recent-activity {
-        margin-top: 20px;
-        background: rgba(0,0,0,0.1);
-        padding: 15px;
-        border-radius: 10px;
-        font-size: 0.9rem;
-    }
-
-    /* Card coloring variants */
     .card-purple { background: linear-gradient(135deg, #6C5CE7 0%, #4834D4 100%); }
     .card-blue { background: linear-gradient(135deg, #3498DB 0%, #2980B9 100%); }
     .card-dark { background: linear-gradient(135deg, #34495E 0%, #2C3E50 100%); }
 
-    /* Animations */
-    @keyframes fadeIn {
-        from { opacity: 0; transform: scale(0.95); }
-        to { opacity: 1; transform: scale(1); }
+    .metric-box {
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(5px);
+        border-radius: 12px;
+        padding: 1rem 0.5rem;
     }
-
-    .summary-card {
-        animation: fadeIn 0.5s ease-out forwards;
-    }
-
-    .summary-card:nth-child(2) { animation-delay: 0.1s; }
-    .summary-card:nth-child(3) { animation-delay: 0.2s; }
+    
+    .metric-icon { font-size: 2rem; }
+    .recent-activity-badge { background: rgba(0,0,0,0.1); border-radius: 8px; }
 </style>
 <?= $this->endSection() ?>
 
+<?= $this->section('page_header') ?>
+<div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-3">
+    <div>
+        <h2 class="fw-bold mb-1" style="color: var(--primary);">Dashboard Overview</h2>
+        <p class="text-secondary mb-0">High-level summary of your financial data.</p>
+    </div>
+</div>
+<?= $this->endSection() ?>
+
 <?= $this->section('content') ?>
-<div class="dashboard-grid">
+<div class="row g-4 mb-4">
     <!-- General Summary -->
-    <section class="summary-card card-purple">
-        <h2><i class="fa-solid fa-chart-line"></i> General Summary</h2>
-        <div class="metrics-grid">
-            <div class="metric-item">
-                <div class="metric-icon">💰</div>
-                <span class="metric-value"><?= number_format($total_uploads) ?></span>
-                <span class="metric-label">All Records</span>
-            </div>
-            <div class="metric-item">
-                <div class="metric-icon">💳</div>
-                <span class="metric-value">0</span>
-                <span class="metric-label">Balance</span>
-            </div>
-            <div class="metric-item">
-                <div class="metric-icon">📦</div>
-                <span class="metric-value">0</span>
-                <span class="metric-label">Fuliza</span>
+    <div class="col-lg-4 col-md-6">
+        <div class="card summary-card card-purple h-100 shadow-sm">
+            <div class="card-body p-4">
+                <h4 class="card-title fw-bold mb-4"><i class="fa-solid fa-chart-line me-2"></i> General Summary</h4>
+                <div class="row g-3 text-center mb-4">
+                    <div class="col-4">
+                        <div class="metric-box">
+                            <div class="metric-icon mb-1">💰</div>
+                            <h5 class="fw-bold mb-0"><?= number_format($total_uploads) ?></h5>
+                            <small class="text-white-50 text-uppercase fw-semibold" style="font-size:0.75rem;">All Records</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="metric-box">
+                            <div class="metric-icon mb-1">💳</div>
+                            <h5 class="fw-bold mb-0">0</h5>
+                            <small class="text-white-50 text-uppercase fw-semibold" style="font-size:0.75rem;">Balance</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="metric-box">
+                            <div class="metric-icon mb-1">📦</div>
+                            <h5 class="fw-bold mb-0">0</h5>
+                            <small class="text-white-50 text-uppercase fw-semibold" style="font-size:0.75rem;">Fuliza</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="recent-activity-badge p-3 text-center">
+                    <i class="fa-solid fa-clock-rotate-left me-2"></i> Recent Activity: <?= count($recent_uploads) ?> tracked uploads
+                </div>
             </div>
         </div>
-        <div class="recent-activity">
-            <i class="fa-solid fa-clock-rotate-left"></i> Recent Activity: <?= count($recent_uploads) ?> tracked uploads
-        </div>
-    </section>
+    </div>
 
     <!-- Sent Summary -->
-    <section class="summary-card card-blue">
-        <h2><i class="fa-solid fa-arrow-up-right-dots"></i> Sent Summary</h2>
-        <div class="metrics-grid">
-            <div class="metric-item">
-                <div class="metric-icon">📤</div>
-                <span class="metric-value">0</span>
-                <span class="metric-label">All Sent</span>
-            </div>
-            <div class="metric-item">
-                <div class="metric-icon">📲</div>
-                <span class="metric-value">0</span>
-                <span class="metric-label">M-Pesa</span>
-            </div>
-            <div class="metric-item">
-                <div class="metric-icon">🏠</div>
-                <span class="metric-value">0</span>
-                <span class="metric-label">Till / Paybill</span>
+    <div class="col-lg-4 col-md-6">
+        <div class="card summary-card card-blue h-100 shadow-sm">
+            <div class="card-body p-4">
+                <h4 class="card-title fw-bold mb-4"><i class="fa-solid fa-arrow-up-right-dots me-2"></i> Sent Summary</h4>
+                <div class="row g-3 text-center">
+                    <div class="col-4">
+                        <div class="metric-box">
+                            <div class="metric-icon mb-1">📤</div>
+                            <h5 class="fw-bold mb-0">0</h5>
+                            <small class="text-white-50 text-uppercase fw-semibold" style="font-size:0.75rem;">All Sent</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="metric-box">
+                            <div class="metric-icon mb-1">📲</div>
+                            <h5 class="fw-bold mb-0">0</h5>
+                            <small class="text-white-50 text-uppercase fw-semibold" style="font-size:0.75rem;">M-Pesa</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="metric-box">
+                            <div class="metric-icon mb-1">🏠</div>
+                            <h5 class="fw-bold mb-0">0</h5>
+                            <small class="text-white-50 text-uppercase fw-semibold" style="font-size:0.75rem;">Till / Paybill</small>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </section>
+    </div>
 
     <!-- Received Summary -->
-    <section class="summary-card card-dark">
-        <h2><i class="fa-solid fa-arrow-down-long"></i> Received Summary</h2>
-        <div class="metrics-grid">
-            <div class="metric-item">
-                <div class="metric-icon">📥</div>
-                <span class="metric-value">0</span>
-                <span class="metric-label">All Received</span>
-            </div>
-            <div class="metric-item">
-                <div class="metric-icon">🏧</div>
-                <span class="metric-value">0</span>
-                <span class="metric-label">Agent</span>
-            </div>
-            <div class="metric-item">
-                <div class="metric-icon">🏛️</div>
-                <span class="metric-value">0</span>
-                <span class="metric-label">Bank</span>
+    <div class="col-lg-4 col-md-12">
+        <div class="card summary-card card-dark h-100 shadow-sm">
+            <div class="card-body p-4">
+                <h4 class="card-title fw-bold mb-4"><i class="fa-solid fa-arrow-down-long me-2"></i> Received Summary</h4>
+                <div class="row g-3 text-center">
+                    <div class="col-4">
+                        <div class="metric-box">
+                            <div class="metric-icon mb-1">📥</div>
+                            <h5 class="fw-bold mb-0">0</h5>
+                            <small class="text-white-50 text-uppercase fw-semibold" style="font-size:0.75rem;">All Received</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="metric-box">
+                            <div class="metric-icon mb-1">🏧</div>
+                            <h5 class="fw-bold mb-0">0</h5>
+                            <small class="text-white-50 text-uppercase fw-semibold" style="font-size:0.75rem;">Agent</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="metric-box">
+                            <div class="metric-icon mb-1">🏛️</div>
+                            <h5 class="fw-bold mb-0">0</h5>
+                            <small class="text-white-50 text-uppercase fw-semibold" style="font-size:0.75rem;">Bank</small>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </section>
+    </div>
 </div>
 <?= $this->endSection() ?>

@@ -4,155 +4,117 @@
 
 <?= $this->section('styles') ?>
 <style>
-    .history-card {
-        background: white;
-        border-radius: var(--radius);
-        padding: 30px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-        margin-top: 20px;
-    }
-
     .timeline {
         position: relative;
-        max-width: 800px;
-        margin: 0 auto;
+        padding-left: 3rem;
+        margin-top: 2rem;
     }
-
-    .timeline::after {
+    .timeline::before {
         content: '';
         position: absolute;
-        width: 4px;
-        background-color: #f0f0f0;
         top: 0;
         bottom: 0;
-        left: 31px;
-        margin-left: -2px;
+        left: 14px;
+        width: 4px;
+        background: #e9ecef;
         border-radius: 4px;
     }
-
     .timeline-item {
-        padding: 15px 40px;
         position: relative;
-        background-color: inherit;
-        width: 100%;
-        margin-bottom: 20px;
+        margin-bottom: 2rem;
     }
-
-    .timeline-item::after {
-        content: '';
+    .timeline-marker {
         position: absolute;
+        left: -3rem;
+        top: 0.25rem;
         width: 20px;
         height: 20px;
-        left: 21px;
-        background-color: white;
-        border: 4px solid var(--primary);
-        top: 25px;
         border-radius: 50%;
-        z-index: 1;
-        box-shadow: 0 0 0 4px rgba(93, 95, 239, 0.1);
-    }
-
-    .timeline-content {
-        padding: 20px 25px;
-        background-color: #f8f9fa;
-        position: relative;
-        border-radius: 12px;
-        margin-left: 20px;
-        border: 1px solid #eee;
-        transition: transform 0.2s;
-    }
-
-    .timeline-content:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 15px rgba(0,0,0,0.05);
-    }
-
-    .time-label {
-        font-weight: 700;
-        color: var(--primary);
-        margin-bottom: 10px;
-        font-size: 0.95rem;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .sync-stats {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 15px;
-        margin-top: 15px;
-    }
-
-    .stat-box {
         background: white;
-        padding: 12px;
+        border: 4px solid var(--primary);
+        box-shadow: 0 0 0 4px rgba(93, 95, 239, 0.1);
+        z-index: 1;
+    }
+    .history-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+    }
+    .stat-box {
+        background: #f8f9fa;
+        padding: 1rem;
         border-radius: 8px;
-        text-align: center;
-        border: 1px solid #f0f0f0;
-    }
-
-    .stat-val {
-        font-size: 1.3rem;
-        font-weight: 700;
-        color: var(--text-dark);
-        margin-bottom: 5px;
-    }
-
-    .stat-lbl {
-        font-size: 0.75rem;
-        color: var(--text-light);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        border: 1px solid #dee2e6;
     }
 </style>
 <?= $this->endSection() ?>
 
-<?= $this->section('content') ?>
-<div class="header-section">
-    <h2 style="font-weight: 700; color: var(--primary);">Data Sync History</h2>
-    <p style="color: var(--text-light);">Timeline of data uploads from your Android application.</p>
+<?= $this->section('page_header') ?>
+<div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-3">
+    <div>
+        <h2 class="fw-bold mb-1" style="color: var(--primary);">Data Sync History</h2>
+        <p class="text-secondary mb-0">Timeline of data uploads from your Android application.</p>
+    </div>
 </div>
+<?= $this->endSection() ?>
 
-<div class="history-card">
-    <div class="timeline">
+<?= $this->section('content') ?>
+
+<div class="card history-card mb-4">
+    <div class="card-body p-4 p-md-5">
+        
         <?php if (!empty($history)) : ?>
-            <?php foreach ($history as $log) : ?>
-                <div class="timeline-item">
-                    <div class="timeline-content">
-                        <div class="time-label">
-                            <i class="fa-solid fa-cloud-arrow-up"></i>
-                            <?= date('M d, Y - h:i A', strtotime($log->loot_Created)) ?>
-                        </div>
-                        <p style="color: var(--text-light); font-size: 0.9rem; margin: 0;">Device paired via UUID: <?= substr($log->loot_Uuid, 0, 8) ?>...</p>
-                        
-                        <div class="sync-stats">
-                            <div class="stat-box" style="border-bottom: 3px solid var(--primary);">
-                                <div class="stat-val"><?= $log->info_All ?></div>
-                                <div class="stat-lbl">Total Processed</div>
-                            </div>
-                            <div class="stat-box" style="border-bottom: 3px solid #2ED573;">
-                                <div class="stat-val"><?= $log->info_Get_from_MPESA ?></div>
-                                <div class="stat-lbl">Received</div>
-                            </div>
-                            <div class="stat-box" style="border-bottom: 3px solid #3498DB;">
-                                <div class="stat-val"><?= $log->info_Sent_to_MPESA ?></div>
-                                <div class="stat-lbl">Sent</div>
-                            </div>
-                            <div class="stat-box" style="border-bottom: 3px solid #FF4757;">
-                                <div class="stat-val"><?= $log->info_Unknown ?></div>
-                                <div class="stat-lbl">Unknown / Error</div>
+            <div class="timeline">
+                <?php foreach ($history as $log) : ?>
+                    <div class="timeline-item">
+                        <div class="timeline-marker"></div>
+                        <div class="card bg-light border-0 shadow-sm">
+                            <div class="card-body p-4">
+                                <h5 class="fw-bold text-primary mb-1">
+                                    <i class="fa-solid fa-cloud-arrow-up me-2"></i>
+                                    <?= date('M d, Y - h:i A', strtotime($log->loot_Created)) ?>
+                                </h5>
+                                <p class="text-muted small mb-3">Device Upload UUID: <?= substr($log->loot_Uuid, 0, 8) ?>...</p>
+                                
+                                <div class="row g-3 text-center">
+                                    <div class="col-6 col-md-3">
+                                        <div class="stat-box border-primary border-bottom border-3">
+                                            <h4 class="fw-bold mb-1"><?= $log->info_All ?></h4>
+                                            <small class="text-uppercase text-muted fw-bold" style="font-size:0.7rem;">Processed</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <div class="stat-box border-success border-bottom border-3">
+                                            <h4 class="fw-bold mb-1"><?= $log->info_Get_from_MPESA ?></h4>
+                                            <small class="text-uppercase text-muted fw-bold" style="font-size:0.7rem;">Received</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <div class="stat-box border-info border-bottom border-3">
+                                            <h4 class="fw-bold mb-1"><?= $log->info_Sent_to_MPESA ?></h4>
+                                            <small class="text-uppercase text-muted fw-bold" style="font-size:0.7rem;">Sent</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <div class="stat-box border-danger border-bottom border-3">
+                                            <h4 class="fw-bold mb-1"><?= $log->info_Unknown ?></h4>
+                                            <small class="text-uppercase text-muted fw-bold" style="font-size:0.7rem;">Errors / Unknown</small>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            <?php endforeach; ?>
+                <?php endforeach; ?>
+            </div>
         <?php else : ?>
-            <div style="text-align: center; padding: 40px; color: #888;">
-                <i class="fa-solid fa-timeline" style="font-size: 3rem; color: #ddd; margin-bottom: 15px;"></i>
-                <p>No sync history recorded yet. Connect your Android app to start logging data.</p>
+            <div class="text-center p-5 text-muted">
+                <i class="fa-solid fa-timeline mb-3" style="font-size: 3rem; color: #ddd;"></i>
+                <h5>No sync history recorded yet.</h5>
+                <p>Connect your Android app to start logging data.</p>
             </div>
         <?php endif; ?>
+        
     </div>
 </div>
 <?= $this->endSection() ?>

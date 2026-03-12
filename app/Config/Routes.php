@@ -30,12 +30,14 @@ $routes->set404Override();
 // We get a performance increase by specifying the default
 // route since we don't have to scan directories.
 //$routes->get('/', 'Auths::index');
-$routes->get('/', 'Dash::index', ['filter' => 'session']);
+$routes->get('/', 'Home::index');
 $routes->get('/dashboard', 'Dash::index', ['filter' => 'session']);
 $routes->get('/dashboard/graph', 'Graph::index', ['filter' => 'session']);
 $routes->get('/dashboard/transactions', 'Transactions::index', ['filter' => 'session']);
 $routes->get('/dashboard/history', 'History::index', ['filter' => 'session']);
 $routes->get('/dashboard/info', 'Info::index', ['filter' => 'session']);
+$routes->post('/dashboard/info/generate-token', 'Info::generateToken', ['filter' => 'session']);
+$routes->post('/dashboard/info/revoke-token', 'Info::revokeToken', ['filter' => 'session']);
 $routes->get('/home', 'Home::index');
 
 $routes->group('auth', function ($routes) {

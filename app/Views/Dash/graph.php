@@ -5,38 +5,11 @@
 <?= $this->section('styles') ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-    .analytics-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 24px;
-        margin-top: 20px;
-    }
-
     .chart-card {
         background: white;
-        border-radius: var(--radius);
-        padding: 24px;
+        border-radius: 16px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-    }
-    
-    .chart-card.full-width {
-        grid-column: span 2;
-    }
-
-    .chart-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-
-    .chart-title {
-        font-size: 1.2rem;
-        font-weight: 600;
-        color: var(--text-dark);
-        display: flex;
-        align-items: center;
-        gap: 10px;
+        border: none;
     }
 
     .chart-container {
@@ -44,55 +17,58 @@
         height: 300px;
         width: 100%;
     }
-
-    @media (max-width: 900px) {
-        .analytics-grid {
-            grid-template-columns: 1fr;
-        }
-        .chart-card.full-width {
-            grid-column: span 1;
-        }
-    }
 </style>
 <?= $this->endSection() ?>
 
-<?= $this->section('content') ?>
-<div class="header-section" style="margin-bottom: 20px;">
-    <h2 style="font-weight: 700; color: var(--primary);">Data Visualizations</h2>
-    <p style="color: var(--text-light);">A visual breakdown of tracked M-Pesa activity</p>
+<?= $this->section('page_header') ?>
+<div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-3">
+    <div>
+        <h2 class="fw-bold mb-1" style="color: var(--primary);">Data Visualizations</h2>
+        <p class="text-secondary mb-0">A visual breakdown of tracked M-Pesa activity</p>
+    </div>
 </div>
+<?= $this->endSection() ?>
 
-<div class="analytics-grid">
+<?= $this->section('content') ?>
+
+<div class="row g-4 mb-4">
     <!-- Cash Flow Line Chart -->
-    <div class="chart-card full-width">
-        <div class="chart-header">
-            <h3 class="chart-title"><i class="fa-solid fa-money-bill-trend-up" style="color: #2ED573"></i> Cash Flow (Money In vs. Money Out)</h3>
-        </div>
-        <div class="chart-container">
-            <canvas id="cashFlowChart"></canvas>
+    <div class="col-12">
+        <div class="card chart-card h-100">
+            <div class="card-body p-4">
+                <h5 class="card-title fw-bold mb-4"><i class="fa-solid fa-money-bill-trend-up me-2" style="color: #2ED573"></i> Cash Flow (Money In vs. Money Out)</h5>
+                <div class="chart-container">
+                    <canvas id="cashFlowChart"></canvas>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Spending Breakdown Doughnut Chart -->
-    <div class="chart-card">
-        <div class="chart-header">
-            <h3 class="chart-title"><i class="fa-solid fa-chart-pie" style="color: var(--primary)"></i> Category Breakdown</h3>
-        </div>
-        <div class="chart-container">
-            <canvas id="categoryChart"></canvas>
+    <div class="col-lg-6">
+        <div class="card chart-card h-100">
+            <div class="card-body p-4">
+                <h5 class="card-title fw-bold mb-4"><i class="fa-solid fa-chart-pie me-2" style="color: var(--primary)"></i> Category Breakdown</h5>
+                <div class="chart-container">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Fuliza Dependency Bar Chart -->
-    <div class="chart-card">
-        <div class="chart-header">
-            <h3 class="chart-title"><i class="fa-solid fa-boxes-stacked" style="color: #FF4757"></i> Fuliza Usage</h3>
-        </div>
-        <div class="chart-container">
-            <canvas id="fulizaChart"></canvas>
+    <div class="col-lg-6">
+        <div class="card chart-card h-100">
+            <div class="card-body p-4">
+                <h5 class="card-title fw-bold mb-4"><i class="fa-solid fa-boxes-stacked me-2" style="color: #FF4757"></i> Fuliza Usage</h5>
+                <div class="chart-container">
+                    <canvas id="fulizaChart"></canvas>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>

@@ -4,278 +4,264 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title><?= $this->renderSection('title') ?? 'Mpesa Analyzer' ?></title>
+    
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome 6 -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- DataTables Bootstrap 5 CSS -->
+    <link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    
     <style>
         :root {
             --primary: #5D5FEF;
             --bg-color: #B1B8ED;
-            --sidebar-bg: #FFFFFF;
             --sidebar-width: 260px;
-            --topbar-height: 70px;
-            --text-dark: #1A1A1A;
-            --text-light: #666666;
-            --hover-bg: #F3F4F6;
-            --radius: 16px;
-            --card-light: #6C5CE7;
-            --card-dark: #4834D4;
-        }
-
-        * {
-            box-sizing: border-box;
-            font-family: 'Outfit', sans-serif;
-            margin: 0;
-            padding: 0;
         }
 
         body {
+            font-family: 'Outfit', sans-serif;
             background-color: var(--bg-color);
-            color: var(--text-dark);
-            display: flex;
-            min-height: 100vh;
-            overflow-x: hidden;
+            overflow: hidden; /* Prevent double scrollbars, allow main to scroll */
         }
 
-        /* --- Sidebar --- */
-        .sidebar {
+        /* Sidebar Styling */
+        #sidebar {
             width: var(--sidebar-width);
-            background: var(--sidebar-bg);
             height: 100vh;
             position: fixed;
-            left: 0;
             top: 0;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
+            left: 0;
+            z-index: 1045;
+            transition: all 0.3s;
             box-shadow: 4px 0 15px rgba(0,0,0,0.05);
-            transition: transform 0.3s ease;
+            background-color: #fff;
         }
 
-        .sidebar-header {
-            height: var(--topbar-height);
-            display: flex;
-            align-items: center;
-            padding: 0 24px;
+        #sidebar .sidebar-header {
+            padding: 20px;
             border-bottom: 1px solid #f0f0f0;
         }
 
-        .sidebar-header h2 {
-            font-size: 1.4rem;
+        #sidebar .sidebar-header h4 {
             color: var(--primary);
             font-weight: 700;
+            margin: 0;
         }
 
-        .sidebar-menu {
-            flex: 1;
-            padding: 20px 15px;
-            overflow-y: auto;
-        }
-
-        .menu-item {
-            display: flex;
-            align-items: center;
-            padding: 12px 16px;
-            margin-bottom: 8px;
-            border-radius: 12px;
-            color: var(--text-light);
-            text-decoration: none;
+        #sidebar .nav-link {
+            color: #666;
             font-weight: 500;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin: 5px 15px;
             transition: all 0.2s;
         }
 
-        .menu-item:hover, .menu-item.active {
-            background: var(--hover-bg);
-            color: var(--primary);
+        #sidebar .nav-link i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
         }
 
-        .menu-item.active {
-            background: var(--primary);
+        #sidebar .nav-link:hover, #sidebar .nav-link.active {
+            background-color: var(--primary);
             color: #fff;
             box-shadow: 0 4px 10px rgba(93, 95, 239, 0.3);
         }
 
-        .menu-item i {
-            margin-right: 15px;
-            font-size: 1.2rem;
-            width: 24px;
-            text-align: center;
-        }
-
         .sidebar-footer {
-            padding: 20px;
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            padding: 15px;
             border-top: 1px solid #f0f0f0;
         }
 
-        .sidebar-footer .menu-item.logout {
-            color: #FF4757;
+        .sidebar-footer .nav-link {
+            color: #dc3545; /* Bootstrap Danger */
+        }
+        
+        .sidebar-footer .nav-link:hover {
+            background-color: #dc3545;
+            color: white;
+            box-shadow: 0 4px 10px rgba(220, 53, 69, 0.3);
         }
 
-        .sidebar-footer .menu-item.logout:hover {
-            background: #FEE2E2;
-        }
-
-        /* --- Main Content --- */
-        .main-wrapper {
-            flex: 1;
+        /* Page Content Styling */
+        #page-content-wrapper {
             margin-left: var(--sidebar-width);
+            width: calc(100% - var(--sidebar-width));
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
-            transition: margin-left 0.3s ease;
+            transition: all 0.3s;
         }
 
-        /* --- Topbar --- */
-        .topbar {
-            height: var(--topbar-height);
-            background: rgba(255, 255, 255, 0.7);
+        .navbar {
+            background: rgba(255, 255, 255, 0.8) !important;
             backdrop-filter: blur(10px);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 30px;
             border-bottom: 1px solid rgba(255,255,255,0.2);
-            position: sticky;
-            top: 0;
-            z-index: 999;
+            padding-left: 30px;
+            padding-right: 30px;
+            flex-shrink: 0;
         }
 
-        .menu-toggle {
-            display: none;
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            color: var(--text-dark);
-            cursor: pointer;
-        }
-
-        .topbar-right {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .user-profile {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: #fff;
-            padding: 6px 16px;
-            border-radius: 50px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            font-weight: 600;
-        }
-
-        .user-profile .avatar {
-            width: 32px;
-            height: 32px;
-            background: var(--primary);
-            color: #fff;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.9rem;
-        }
-
-        /* --- Content Area --- */
-        .content-area {
-            padding: 30px;
-            flex: 1;
-        }
-
-        /* Responsive */
-        @media (max-width: 992px) {
-            .sidebar {
-                transform: translateX(-100%);
+        @media (max-width: 991.98px) {
+            #sidebar {
+                margin-left: calc(var(--sidebar-width) * -1);
             }
-            .sidebar.show {
-                transform: translateX(0);
-            }
-            .main-wrapper {
+            #sidebar.toggled {
                 margin-left: 0;
             }
-            .menu-toggle {
-                display: block;
+            #page-content-wrapper {
+                margin-left: 0;
+                width: 100%;
             }
+        }
+
+        .dashboard-footer {
+            border-top: 1px solid rgba(0,0,0,0.05);
+            background-color: rgba(255, 255, 255, 0.5);
         }
     </style>
     <?= $this->renderSection('styles') ?>
 </head>
 <body>
 
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <h2><i class="fa-solid fa-wallet"></i> Mpesa Analyzer</h2>
-        </div>
-        <div class="sidebar-menu">
-            <?php $currentURL = uri_string(); ?>
-            <a href="<?= url_to('Dash::index') ?>" class="menu-item <?= ($currentURL == 'dashboard' || $currentURL == '') ? 'active' : '' ?>">
-                <i class="fa-solid fa-house"></i> Home
-            </a>
-            <a href="<?= url_to('Graph::index') ?>" class="menu-item <?= ($currentURL == 'dashboard/graph') ? 'active' : '' ?>">
-                <i class="fa-solid fa-chart-pie"></i> Graph Analytics
-            </a>
-            <a href="<?= url_to('Transactions::index') ?>" class="menu-item <?= ($currentURL == 'dashboard/transactions') ? 'active' : '' ?>">
-                <i class="fa-solid fa-magnifying-glass"></i> Transactions
-            </a>
-            <a href="<?= url_to('History::index') ?>" class="menu-item <?= ($currentURL == 'dashboard/history') ? 'active' : '' ?>">
-                <i class="fa-solid fa-clock-rotate-left"></i> History
-            </a>
-            <a href="<?= url_to('Info::index') ?>" class="menu-item <?= ($currentURL == 'dashboard/info') ? 'active' : '' ?>">
-                <i class="fa-solid fa-circle-info"></i> Info
-            </a>
-        </div>
-        <div class="sidebar-footer">
-            <a href="<?= url_to('logout') ?>" class="menu-item logout">
-                <i class="fa-solid fa-right-from-bracket"></i> Logout
-            </a>
-        </div>
-    </aside>
-
-    <!-- Main Wrapper -->
-    <div class="main-wrapper">
-        <!-- Topbar -->
-        <header class="topbar">
-            <button class="menu-toggle" id="menuToggle">
-                <i class="fa-solid fa-bars"></i>
-            </button>
-            <div class="topbar-title">
-                <h3 style="font-weight: 600; color: #333; margin:0;">Dashboard</h3>
+    <div class="d-flex" id="wrapper">
+        
+        <!-- Sidebar -->
+        <nav id="sidebar">
+            <div class="sidebar-header d-flex align-items-center justify-content-between">
+                <h4><i class="fa-solid fa-wallet"></i> Analyzer</h4>
+                <button class="btn btn-sm btn-close d-lg-none" id="sidebarClose"></button>
             </div>
-            <div class="topbar-right">
-                <div class="user-profile">
-                    <?php $username = auth()->user()->username ?? 'User'; ?>
-                    <div class="avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
-                    <span><?= $username ?></span>
+            
+            <ul class="nav flex-column mt-3">
+                <?php $currentURL = uri_string(); ?>
+                <li class="nav-item">
+                    <a class="nav-link <?= ($currentURL == 'dashboard' || $currentURL == '') ? 'active' : '' ?>" href="<?= url_to('Dash::index') ?>">
+                        <i class="fa-solid fa-house"></i> Home
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= ($currentURL == 'dashboard/graph') ? 'active' : '' ?>" href="<?= url_to('Graph::index') ?>">
+                        <i class="fa-solid fa-chart-pie"></i> Analytics
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= strpos($currentURL, 'dashboard/transactions') !== false ? 'active' : '' ?>" href="<?= url_to('Transactions::index') ?>">
+                        <i class="fa-solid fa-magnifying-glass"></i> Transactions
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= ($currentURL == 'dashboard/history') ? 'active' : '' ?>" href="<?= url_to('History::index') ?>">
+                        <i class="fa-solid fa-clock-rotate-left"></i> History
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= ($currentURL == 'dashboard/info') ? 'active' : '' ?>" href="<?= url_to('Info::index') ?>">
+                        <i class="fa-solid fa-circle-info"></i> Info & Auth
+                    </a>
+                </li>
+            </ul>
+
+            <div class="sidebar-footer">
+                <a class="nav-link" href="<?= url_to('logout') ?>">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </a>
+            </div>
+        </nav>
+
+        <!-- Page Content -->
+        <div id="page-content-wrapper">
+            
+            <!-- Top Navigation -->
+            <nav class="navbar navbar-expand-lg navbar-light py-3">
+                <div class="container-fluid px-0">
+                    <button class="btn btn-outline-primary d-lg-none me-2" id="sidebarToggle">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    
+                    <h5 class="mb-0 fw-bold text-dark d-none d-sm-block">Dashboard</h5>
+
+                    <div class="ms-auto d-flex align-items-center">
+                        <div class="dropdown">
+                            <a class="nav-link dropdown-toggle text-dark fw-semibold d-flex align-items-center gap-2" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <?php $username = auth()->user()->username ?? 'User'; ?>
+                                <div class="rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 32px; height: 32px; background-color: var(--primary);">
+                                    <?= strtoupper(substr($username, 0, 1)) ?>
+                                </div>
+                                <?= $username ?>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                <li><a class="dropdown-item" href="<?= url_to('Info::index') ?>"><i class="fa-solid fa-user me-2"></i> Profile</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="<?= url_to('logout') ?>"><i class="fa-solid fa-right-from-bracket me-2"></i> Logout</a></li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </header>
+            </nav>
 
-        <!-- Content Area -->
-        <main class="content-area">
-            <?= $this->renderSection('content') ?>
-        </main>
+            <!-- Fixed Page Header Area (Non-scrollable) -->
+            <div class="container-fluid px-4 pt-4 pb-2 flex-shrink-0">
+                <?= $this->renderSection('page_header') ?>
+            </div>
+
+            <!-- Main Content Area (Scrollable) -->
+            <main class="container-fluid px-4 pb-4 pt-2 flex-grow-1 overflow-auto d-flex flex-column">
+                <div class="flex-grow-1">
+                    <?= $this->renderSection('content') ?>
+                </div>
+                
+                <!-- Footer Section -->
+                <footer class="dashboard-footer py-3 px-2 mt-4">
+                    <div class="d-flex flex-md-row flex-column justify-content-between align-items-center opacity-75 small">
+                        <div class="mb-2 mb-md-0">
+                            &copy; <?= date('Y') ?> <span class="fw-bold text-primary">M-Pesa Analyzer</span>. 
+                            <span class="d-none d-sm-inline">All rights reserved.</span>
+                        </div>
+                        <div class="d-flex gap-3">
+                            <span><i class="fa-solid fa-code-branch me-1"></i> v2.1.0</span>
+                            <a href="#" class="text-dark text-decoration-none"><i class="fa-solid fa-book-open me-1"></i> Docs</a>
+                            <a href="#" class="text-dark text-decoration-none"><i class="fa-solid fa-download me-1"></i> App</a>
+                        </div>
+                    </div>
+                </footer>
+            </main>
+            
+        </div>
     </div>
 
-    <!-- Scripts -->
+    <!-- jQuery (Required for DataTables) -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
+    <!-- Bootstrap 5 Bundle JS (Includes Popper) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- DataTables JS & Bootstrap 5 Integration -->
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+
+    <!-- Sidebar Toggle Script -->
     <script>
-        const menuToggle = document.getElementById('menuToggle');
-        const sidebar = document.getElementById('sidebar');
-
-        menuToggle.addEventListener('click', () => {
-            sidebar.classList.toggle('show');
+        document.getElementById("sidebarToggle").addEventListener("click", function(e) {
+            e.preventDefault();
+            document.getElementById("sidebar").classList.toggle("toggled");
         });
-
-        // Close sidebar when clicking outside on mobile
-        document.addEventListener('click', (e) => {
-            if (window.innerWidth <= 992) {
-                if (!sidebar.contains(e.target) && !menuToggle.contains(e.target) && sidebar.classList.contains('show')) {
-                    sidebar.classList.remove('show');
-                }
-            }
+        document.getElementById("sidebarClose").addEventListener("click", function(e) {
+            e.preventDefault();
+            document.getElementById("sidebar").classList.remove("toggled");
         });
     </script>
+
     <?= $this->renderSection('scripts') ?>
 </body>
 </html>

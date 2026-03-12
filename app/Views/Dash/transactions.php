@@ -4,199 +4,142 @@
 
 <?= $this->section('styles') ?>
 <style>
-    .table-card {
-        background: white;
-        border-radius: var(--radius);
-        padding: 24px;
+    .trx-card {
+        background: #fff;
+        border-radius: 16px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-        margin-top: 20px;
+        border: none;
     }
-
-    .table-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-        flex-wrap: wrap;
-        gap: 15px;
-    }
-
-    .table-title {
-        font-size: 1.2rem;
-        font-weight: 600;
-        color: var(--text-dark);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .search-box {
-        position: relative;
-        width: 300px;
-    }
-
-    .search-box input {
-        width: 100%;
-        padding: 10px 15px 10px 35px;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        font-family: 'Outfit', sans-serif;
-        outline: none;
-        transition: border-color 0.2s;
-    }
-
-    .search-box input:focus {
-        border-color: var(--primary);
-    }
-
-    .search-box i {
-        position: absolute;
-        left: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #a0a0a0;
-    }
-
-    .table-container {
-        overflow-x: auto;
-    }
-
-    .data-table {
-        width: 100%;
-        border-collapse: collapse;
-        min-width: 800px;
-    }
-
-    .data-table th, .data-table td {
-        padding: 15px;
-        text-align: left;
-        border-bottom: 1px solid #f0f0f0;
-    }
-
-    .data-table th {
-        background-color: #f8f9fa;
-        color: var(--text-light);
-        font-weight: 600;
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        position: sticky;
-        top: 0;
-    }
-
-    .data-table tbody tr {
-        transition: background-color 0.2s;
-    }
-
-    .data-table tbody tr:hover {
-        background-color: var(--hover-bg);
-    }
-
+    
     .badge {
-        padding: 5px 10px;
-        border-radius: 20px;
-        font-size: 0.8rem;
         font-weight: 600;
+        padding: 0.4em 0.8em;
     }
-
-    .badge-success { background: rgba(46, 213, 115, 0.1); color: #2ED573; }
-    .badge-primary { background: rgba(93, 95, 239, 0.1); color: var(--primary); }
-    .badge-danger { background: rgba(255, 71, 87, 0.1); color: #FF4757; }
-    .badge-warning { background: rgba(255, 165, 2, 0.1); color: #FFA502; }
-    .badge-default { background: #f0f0f0; color: #666; }
-
-    .sms-snippet {
-        font-size: 0.85rem;
-        color: #888;
-        max-width: 300px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        display: inline-block;
+    
+    table.dataTable.table-striped > tbody > tr.odd > * {
+        box-shadow: inset 0 0 0 9999px rgba(93, 95, 239, 0.02);
+    }
+    
+    .page-item.active .page-link {
+        background-color: var(--primary);
+        border-color: var(--primary);
     }
 </style>
 <?= $this->endSection() ?>
 
-<?= $this->section('content') ?>
-<div class="header-section">
-    <h2 style="font-weight: 700; color: var(--primary);">Transactions Database</h2>
-    <p style="color: var(--text-light);">Search and filter through all extracted records.</p>
-</div>
-
-<div class="table-card">
-    <div class="table-header">
-        <h3 class="table-title"><i class="fa-solid fa-list-ul" style="color: var(--primary)"></i> Recent Records</h3>
-        <div class="search-box">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <input type="text" id="searchInput" placeholder="Search transactions...">
-        </div>
+<?= $this->section('page_header') ?>
+<div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-3">
+    <div>
+        <h2 class="fw-bold mb-1" style="color: var(--primary);">Transactions Database</h2>
+        <p class="text-secondary mb-0">Search, filter, and review your parsed SMS records.</p>
     </div>
+    <div class="d-flex flex-wrap gap-2 mb-1" id="categoryFilters">
+        <button type="button" class="btn btn-outline-primary active filter-btn" data-filter="">All SMS</button>
+        <button type="button" class="btn btn-outline-success filter-btn" data-filter="Receive">Received</button>
+        <button type="button" class="btn btn-outline-primary filter-btn" data-filter="Sent">Sent</button>
+        <button type="button" class="btn btn-outline-info filter-btn" data-filter="Recent">Recent Activity</button>
+        <button type="button" class="btn btn-outline-warning filter-btn" data-filter="Paybill">Paybill</button>
+        <button type="button" class="btn btn-outline-warning filter-btn" data-filter="Till">Till</button>
+        <button type="button" class="btn btn-outline-danger filter-btn" data-filter="Fuliza">Fuliza</button>
+        <button type="button" class="btn btn-outline-secondary filter-btn" data-filter="Error">Errors/Others</button>
+    </div>
+</div>
+<?= $this->endSection() ?>
 
-    <div class="table-container">
-        <table class="data-table" id="transactionsTable">
-            <thead>
-                <tr>
-                    <th>Date & Time</th>
-                    <th>Category</th>
-                    <th>Entity/Number</th>
-                    <th>Status</th>
-                    <th>Raw Detail</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (!empty($transactions)) : ?>
-                    <?php foreach ($transactions as $tx) : ?>
-                        <?php 
-                            // Determine badge color based on category
-                            $badgeClass = 'badge-default';
-                            if (strpos(strtolower($tx->sms_category), 'receive') !== false) $badgeClass = 'badge-success';
-                            elseif (strpos(strtolower($tx->sms_category), 'sent') !== false) $badgeClass = 'badge-primary';
-                            elseif (strpos(strtolower($tx->sms_category), 'error') !== false) $badgeClass = 'badge-danger';
-                            elseif (strpos(strtolower($tx->sms_category), 'withdraw') !== false) $badgeClass = 'badge-warning';
-                            
-                            // Try to decode the base64 body safely
-                            $body =  base64_decode($tx->sms_body);
-                            $bodyStr = (mb_check_encoding($body, 'UTF-8')) ? $body : "Unable to decode";
-                        ?>
-                        <tr>
-                            <td class="search-target"><strong><?= date('M d, Y', ($tx->sms_time / 1000)) ?></strong><br><small><?= date('h:i A', ($tx->sms_time / 1000)) ?></small></td>
-                            <td class="search-target"><span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($tx->sms_category) ?></span></td>
-                            <td class="search-target"><strong><?= htmlspecialchars($tx->sms_number) ?></strong></td>
-                            <td><?= $tx->sms_seen ? '<i class="fa-regular fa-eye text-success"></i> Seen' : '<i class="fa-regular fa-eye-slash text-muted"></i> New' ?></td>
-                            <td class="search-target"><span class="sms-snippet" title="<?= htmlspecialchars($bodyStr) ?>"><?= htmlspecialchars($bodyStr) ?></span></td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else : ?>
+<?= $this->section('content') ?>
+<div class="card trx-card mb-4">
+    <div class="card-body p-4">
+
+
+        <div class="table-responsive">
+            <table id="transactionsTable" class="table table-hover table-striped w-100 align-middle">
+                <thead class="table-light">
                     <tr>
-                        <td colspan="5" style="text-align: center; padding: 30px; color: #888;">No transaction data found for this account. Make sure you have synced from the Android app!</td>
+                        <th scope="col">Date & Time</th>
+                        <th scope="col">Category</th>
+                        <th scope="col">Entity / Number</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Raw Detail</th>
                     </tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    <?php if (!empty($transactions)) : ?>
+                        <?php foreach ($transactions as $tx) : ?>
+                            <?php 
+                                $catLower = strtolower($tx->sms_category);
+                                $badgeClass = 'bg-secondary';
+                                if (strpos($catLower, 'receive') !== false) $badgeClass = 'bg-success';
+                                elseif (strpos($catLower, 'sent') !== false) $badgeClass = 'bg-primary';
+                                elseif (strpos($catLower, 'error') !== false) $badgeClass = 'bg-danger';
+                                elseif (strpos($catLower, 'withdraw') !== false) $badgeClass = 'bg-warning text-dark';
+                                elseif (strpos($catLower, 'fuliza') !== false) $badgeClass = 'bg-danger';
+                                
+                                $body = base64_decode($tx->sms_body);
+                                $bodyStr = (mb_check_encoding($body, 'UTF-8')) ? $body : "Unable to decode";
+                            ?>
+                            <tr>
+                                <td>
+                                    <div class="fw-bold"><?= date('M d, Y', ($tx->sms_time / 1000)) ?></div>
+                                    <small class="text-muted"><?= date('h:i A', ($tx->sms_time / 1000)) ?></small>
+                                </td>
+                                <td><span class="badge rounded-pill <?= $badgeClass ?>"><?= htmlspecialchars($tx->sms_category) ?></span></td>
+                                <td class="fw-bold"><?= htmlspecialchars($tx->sms_number) ?></td>
+                                <td>
+                                    <?php if ($tx->sms_seen): ?>
+                                        <span class="text-success"><i class="fa-regular fa-eye"></i> Seen</span>
+                                    <?php else: ?>
+                                        <span class="text-muted"><i class="fa-regular fa-eye-slash"></i> New</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <span class="d-inline-block text-truncate text-muted" style="max-width: 250px;" title="<?= htmlspecialchars($bodyStr) ?>">
+                                        <?= htmlspecialchars($bodyStr) ?>
+                                    </span>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+        
     </div>
 </div>
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
 <script>
-    // Simple fast client-side search filtering
-    document.getElementById('searchInput').addEventListener('keyup', function() {
-        let filter = this.value.toLowerCase();
-        let rows = document.getElementById('transactionsTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-        
-        for (let i = 0; i < rows.length; i++) {
-            let cells = rows[i].getElementsByClassName('search-target');
-            let match = false;
-            if (cells.length > 0) {
-                for (let j = 0; j < cells.length; j++) {
-                    if (cells[j].innerText.toLowerCase().indexOf(filter) > -1) {
-                        match = true;
-                        break;
-                    }
-                }
-                rows[i].style.display = match ? "" : "none";
+    $(document).ready(function() {
+        // Initialize DataTables with 25 rows per page and Bootstrap 5 styling
+        var table = $('#transactionsTable').DataTable({
+            pageLength: 25,
+            lengthMenu: [[25, 50, 100, -1], [25, 50, 100, "All"]],
+            language: {
+                search: "_INPUT_",
+                searchPlaceholder: "Search records..."
+            },
+            order: [[0, "desc"]] // Order by date descending by default
+        });
+
+        // Custom filtering via Bootstrap Breadcrumb Outline Buttons
+        $('.filter-btn').on('click', function() {
+            // Remove active class from all buttons, add to clicked
+            $('.filter-btn').removeClass('active');
+            $(this).addClass('active');
+
+            var filterValue = $(this).data('filter');
+            
+            if (filterValue === "Recent") {
+                // Clear search, order by date (column 0)
+                table.search('').columns().search('').order([0, 'desc']).draw();
+            } else if (filterValue === "Till" || filterValue === "Paybill") {
+                // Approximate filtering by search term in category or raw detail
+                table.search(filterValue).draw();
+            } else {
+                // Search specifically in the Category column (Column 1)
+                table.columns(1).search(filterValue).draw();
             }
-        }
+        });
     });
 </script>
 <?= $this->endSection() ?>
