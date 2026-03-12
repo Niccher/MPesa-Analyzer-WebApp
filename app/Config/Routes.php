@@ -30,7 +30,8 @@ $routes->set404Override();
 // We get a performance increase by specifying the default
 // route since we don't have to scan directories.
 //$routes->get('/', 'Auths::index');
-$routes->get('/', 'Home::index');
+$routes->get('/', 'Dash::index', ['filter' => 'session']);
+$routes->get('/dashboard', 'Dash::index', ['filter' => 'session']);
 $routes->get('/home', 'Home::index');
 
 $routes->group('auth', function ($routes) {
@@ -50,6 +51,7 @@ $routes->add('/process/device', 'Upload::device_print');
 $routes->add('/process/get/my_uploads', 'Upload::upload_listing');
 $routes->add('/process/get/my_uploads_count', 'Upload::loot_uploaded_count');
 $routes->add('/process/get/my_uploads_category_count', 'Upload::loot_uploaded_category_count');
+$routes->add('/process/get/my_uploads_graph', 'Upload::loot_uploaded_graph');
 $routes->add('/process/set/delete_loot_by_uuid', 'Upload::loot_delete_by_uuid');
 
 $routes->add('/process/get/my_summary', 'Upload::upload_summary');
@@ -59,7 +61,27 @@ $routes->add('/process/get/list_all_sms_in_category', 'Upload::list_all_sms_in_c
 $routes->add('/process/test', 'Testar::random');
 $routes->add('/process/test_data', 'Upload::prepare_dataset');
 
-//service('auth')->routes($routes);##Disable Shield
+// Explicit Shield Authentication Routes
+$routes->group('', ['namespace' => '\CodeIgniter\Shield\Controllers'], static function ($routes) {
+    // Login/out
+    $routes->get('login', 'LoginController::loginView');
+    $routes->post('login', 'LoginController::loginAction');
+    $routes->get('logout', 'LoginController::logoutAction');
+    
+    // Registration
+    $routes->get('register', 'RegisterController::registerView');
+    $routes->post('register', 'RegisterController::registerAction');
+    
+    // Auth Actions (2FA, Email Activation)
+    $routes->get('auth/a/show', 'ActionController::show');
+    $routes->post('auth/a/handle', 'ActionController::handle');
+    $routes->post('auth/a/verify', 'ActionController::verify');
+    
+    // Forgot Password / Magic Link
+    $routes->get('magic-link', 'MagicLinkController::loginView');
+    $routes->post('magic-link', 'MagicLinkController::loginAction');
+    $routes->get('magic-link/verify', 'MagicLinkController::verify');
+});
 
 /*
  * --------------------------------------------------------------------

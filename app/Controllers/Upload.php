@@ -2,135 +2,225 @@
 
 namespace App\Controllers;
 
+use App\Models\ModUploads;
 use App\Models\ModUser;
+use App\Models\ModCryption;
+use CodeIgniter\HTTP\ResponseInterface;
+use CodeIgniter\Files\File;
 use CodeIgniter\API\ResponseTrait;
 use CodeIgniter\Controller;
-
-use App\Models\ModUploads;
-use App\Models\ModCryption;
-
 
 class Upload extends BaseController
 {
     use ResponseTrait;
 
-    public function upload(){
-        $mod_upload = new ModUploads();
+    // Constants for response statuses
+    private const STATUS_SUCCESS = 1;
+    private const STATUS_ERROR = 0;
+    private const STATUS_INVALID_REQUEST = 2;
 
+    protected $db;
+
+    public function __construct() {
+        // Load the database service (CI4 way)
+        $this->db = \Config\Database::connect();
+    }
+
+    /**
+     * Upload and process SMS data file
+     */
+    public function upload(): ResponseInterface {
+        $modUpload = new ModUploads();
         $dated = date('Y-m-d H:i:s');
         $uuid = random_string('alnum', 16);
 
-        if ($this->request->getPost()){
-            //$loot_owner = $mod_user->user_get_id($this->request->getVar('varToken'));
-            $loot_owner = $this->request->getVar('varToken');
-            $loot_device = $this->request->getVar('varDevId');
+        // Validate request method
+        if (!$this->request->is('post')) {
+            return $this->respond([
+                'status' => self::STATUS_INVALID_REQUEST,
+                'time' => $dated,
+                'message' => 'Method not allowed'
+            ]);
+        }
 
-            $uploaded_File = $this->request->getFile('varLoot');
+        // Validate input
+        $validation = $this->validate([
+            'varToken' => 'required|string|min_length[8]|max_length[64]',
+            'varDevId' => 'required|string|min_length[8]|max_length[64]',
+            'varLoot' => 'uploaded[varLoot]|max_size[varLoot,51200]',
+        ]);
 
-            move_uploaded_file($_FILES["varLoot"]["tmp_name"], WRITEPATH .'uploads/txt_loot/'.$uploaded_File->getName());
+        if (!$validation) {
+            return $this->respond([
+                'status' => self::STATUS_INVALID_REQUEST,
+                'time' => $dated,
+                'message' => 'Validation failed',
+                'errors' => $this->validator->getErrors()
+            ]);
+        }
+
+        try {
+            $file = $this->request->getFile('varLoot');
+            $newName = $file->getRandomName();
+            $uploadPath = WRITEPATH . 'uploads/txt_loot/';
+
+            if (!$file->move($uploadPath, $newName)) {
+                throw new \RuntimeException('File move failed');
+            }
 
             $data = [
-                'loot_Name' =>  $uploaded_File->getName(),
-                'loot_Type'  => $uploaded_File->getClientMimeType(),
-                'loot_Extension'  => $uploaded_File->getClientExtension(),
-                'loot_Size'  => $uploaded_File->getSize(),
-                'loot_Owner'  => $loot_owner,
-                'loot_Uuid'  => $uuid,
-                'loot_Device'  => $loot_device,
-                'loot_Created'  => $dated
+                'loot_Name' => $newName,
+                'loot_Type' => $file->getClientMimeType(),
+                'loot_Extension' => $file->getClientExtension(),
+                'loot_Size' => $file->getSize(),
+                'loot_Owner' => (string) $this->request->getPost('varToken'),
+                'loot_Uuid' => $uuid,
+                'loot_Device' => (string) $this->request->getPost('varDevId'),
+                'loot_Created' => $dated
             ];
 
-            $pushed = $mod_upload->file_upload($data);
-            $loot_uuid = $uuid; //$mod_upload->loot_last_uploaded();
-            $mod_upload->loot_parse_sms($loot_uuid, $loot_owner, $loot_device, $dated);
+            $this->db->transStart();
 
-            if ($pushed){
-                return $this->respond([
-                    'status' => 1,
-                    'time' => $dated,
-                    'message' => "File Uploaded Successfully"
-                ]);
-            }else{
-                return $this->respond([
-                    'status' => 0,
-                    'time' => $dated,
-                    'message' => "File Uploaded has encountered an error"
-                ]);
+            if (!$modUpload->file_upload($data)) {
+                throw new \RuntimeException('Database insert failed');
             }
 
-        }else{
+            $modUpload->loot_parse_sms($uuid, $data['loot_Owner'], $data['loot_Device'], $dated);
+
+            $this->db->transComplete();
+
             return $this->respond([
-                'status' => 2,
+                'status' => self::STATUS_SUCCESS,
                 'time' => $dated,
-                'message' => "Unexpected request sent"
+                'message' => 'File uploaded and processed successfully',
+                'uuid' => $uuid
+            ]);
+
+        } catch (\Throwable $e) {
+            log_message('error', 'Upload Error: ' . $e->getMessage());
+            return $this->respond([
+                'status' => self::STATUS_ERROR,
+                'time' => $dated,
+                'message' => 'File processing failed',
+                'error' => ENVIRONMENT === 'development' ? $e->getMessage() : null
             ]);
         }
     }
 
-    public function device_print(){
-        $mod_upload = new ModUploads();
-        $mod_crypt = new ModCryption();
-        $session = session();
-
+    /**
+     * Register or identify a device
+     */
+    public function device_print(): ResponseInterface {
+        $modUpload = new ModUploads();
         $dated = date('Y-m-d H:i:s');
         $uuid = random_string('alnum', 16);
 
-        if (empty($session->get('user_name'))){
-            //echo "Not Logged In";
+        if (!$this->request->is('post')) {
+            return $this->fail('Method not allowed', 405);
         }
 
-        if ($this->request->getPost()){
-            $d_info['device_Device'] = $this->request->getVar('device_Device');
-            $d_info['device_Uuid'] = $uuid;
-            $d_info['device_Created_At'] = $dated;
-            $d_info['device_Product'] = $this->request->getVar('device_Product');
-            $d_info['device_Bootloader'] = $this->request->getVar('device_Bootloader');
-            $d_info['device_Type'] = $this->request->getVar('device_Type');
-            $d_info['device_Tags'] = $this->request->getVar('device_Tags');
-            $d_info['device_Host'] = $this->request->getVar('device_Host');
-            $d_info['device_Display'] = $this->request->getVar('device_Display');
-            $d_info['device_Hardware'] = $this->request->getVar('device_Hardware');
-            $d_info['device_Fingerprint'] = $this->request->getVar('device_Fingerprint');
-            $d_info['device_Manufacturer'] = $this->request->getVar('device_Manufacturer');
-            $d_info['device_Brand'] = $this->request->getVar('device_Brand');
-            $d_info['device_Board'] = $this->request->getVar('device_Board');
-            $d_info['device_User'] = $this->request->getVar('device_User');
-            $d_info['device_Model'] = $this->request->getVar('device_Model');
-            $d_info['device_Time'] = $this->request->getVar('device_Time');
-            $d_info['device_Serial'] = $this->request->getVar('device_Serial');
+        $deviceData = [
+            'device_Device' => (string) $this->request->getPost('device_Device'),
+            'device_Uuid' => $uuid,
+            'device_Created_At' => $dated,
+            'device_Product' => (string) $this->request->getPost('device_Product'),
+            'device_Bootloader' => (string) $this->request->getPost('device_Bootloader'),
+            'device_Type' => (string) $this->request->getPost('device_Type'),
+            'device_Tags' => (string) $this->request->getPost('device_Tags'),
+            'device_Host' => (string) $this->request->getPost('device_Host'),
+            'device_Display' => (string) $this->request->getPost('device_Display'),
+            'device_Hardware' => (string) $this->request->getPost('device_Hardware'),
+            'device_Fingerprint' => (string) $this->request->getPost('device_Fingerprint'),
+            'device_Manufacturer' => (string) $this->request->getPost('device_Manufacturer'),
+            'device_Brand' => (string) $this->request->getPost('device_Brand'),
+            'device_Board' => (string) $this->request->getPost('device_Board'),
+            'device_User' => (string) $this->request->getPost('device_User'),
+            'device_Model' => (string) $this->request->getPost('device_Model'),
+            'device_Time' => $this->parseLongInt($this->request->getPost('device_Time')),
+            'device_Serial' => (string) $this->request->getPost('device_Serial')
+        ];
 
-            $dev_check = $mod_upload->device_check_print($d_info);
-            if (empty($dev_check)){
-                $dev_make = $mod_upload->device_make_print($d_info);
-                if ($dev_make){
-                    $dev_check = $mod_upload->device_check_print($d_info);
-                    return $this->respond([
-                        'status' => 1,
-                        'message' => "New Id assigned device_id as ",
-                        //'print_id' => $dev_check[0]->device_Id,
-                        'print_id' => $dev_check[0]->device_Uuid,
-                        'time' => $dated,
-                    ]);
-                }else{}
-            }else{
-                return $this->respond([
-                    'status' => 1,
-                    'message' => "Old Id re-assigned device_id as ",
-                    //'print_id' => $dev_check[0]->device_Id,
-                    'print_id' => $dev_check[0]->device_Uuid,
-                    'time' => $dated,
-                ]);
+        try {
+            $existingDevice = $modUpload->device_check_print($deviceData);
+
+            if (empty($existingDevice)) {
+                if (!$modUpload->device_make_print($deviceData)) {
+                    throw new \RuntimeException('Device registration failed');
+                }
+                $existingDevice = $modUpload->device_check_print($deviceData);
+                $message = 'New device registered';
+            } else {
+                $message = 'Existing device identified';
             }
-        }else{
+
             return $this->respond([
-                'status' => 2,
+                'status' => self::STATUS_SUCCESS,
+                'message' => $message,
+                'print_id' => $existingDevice[0]->device_Uuid,
                 'time' => $dated,
-                'message' => "Unexpected request sent"
+            ]);
+
+        } catch (\Throwable $e) {
+            log_message('error', 'Device Print Error: ' . $e->getMessage());
+            return $this->respond([
+                'status' => self::STATUS_ERROR,
+                'time' => $dated,
+                'message' => 'Device processing failed'
             ]);
         }
     }
 
-    public function upload_listing(){
+    /**
+     * Get list of uploads for a user/device
+     */
+    public function upload_listing(): ResponseInterface {
+        $modUpload = new ModUploads();
+        $dated = date('Y-m-d H:i:s');
+
+        if (!$this->request->is('post')) {
+            return $this->fail('Method not allowed', 405);
+        }
+
+        try {
+            $ownerUuid = (string) $this->request->getPost('varUser');
+            $deviceId = (string) $this->request->getPost('varDev');
+
+            $uploads = $modUpload->file_listing($ownerUuid, $deviceId);
+            $result = [];
+
+            foreach ($uploads as $upload) {
+                $summary = $modUpload->loot_summary($upload->loot_Uuid);
+                $result[] = [
+                    'summary_Loot_Uuid' => $upload->loot_Uuid,
+                    'summary_Created' => $upload->loot_Created,
+                    'summary_Count' => $summary[0]->info_All ?? 0,
+                    'summary_Received' => $summary[0]->info_Get_from_MPESA ?? 0,
+                    'summary_Sent' => $summary[0]->info_Sent_to_MPESA ?? 0,
+                    'summary_Unknown' => $summary[0]->info_Unknown ?? 0
+                ];
+            }
+
+            return $this->respond([
+                'status' => self::STATUS_SUCCESS,
+                'time' => $dated,
+                'summarizer' => $result
+            ]);
+
+        } catch (\Throwable $e) {
+            log_message('error', 'Upload Listing Error: ' . $e->getMessage());
+            return $this->respond([
+                'status' => self::STATUS_ERROR,
+                'time' => $dated,
+                'message' => 'Failed to retrieve upload list',
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get detailed SMS statistics last 3 uploads
+     */
+    public function upload_list_graph(){
         $mod_upload = new ModUploads();
         $mod_cryption = new ModCryption();
         $mod_user = new ModUser();
@@ -155,11 +245,6 @@ class Upload extends BaseController
                 $counter +=1;
                 $loot_meta = $mod_upload->loot_summary($loot_info->loot_Uuid); //tbl_Loot_Summary
                 $data = [
-                    //'summary_Type'  => $loot_info->loot_Type,
-                    //'summary_Extension'  => $loot_info->loot_Extension,
-                    //'summary_Size'  => $loot_info->loot_Size,
-                    //'summary_Owner'  => $loot_info->loot_Owner,
-                    //'summary_Device'  => $loot_info->loot_Device,
                     'summary_Loot_Uuid'  => $loot_info->loot_Uuid,
                     'summary_Created'  => $loot_info->loot_Created,
                     'summary_Count'  => $loot_meta[0]->info_All,
@@ -168,202 +253,232 @@ class Upload extends BaseController
                     'summary_Unknown' => $loot_meta[0]->info_Unknown
                 ];
                 array_push($loot_array,$data);
-                if ($counter == ($loot_size)){
+
+                if ($counter == 4) {
                     print json_encode($data);
-                }else{
+                    break; // Exit the loop after the third item
+                } else {
                     print json_encode($data).",";
                 }
             }
-            //print_r($loot_array);
             echo "]}";
-            //echo json_encode($loot_array);
         }
     }
 
-    public function upload_summary_calculation(){
-        $mod_upload = new ModUploads();
-        $mod_cryption = new ModCryption();
-        $mod_user = new ModUser();
-
+    /**
+     * Get detailed SMS statistics for a specific upload
+     */
+    public function upload_summary_calculation(): ResponseInterface {
+        $modUpload = new ModUploads();
         $dated = date('Y-m-d H:i:s');
 
-        if ($this->request->getPost()){
-            $summ_owner_uuid = $this->request->getVar('varUser');
-            $summ_device = $this->request->getVar('varDev');
-            $summ_owner = $mod_user->user_get_id($summ_owner_uuid);
-            $summ_loot_uuid = $this->request->getVar('varLootUuid');
+        if (!$this->request->is('post')) {
+            return $this->fail('Method not allowed', 405);
+        }
 
-            //$loot__uuid = $mod_upload->get_loot_uuid($summ_loot_name);
-            $loot__uuid = $summ_loot_uuid;
-            $loot__info = $mod_upload->loot_info_all($loot__uuid);
-            $loot__summary = $mod_upload->loot_summary($loot__uuid);
+        try {
+            $lootUuid = (string) $this->request->getPost('varLootUuid');
+            $summary = $modUpload->loot_summary($lootUuid);
+
+            if (empty($summary)) {
+                return $this->respond([
+                    'status' => self::STATUS_ERROR,
+                    'time' => $dated,
+                    'message' => 'No data found for this upload'
+                ]);
+            }
+
+            //////////////////////
+            ///
+            $response_data = ['status' => self::STATUS_SUCCESS,
+                'time' => $dated,
+                'loot_summarizer' => $this->formatSummaryData($summary[0])];
+
+            $data = json_encode($response_data, JSON_PRETTY_PRINT);
+
+            // Check if the 'loot_summarizer' key exists
+            if (isset($data['loot_summarizer'])) {
+                // Assign the 'loot_summarizer' subarray to be the new data
+                // Encode the transformed array back into a JSON string
+                $transformedJson = json_encode($data['loot_summarizer'], JSON_PRETTY_PRINT);
+
+                print_r($transformedJson);
+                echo gettype($transformedJson);
+            }
 
             return $this->respond([
-                'status' => 1,
-                'count_Get_from_MPESA' => $loot__summary[0]->info_Get_from_MPESA,
-                'count_Get_from_KCB' => $loot__summary[0]->info_Get_from_KCB,
-                'count_Get_from_Mshwari' => $loot__summary[0]->info_Get_from_Mshwari,
-                'count_Get_from_NCBA' => $loot__summary[0]->info_Get_from_NCBA,
-                'count_Get_from_IM' => $loot__summary[0]->info_Get_from_IM,
-                'count_Get_from_Reversal' => $loot__summary[0]->info_Get_from_Reversal,
-                'count_Get_Bal_MPESA' => $loot__summary[0]->info_Get_Bal_MPESA,
-                'count_Get_Bal_KCB' => $loot__summary[0]->info_Get_Bal_KCB,
-                'count_Get_Bal_Mshwari' => $loot__summary[0]->info_Get_Bal_Mshwari,
-                'count_Loan_Limit' => $loot__summary[0]->info_Loan_Limit,
-                'count_Sent_to_MPESA' => $loot__summary[0]->info_Sent_to_MPESA,
-                'count_Sent_to_Mshwari' => $loot__summary[0]->info_Sent_to_Mshwari,
-                'count_Sent_to_LNM' => $loot__summary[0]->info_Sent_to_LNM,
-                'count_Sent_Mini' => $loot__summary[0]->info_Sent_Mini,
-                'count_Sent_Cancel' => $loot__summary[0]->info_Sent_Cancel,
-                'count_Error_Failed' => $loot__summary[0]->info_Error_Failed,
-                'count_Error_Pin' => $loot__summary[0]->info_Error_Pin,
-                'count_Error_Less' => $loot__summary[0]->info_Error_Less,
-                'count_Error_Receiver' => $loot__summary[0]->info_Error_Receiver,
-                'count_Error_Receiver_Org' => $loot__summary[0]->info_Error_Receiver_Org,
-                'count_Withdraw' => $loot__summary[0]->info_Withdraw,
-                'count_Fuliza_Opt_Out' => $loot__summary[0]->info_Fuliza_Opt_Out,
-                'count_Fuliza_Opt_In' => $loot__summary[0]->info_Fuliza_Opt_In,
-                'count_Fuliza_Limit' => $loot__summary[0]->info_Fuliza_Limit,
-                'count_Fuliza_Loan_Paid' => $loot__summary[0]->info_Fuliza_Loan_Paid,
-                'count_Fuliza_Mini_Statement' => $loot__summary[0]->info_Fuliza_Mini_Statement,
-                'count_Fuliza_Loan_Taken' => $loot__summary[0]->info_Fuliza_Loan_Taken,
-                'count_Similar_Transaction' => $loot__summary[0]->info_Similar_Transaction,
-                'count_All' => $loot__summary[0]->info_All,
-                'count_Unknown' => $loot__summary[0]->info_Unknown,
-                'loot_Created' => $loot__summary[0]->loot_Created,
-                'loot_Uuid' => $loot__summary[0]->loot_Uuid,//
-                //'time' => $dated,
+//                'status' => self::STATUS_SUCCESS,
+//                'time' => $dated,
+//                'loot_summarizer' => $this->formatSummaryData($summary[0]),
+                'loot_summarizer' => $response_data['loot_summarizer']
+            ]);
+
+        } catch (\Throwable $e) {
+            log_message('error', 'Summary Calculation Error: ' . $e->getMessage());
+            return $this->respond([
+                'status' => self::STATUS_ERROR,
+                'time' => $dated,
+                'message' => 'Failed to calculate summary',
+                'error' => $e->getMessage()
             ]);
         }
     }
 
-    public function loot_uploaded_count(){
-        $mod_upload = new ModUploads();
-        $mod_user = new ModUser();
-
+    /**
+     * Count uploads for a user/device
+     */
+    public function loot_uploaded_count(): ResponseInterface {
+        $modUpload = new ModUploads();
         $dated = date('Y-m-d H:i:s');
 
-        if ($this->request->getPost()){
-            $loot_owner_uuid = $this->request->getVar('varUser');
-            $loot_device = $this->request->getVar('varDev');
-            //$loot_owner = $mod_user->user_get_id($loot_owner_uuid);
-            //$loot_name = $this->request->getVar('varLootName');
+        if (!$this->request->is('post')) {
+            return $this->fail('Method not allowed', 405);
+        }
 
-            $loot_count = $mod_upload->file_listing($loot_owner_uuid, $loot_device);
+        try {
+            $ownerUuid = (string) $this->request->getPost('varUser');
+            $deviceId = (string) $this->request->getPost('varDev');
+            $uploads = $modUpload->file_listing($ownerUuid, $deviceId);
 
-            if ($loot_count){
-                return $this->respond([
-                    'msg_status' => 1,
-                    'msg_count' => count($loot_count),
-                    'msg_time' => $dated,
-                ]);
-            }else{
-                if (empty($loot_count)){
-                    return $this->respond([
-                        'msg_status' => 1,
-                        'msg_state' => "empty",
-                        'msg_count' => 0,
-                        'msg_time' => $dated,
-                    ]);
-                }else{
-                    return $this->respond([
-                        'msg_status' => 2,
-                        'msg_time' => $dated,
-                    ]);
-                }
+            return $this->respond([
+                'msg_status' => self::STATUS_SUCCESS,
+                'msg_count' => count($uploads),
+                'msg_time' => $dated,
+                'msg_state' => empty($uploads) ? 'empty' : 'found'
+            ]);
+
+        } catch (\Throwable $e) {
+            log_message('error', 'Upload Count Error: ' . $e->getMessage());
+            return $this->respond([
+                'msg_status' => self::STATUS_ERROR,
+                'msg_time' => $dated,
+                'message' => 'Failed to count uploads',
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get aggregated category counts across uploads
+     */
+    public function loot_uploaded_category_count(): ResponseInterface {
+        $modUpload = new ModUploads();
+        $dated = date('Y-m-d H:i:s');
+
+        if (!$this->request->is('post')) {
+            return $this->fail('Method not allowed', 405);
+        }
+
+        try {
+            $ownerUuid = (string) $this->request->getPost('varUser');
+            $deviceId = (string) $this->request->getPost('varDev');
+
+            $uploads = $modUpload->file_listing($ownerUuid, $deviceId);
+            $uuids = array_column($uploads, 'loot_Uuid');
+
+            $summaries = $modUpload->get_loot_summary_from_uuids($uuids);
+            $result = [];
+
+            foreach ($summaries as $summary) {
+                $result[] = $this->formatSummaryData($summary);
             }
+
+            return $this->respond([
+                'status' => self::STATUS_SUCCESS,
+                'time' => $dated,
+                'loot_summarizer' => ['loot_summarizer' => $result]
+            ]);
+
+        } catch (\Throwable $e) {
+            log_message('error', 'Category Count Error: ' . $e->getMessage());
+            return $this->respond([
+                'status' => self::STATUS_ERROR,
+                'time' => $dated,
+                'message' => 'Failed to retrieve category counts',
+                'error' => $e->getMessage()
+            ]);
         }
     }
 
-	public function loot_uploaded_category_count(){
-        $mod_upload = new ModUploads();
-        $mod_user = new ModUser();
-
+    /**
+     * Delete upload by UUID
+     */
+    public function loot_delete_by_uuid(): ResponseInterface {
+        $modUpload = new ModUploads();
         $dated = date('Y-m-d H:i:s');
 
-        if ($this->request->getPost()){
-            $loot_owner_uuid = $this->request->getVar('varUser');
-            $loot_device = $this->request->getVar('varDev');
-            //$loot_owner = $mod_user->user_get_id($loot_owner_uuid);
-            //$loot_name = $this->request->getVar('varLootName');
+        if (!$this->request->is('post')) {
+            return $this->fail('Method not allowed', 405);
+        }
 
-            $loot_entries = $mod_upload->file_listing($loot_owner_uuid, $loot_device);
-			$loot_uuids = array();
+        try {
+            $lootUuid = (string) $this->request->getPost('varLootUuid');
+            // Implement actual deletion logic here
+            // $success = $modUpload->deleteByUuid($lootUuid);
 
-			foreach ($loot_entries as $loot_entry){
-				array_push($loot_uuids, $loot_entry->loot_Uuid);
-			}
+            return $this->respond([
+                'status' => self::STATUS_SUCCESS,
+                'time' => $dated,
+                'message' => 'Deletion endpoint not yet implemented'
+            ]);
 
-	        $loot_category_count = $mod_upload->get_loot_summary_from_uuids($loot_uuids);
-
-	        //$loot_json = '';
-	        //$loot_json .= '{"loot_summarizer":[';
-	        echo '{"loot_summarizer":[';
-	        $counter = 0;
-	        $loot_size = count($loot_category_count);
-	        $loot_summary = array();
-	        foreach ($loot_category_count as $loot_info) {
-		        $counter +=1;
-		        $data = [
-                    'count_Get_from_MPESA' => $loot_info->info_Get_from_MPESA,
-                    'count_Get_from_KCB' => $loot_info->info_Get_from_KCB,
-                    'count_Get_from_Mshwari' => $loot_info->info_Get_from_Mshwari,
-                    'count_Get_from_NCBA' => $loot_info->info_Get_from_NCBA,
-                    'count_Get_from_IM' => $loot_info->info_Get_from_IM,
-                    'count_Get_from_Reversal' => $loot_info->info_Get_from_Reversal,
-                    'count_Get_Bal_MPESA' => $loot_info->info_Get_Bal_MPESA,
-                    'count_Get_Bal_KCB' => $loot_info->info_Get_Bal_KCB,
-                    'count_Get_Bal_Mshwari' => $loot_info->info_Get_Bal_Mshwari,
-                    'count_Loan_Limit' => $loot_info->info_Loan_Limit,
-                    'count_Sent_to_MPESA' => $loot_info->info_Sent_to_MPESA,
-                    'count_Sent_to_Mshwari' => $loot_info->info_Sent_to_Mshwari,
-                    'count_Sent_to_LNM' => $loot_info->info_Sent_to_LNM,
-                    'count_Sent_Mini' => $loot_info->info_Sent_Mini,
-                    'count_Sent_Cancel' => $loot_info->info_Sent_Cancel,
-                    'count_Error_Failed' => $loot_info->info_Error_Failed,
-                    'count_Error_Pin' => $loot_info->info_Error_Pin,
-                    'count_Error_Less' => $loot_info->info_Error_Less,
-                    'count_Error_Receiver' => $loot_info->info_Error_Receiver,
-                    'count_Error_Receiver_Org' => $loot_info->info_Error_Receiver_Org,
-                    'count_Withdraw' => $loot_info->info_Withdraw,
-                    'count_Fuliza_Opt_Out' => $loot_info->info_Fuliza_Opt_Out,
-                    'count_Fuliza_Opt_In' => $loot_info->info_Fuliza_Opt_In,
-                    'count_Fuliza_Limit' => $loot_info->info_Fuliza_Limit,
-                    'count_Fuliza_Loan_Paid' => $loot_info->info_Fuliza_Loan_Paid,
-                    'count_Fuliza_Mini_Statement' => $loot_info->info_Fuliza_Mini_Statement,
-                    'count_Fuliza_Loan_Taken' => $loot_info->info_Fuliza_Loan_Taken,
-                    'count_Similar_Transaction' => $loot_info->info_Similar_Transaction,
-                    'count_All' => $loot_info->info_All,
-                    'count_Unknown' => $loot_info->info_Unknown,
-                    'loot_Created' => $loot_info->loot_Created,
-		        ];
-		        array_push($loot_summary,$data);
-		        if ($counter == ($loot_size)){
-			        print json_encode($data);
-			        //$loot_json .= json_encode($data);
-		        }else{
-			        print json_encode($data).",";
-			        //$loot_json .= json_encode($data).",";
-		        }
-	        }
-	        echo "]}";
-	        //$loot_json .= "]}";
-			//return json_encode($loot_json);
+        } catch (\Throwable $e) {
+            log_message('error', 'Delete Error: ' . $e->getMessage());
+            return $this->respond([
+                'status' => self::STATUS_ERROR,
+                'time' => $dated,
+                'message' => 'Deletion failed',
+                'error' => $e->getMessage()
+            ]);
         }
     }
 
-    public function loot_delete_by_uuid(){
-        $mod_upload = new ModUploads();
-        $mod_user = new ModUser();
+    /**
+     * Format summary data consistently
+     */
+    private function formatSummaryData(object $summary): array {
+        return [
+            'status' => 1,
+            'count_Get_from_MPESA' => $summary->info_Get_from_MPESA,
+            'count_Get_from_KCB' => $summary->info_Get_from_KCB,
+            'count_Get_from_Mshwari' => $summary->info_Get_from_Mshwari,
+            'count_Get_from_NCBA' => $summary->info_Get_from_NCBA,
+            'count_Get_from_IM' => $summary->info_Get_from_IM,
+            'count_Get_from_Reversal' => $summary->info_Get_from_Reversal,
+            'count_Get_Bal_MPESA' => $summary->info_Get_Bal_MPESA,
+            'count_Get_Bal_KCB' => $summary->info_Get_Bal_KCB,
+            'count_Get_Bal_Mshwari' => $summary->info_Get_Bal_Mshwari,
+            'count_Loan_Limit' => $summary->info_Loan_Limit,
+            'count_Sent_to_MPESA' => $summary->info_Sent_to_MPESA,
+            'count_Sent_to_Mshwari' => $summary->info_Sent_to_Mshwari,
+            'count_Sent_to_LNM' => $summary->info_Sent_to_LNM,
+            'count_Sent_Mini' => $summary->info_Sent_Mini,
+            'count_Sent_Cancel' => $summary->info_Sent_Cancel,
+            'count_Error_Failed' => $summary->info_Error_Failed,
+            'count_Error_Pin' => $summary->info_Error_Pin,
+            'count_Error_Less' => $summary->info_Error_Less,
+            'count_Error_Receiver' => $summary->info_Error_Receiver,
+            'count_Error_Receiver_Org' => $summary->info_Error_Receiver_Org,
+            'count_Withdraw' => $summary->info_Withdraw,
+            'count_Fuliza_Opt_Out' => $summary->info_Fuliza_Opt_Out,
+            'count_Fuliza_Opt_In' => $summary->info_Fuliza_Opt_In,
+            'count_Fuliza_Limit' => $summary->info_Fuliza_Limit,
+            'count_Fuliza_Loan_Paid' => $summary->info_Fuliza_Loan_Paid,
+            'count_Fuliza_Mini_Statement' => $summary->info_Fuliza_Mini_Statement,
+            'count_Fuliza_Loan_Taken' => $summary->info_Fuliza_Loan_Taken,
+            'count_Similar_Transaction' => $summary->info_Similar_Transaction,
+            'count_All' => $summary->info_All,
+            'count_Unknown' => $summary->info_Unknown,
+            'loot_Created' => $summary->loot_Created,
+            'loot_Uuid' => $summary->loot_Uuid,//
+        ];
+    }
 
-        $dated = date('Y-m-d H:i:s');
-
-        if ($this->request->getPost()){
-            $loot_owner_uuid = $this->request->getVar('varUser');
-            $loot_device = $this->request->getVar('varDev');
-            $loot_uuid = $this->request->getVar('varLootUuid');
-            //$loot_owner = $mod_user->user_get_id($loot_owner_uuid);
-            //$loot_name = $this->request->getVar('varLootName');
-        }
+    /**
+     * Safely parse long integer from input
+     */
+    private function parseLongInt($value): int {
+        $clean = preg_replace('/[^0-9]/', '', (string) $value);
+        return is_numeric($clean) ? (int) $clean : time() * 1000;
     }
 }
