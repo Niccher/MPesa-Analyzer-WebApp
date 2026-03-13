@@ -156,8 +156,13 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link <?= ($currentURL == 'dashboard/search') ? 'active' : '' ?>" href="<?= base_url('dashboard/search') ?>">
+                        <i class="fa-solid fa-magnifying-glass"></i> Search & Filtering
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link <?= strpos($currentURL, 'dashboard/transactions') !== false ? 'active' : '' ?>" href="<?= url_to('Transactions::index') ?>">
-                        <i class="fa-solid fa-magnifying-glass"></i> Transactions
+                        <i class="fa-solid fa-list-check"></i> Transactions
                     </a>
                 </li>
                 <li class="nav-item">

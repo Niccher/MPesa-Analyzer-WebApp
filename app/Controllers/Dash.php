@@ -10,13 +10,21 @@ class Dash extends BaseController
     public function index()
     {
         $mod_uploads = new ModUploads();
+        helper('mpesa_date');
         
-        // Fetch some basic stats for the dashboard
-        // In a real scenario, we would filter by user_id
+        $lastDate = $mod_uploads->getLastUploadDate() ?? date('Y-m-d H:i:s');
+        
+        $metrics = $mod_uploads->getDashboardMetrics30Days($lastDate);
+        $sent_summary = $mod_uploads->getSentSummary30Days($lastDate);
+        $received_summary = $mod_uploads->getReceivedSummary30Days($lastDate);
+        $recent_transactions = $mod_uploads->getRecentTransactions(10);
+        
         $data = [
             'total_uploads' => $mod_uploads->countAll(),
-            'recent_uploads' => $mod_uploads->orderBy('loot_Id', 'DESC')->limit(5)->find(),
-            // Background color from Android app
+            'metrics' => $metrics,
+            'sent_summary' => $sent_summary,
+            'received_summary' => $received_summary,
+            'recent_transactions' => $recent_transactions,
             'bg_color' => '#B1B8ED'
         ];
 

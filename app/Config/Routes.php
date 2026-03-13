@@ -33,6 +33,7 @@ $routes->set404Override();
 $routes->get('/', 'Home::index');
 $routes->get('/dashboard', 'Dash::index', ['filter' => 'session']);
 $routes->get('/dashboard/graph', 'Graph::index', ['filter' => 'session']);
+$routes->get('/dashboard/search', 'Search::index', ['filter' => 'session']);
 $routes->get('/dashboard/transactions', 'Transactions::index', ['filter' => 'session']);
 $routes->get('/dashboard/history', 'History::index', ['filter' => 'session']);
 $routes->get('/dashboard/info', 'Info::index', ['filter' => 'session']);

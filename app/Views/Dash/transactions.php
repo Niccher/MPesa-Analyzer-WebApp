@@ -58,8 +58,8 @@
                         <th scope="col">Date & Time</th>
                         <th scope="col">Category</th>
                         <th scope="col">Entity / Number</th>
-                        <th scope="col">Status</th>
-                        <th scope="col">Raw Detail</th>
+                        <th scope="col">Preview</th>
+                        <th scope="col" class="text-end px-4">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -68,7 +68,7 @@
                             <?php 
                                 $catLower = strtolower($tx->sms_category);
                                 $badgeClass = 'bg-secondary';
-                                if (strpos($catLower, 'receive') !== false) $badgeClass = 'bg-success';
+                                if (strpos($catLower, 'received') !== false) $badgeClass = 'bg-success';
                                 elseif (strpos($catLower, 'sent') !== false) $badgeClass = 'bg-primary';
                                 elseif (strpos($catLower, 'error') !== false) $badgeClass = 'bg-danger';
                                 elseif (strpos($catLower, 'withdraw') !== false) $badgeClass = 'bg-warning text-dark';
@@ -76,25 +76,27 @@
                                 
                                 $body = base64_decode($tx->sms_body);
                                 $bodyStr = (mb_check_encoding($body, 'UTF-8')) ? $body : "Unable to decode";
+                                
+                                // Handle time if it's a string or ms timestamp
+                                $displayTime = is_numeric($tx->sms_time) ? date('Y-m-d H:i:s', $tx->sms_time / 1000) : $tx->sms_time;
                             ?>
                             <tr>
                                 <td>
-                                    <div class="fw-bold"><?= date('M d, Y', ($tx->sms_time / 1000)) ?></div>
-                                    <small class="text-muted"><?= date('h:i A', ($tx->sms_time / 1000)) ?></small>
+                                    <div class="fw-bold"><?= format_mpesa_date($tx->sms_time) ?></div>
                                 </td>
                                 <td><span class="badge rounded-pill <?= $badgeClass ?>"><?= htmlspecialchars($tx->sms_category) ?></span></td>
                                 <td class="fw-bold"><?= htmlspecialchars($tx->sms_number) ?></td>
                                 <td>
-                                    <?php if ($tx->sms_seen): ?>
-                                        <span class="text-success"><i class="fa-regular fa-eye"></i> Seen</span>
-                                    <?php else: ?>
-                                        <span class="text-muted"><i class="fa-regular fa-eye-slash"></i> New</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <span class="d-inline-block text-truncate text-muted" style="max-width: 250px;" title="<?= htmlspecialchars($bodyStr) ?>">
+                                    <span class="d-inline-block text-truncate text-muted small" style="max-width: 250px;">
                                         <?= htmlspecialchars($bodyStr) ?>
                                     </span>
+                                </td>
+                                <td class="text-end px-4">
+                                    <button class="btn btn-sm btn-light rounded-circle shadow-sm view-sms-btn" 
+                                            data-time="<?= format_mpesa_date($tx->sms_time) ?>"
+                                            data-body="<?= htmlspecialchars($bodyStr) ?>">
+                                        <i class="fa-solid fa-eye text-primary"></i>
+                                    </button>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -105,12 +107,37 @@
         
     </div>
 </div>
+
+<!-- SMS Detail Modal -->
+<div class="modal fade" id="smsDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Transaction Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="text-secondary small fw-bold text-uppercase">Time</label>
+                    <p id="modal-sms-time" class="mb-0 fw-semibold"></p>
+                </div>
+                <div>
+                    <label class="text-secondary small fw-bold text-uppercase">Message Content</label>
+                    <div class="p-3 bg-light rounded-3 mt-1" id="modal-sms-body" style="white-space: pre-wrap; font-size: 0.9rem;"></div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-primary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
+<?php helper('mpesa_date'); ?>
 <script>
     $(document).ready(function() {
-        // Initialize DataTables with 25 rows per page and Bootstrap 5 styling
         var table = $('#transactionsTable').DataTable({
             pageLength: 25,
             lengthMenu: [[25, 50, 100, -1], [25, 50, 100, "All"]],
@@ -118,25 +145,30 @@
                 search: "_INPUT_",
                 searchPlaceholder: "Search records..."
             },
-            order: [[0, "desc"]] // Order by date descending by default
+            order: [[0, "desc"]]
         });
 
-        // Custom filtering via Bootstrap Breadcrumb Outline Buttons
+        // Modal Logic
+        const detailModal = new bootstrap.Modal(document.getElementById('smsDetailModal'));
+        const modalTime = document.getElementById('modal-sms-time');
+        const modalBody = document.getElementById('modal-sms-body');
+
+        $('#transactionsTable').on('click', '.view-sms-btn', function() {
+            modalTime.textContent = $(this).attr('data-time');
+            modalBody.innerHTML = $(this).attr('data-body').replace(/\n/g, '<br>');
+            detailModal.show();
+        });
+
         $('.filter-btn').on('click', function() {
-            // Remove active class from all buttons, add to clicked
             $('.filter-btn').removeClass('active');
             $(this).addClass('active');
-
             var filterValue = $(this).data('filter');
             
             if (filterValue === "Recent") {
-                // Clear search, order by date (column 0)
                 table.search('').columns().search('').order([0, 'desc']).draw();
             } else if (filterValue === "Till" || filterValue === "Paybill") {
-                // Approximate filtering by search term in category or raw detail
                 table.search(filterValue).draw();
             } else {
-                // Search specifically in the Category column (Column 1)
                 table.columns(1).search(filterValue).draw();
             }
         });

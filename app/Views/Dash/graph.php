@@ -24,7 +24,12 @@
 <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-3">
     <div>
         <h2 class="fw-bold mb-1" style="color: var(--primary);">Data Visualizations</h2>
-        <p class="text-secondary mb-0">A visual breakdown of tracked M-Pesa activity</p>
+        <p class="text-secondary mb-0">A visual breakdown of tracked activity (Last 30 Days)</p>
+    </div>
+    <div>
+        <a href="<?= base_url('dashboard/search') ?>" class="btn btn-primary rounded-pill px-4 shadow-sm">
+            <i class="fa-solid fa-magnifying-glass me-2"></i> Search and Filtering
+        </a>
     </div>
 </div>
 <?= $this->endSection() ?>
@@ -37,7 +42,7 @@
         <div class="card chart-card h-100">
             <div class="card-body p-4">
                 <h5 class="card-title fw-bold mb-4"><i class="fa-solid fa-money-bill-trend-up me-2" style="color: #2ED573"></i> Cash Flow (Money In vs. Money Out)</h5>
-                <div class="chart-container">
+                <div class="chart-container" style="height: 350px;">
                     <canvas id="cashFlowChart"></canvas>
                 </div>
             </div>
@@ -60,7 +65,7 @@
     <div class="col-lg-6">
         <div class="card chart-card h-100">
             <div class="card-body p-4">
-                <h5 class="card-title fw-bold mb-4"><i class="fa-solid fa-boxes-stacked me-2" style="color: #FF4757"></i> Fuliza Usage</h5>
+                <h5 class="card-title fw-bold mb-4"><i class="fa-solid fa-boxes-stacked me-2" style="color: #FF4757"></i> Fuliza Usage (Taken vs Paid)</h5>
                 <div class="chart-container">
                     <canvas id="fulizaChart"></canvas>
                 </div>
@@ -88,25 +93,27 @@
     new Chart(ctxCashFlow, {
         type: 'line',
         data: {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            labels: <?= json_encode($analytics['labels']) ?>,
             datasets: [
                 {
                     label: 'Money In',
-                    data: [12000, 19000, 3000, 5000, 20000, 3000, 4000],
+                    data: <?= json_encode($analytics['receiving']) ?>,
                     borderColor: successColor,
                     backgroundColor: 'rgba(46, 213, 115, 0.1)',
                     borderWidth: 3,
                     tension: 0.4,
-                    fill: true
+                    fill: true,
+                    pointRadius: 2
                 },
                 {
                     label: 'Money Out',
-                    data: [5000, 25000, 2000, 8000, 15000, 10000, 6000],
+                    data: <?= json_encode($analytics['spending']) ?>,
                     borderColor: dangerColor,
                     backgroundColor: 'rgba(255, 71, 87, 0.1)',
                     borderWidth: 3,
                     tension: 0.4,
-                    fill: true
+                    fill: true,
+                    pointRadius: 2
                 }
             ]
         },
@@ -127,9 +134,9 @@
     new Chart(ctxCategory, {
         type: 'doughnut',
         data: {
-            labels: ['Sent to Mobile', 'Till/Paybill', 'Withdrawal', 'Airtime/Data'],
+            labels: <?= json_encode(array_keys($analytics['categories'])) ?>,
             datasets: [{
-                data: [45, 25, 20, 10],
+                data: <?= json_encode(array_values($analytics['categories'])) ?>,
                 backgroundColor: [primaryColor, successColor, warningColor, infoColor],
                 borderWidth: 0,
                 hoverOffset: 4
@@ -148,27 +155,30 @@
     new Chart(ctxFuliza, {
         type: 'bar',
         data: {
-            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+            labels: <?= json_encode($analytics['labels']) ?>,
             datasets: [{
                 label: 'Loans Taken',
-                data: [1500, 3000, 500, 4000],
+                data: <?= json_encode($analytics['fuliza_taken']) ?>,
                 backgroundColor: dangerColor,
-                borderRadius: 6
+                borderRadius: 4
             },
             {
                 label: 'Loans Repaid',
-                data: [0, 4500, 0, 2000],
+                data: <?= json_encode($analytics['fuliza_paid']) ?>,
                 backgroundColor: successColor,
-                borderRadius: 6
+                borderRadius: 4
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { position: 'top' } },
+            plugins: { 
+                legend: { position: 'top' },
+                tooltip: { intersect: false, mode: 'index' }
+            },
             scales: {
                 y: { beginAtZero: true, grid: { borderDash: [5, 5] } },
-                x: { grid: { display: false } }
+                x: { grid: { display: false }, ticks: { display: false } }
             }
         }
     });

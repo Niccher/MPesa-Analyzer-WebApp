@@ -6,6 +6,7 @@ class Transactions extends BaseController
 {
     public function index()
     {
+        helper('mpesa_date');
         // Load the database service (CI4 way)
         $db = \Config\Database::connect();
         

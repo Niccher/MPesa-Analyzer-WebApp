@@ -6,6 +6,7 @@ class History extends BaseController
 {
     public function index()
     {
+        helper('mpesa_date');
         $db = \Config\Database::connect();
         
         // Fetch raw upload history logs

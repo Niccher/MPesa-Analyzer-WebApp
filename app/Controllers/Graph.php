@@ -8,14 +8,13 @@ class Graph extends BaseController
 {
     public function index()
     {
+        helper('mpesa_date');
         $mod_uploads = new ModUploads();
+        $lastDate = $mod_uploads->getLastUploadDate() ?? date('Y-m-d H:i:s');
+        $analytics = $mod_uploads->getAnalyticsData30Days($lastDate);
         
-        // In a real app, this would filter by the logged-in user's UUID.
-        // For now, we'll fetch global data to ensure the charts render something, 
-        // or aggregate data from tbl_Loot_Summary.
-        
-        // We'll pass some mockup visualization data over to the view
         $data = [
+            'analytics' => $analytics,
             'bg_color' => '#B1B8ED'
         ];
 

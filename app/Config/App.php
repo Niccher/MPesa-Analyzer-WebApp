@@ -187,7 +187,7 @@ class App extends BaseConfig
      *
      * @deprecated use Config\Session::$savePath instead.
      */
-    public string $sessionSavePath = WRITEPATH . 'session';
+    public string $sessionSavePath = WRITEPATH . DIRECTORY_SEPARATOR . 'session';
 
     /**
      * --------------------------------------------------------------------------

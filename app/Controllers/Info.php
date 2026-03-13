@@ -8,6 +8,7 @@ class Info extends BaseController
 {
     public function index()
     {
+        helper('mpesa_date');
         $db = \Config\Database::connect();
         $mod_uploads = new ModUploads();
         $user = auth()->user();
