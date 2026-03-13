@@ -10,7 +10,7 @@ class Graph extends BaseController
     {
         helper('mpesa_date');
         $mod_uploads = new ModUploads();
-        $lastDate = $mod_uploads->getLastUploadDate() ?? date('Y-m-d H:i:s');
+        $lastDate = $mod_uploads->getLatestTransactionDate() ?? date('Y-m-d H:i:s');
         $analytics = $mod_uploads->getAnalyticsData30Days($lastDate);
         
         $data = [

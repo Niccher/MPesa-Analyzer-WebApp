@@ -17,6 +17,6 @@ if (!function_exists('format_mpesa_date')) {
 
         if (!$timestamp) return 'Invalid Date';
 
-        return date('Y, F d, l h:i A', $timestamp);
+        return date('Y, F, l h:i A', $timestamp);
     }
 }

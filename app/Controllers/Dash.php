@@ -12,7 +12,7 @@ class Dash extends BaseController
         $mod_uploads = new ModUploads();
         helper('mpesa_date');
         
-        $lastDate = $mod_uploads->getLastUploadDate() ?? date('Y-m-d H:i:s');
+        $lastDate = $mod_uploads->getLatestTransactionDate() ?? date('Y-m-d H:i:s');
         
         $metrics = $mod_uploads->getDashboardMetrics30Days($lastDate);
         $sent_summary = $mod_uploads->getSentSummary30Days($lastDate);
@@ -25,6 +25,7 @@ class Dash extends BaseController
             'sent_summary' => $sent_summary,
             'received_summary' => $received_summary,
             'recent_transactions' => $recent_transactions,
+            'top_counterparties' => $mod_uploads->getTopCounterparties(5),
             'bg_color' => '#B1B8ED'
         ];
 

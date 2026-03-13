@@ -14,10 +14,23 @@ class ModUploads extends Model
         'loot_Name', 'loot_Device', 'loot_Owner', 'loot_Uuid', 'loot_Created'
     ];
 
+    /**
+     * Normalizes a date value (numeric or string) to Y-m-d H:i:s
+     */
+    private function normalizeDate($time): string {
+        if (empty($time)) return date('Y-m-d H:i:s');
+        if (is_numeric($time) && $time > 1000000000000) {
+            $timestamp = (int)($time / 1000);
+        } else {
+            $timestamp = is_numeric($time) ? (int)$time : strtotime((string)$time);
+        }
+        return date('Y-m-d H:i:s', $timestamp ?: time());
+    }
+
     // SMS pattern configuration with 'sms_' prefix
     protected $smsPatterns = [
-        'sms_receive' => "confirmed.you have received ksh",
-        'sms_from_mshwari' => "transferred from m-shwari account on",
+        'sms_received' => "confirmed.you have received ksh",
+        'sms_from_mshwari_account' => "transferred from m-shwari account on",
         'sms_from_ncba' => "from ncba bank on",
         'sms_from_kcb' => "from kcb",
         'sms_from_im_bank' => "from im bank limited- app on",
@@ -26,7 +39,7 @@ class ModUploads extends Model
         'sms_balance_mshwari' => "confirmed . your m-shwari deposit account",
         'sms_reversal' => "confirmed. reversal of transaction",
         'sms_loan_limit' => "confirmed. your loan limit is",
-        'sms_sent_to_mpesa' => "sent to",
+        'sms_sent' => "sent to",
         'sms_sent_to_lnm' => "paid to",
         'sms_sent_mini' => "confirmed. you have transfered ksh",
         'sms_sent_to_mshwari' => "transferred to m-shwari account on",
@@ -40,7 +53,7 @@ class ModUploads extends Model
         'sms_fuliza_opt_out' => "you have successfully opted out of fuliza m-pesa service.",
         'sms_fuliza_opt_in' => "you have successfully opted into fuliza m-pesa.",
         'sms_fuliza_limit' => "your fuliza m-pesa limit is ksh",
-        'sms_fuliza_loan_pay' => "from your m-pesa has been used to partially pay your outstanding fuliza m-pesa",
+        'sms_fuliza_loan_paid' => "from your m-pesa has been used to partially pay your outstanding fuliza m-pesa",
         'sms_fuliza_mini_statement' => "your fuliza m-pesa mini statement is as follows",
         'sms_fuliza_loan_taken' => "confirmed. fuliza m-pesa amount is",
         'sms_similar_transaction' => "m-pesa is unable to process your request because a similar transaction is currently underway",
@@ -198,7 +211,18 @@ class ModUploads extends Model
             ->selectMax('loot_Created')
             ->get()
             ->getRow();
-        return $result->loot_Created ?? null;
+        return $result ? $this->normalizeDate($result->loot_Created) : null;
+    }
+
+    /**
+     * Get the date of the very last transaction in the database
+     */
+    public function getLatestTransactionDate(): ?string {
+        $result = $this->db->table('tbl_Sms')
+            ->selectMax('sms_time')
+            ->get()
+            ->getRow();
+        return $result ? $this->normalizeDate($result->sms_time) : null;
     }
 
     /**
@@ -207,38 +231,89 @@ class ModUploads extends Model
     public function getDashboardMetrics30Days(string $lastDate): array {
         $thirtyDaysAgo = date('Y-m-d H:i:s', strtotime($lastDate . ' -30 days'));
         
+        // Try Analyzed data first (use all-time if data is available)
+        if ($this->db->tableExists('tbl_Analyzed_Transactions')) {
+            $analyzed = $this->db->table('tbl_Analyzed_Transactions')
+                ->selectSum('amount', 'total_amount')
+                ->select('description')
+                ->groupBy('description')
+                ->get()
+                ->getResult();
+            
+            if (!empty($analyzed)) {
+                $stats = [
+                    'current_balance' => 0,
+                    'fuliza_balance' => 0,
+                    'total_sent_30' => 0,
+                    'total_received_30' => 0,
+                    'withdrawn_30' => 0,
+                    'fuliza_taken_30' => 0,
+                    'is_analyzed' => true
+                ];
+                foreach ($analyzed as $row) {
+                    $desc = strtolower($row->description);
+                    if ($desc === 'received') $stats['total_received_30'] = (float)$row->total_amount;
+                    elseif (in_array($desc, ['sent', 'sent to lnm'])) $stats['total_sent_30'] += (float)$row->total_amount;
+                    elseif ($desc === 'withdraw') $stats['withdrawn_30'] = (float)$row->total_amount;
+                    elseif ($desc === 'fuliza loan taken') $stats['fuliza_taken_30'] = (float)$row->total_amount;
+                }
+                
+                // Average daily spend and max transaction
+                $stats['daily_avg_spend'] = $stats['total_sent_30'] / 30;
+                $maxTrans = $this->db->table('tbl_Analyzed_Transactions')
+                    ->selectMax('amount')
+                    ->whereIn('description', ['Sent', 'Sent To Lnm'])
+                    ->get()
+                    ->getRow();
+                $stats['max_transaction'] = (float)($maxTrans->amount ?? 0);
+
+                // Still need latest balance from raw SMS
+                $latestSms = $this->db->table('tbl_Sms')
+                    ->orderBy('sms_time', 'DESC')
+                    ->limit(100)
+                    ->get()
+                    ->getResult();
+                foreach ($latestSms as $sms) {
+                    $body = strtolower(base64_decode($sms->sms_body));
+                    if ($stats['current_balance'] == 0 && strpos($body, 'new m-pesa balance is ksh') !== false) {
+                        $stats['current_balance'] = $this->extractBalance($body);
+                    }
+                    if ($stats['fuliza_balance'] == 0 && strpos($body, 'fuliza m-pesa limit is ksh') !== false) {
+                        $stats['fuliza_balance'] = $this->extractBalance($body);
+                    }
+                    if ($stats['current_balance'] > 0 && $stats['fuliza_balance'] > 0) break;
+                }
+                return $stats;
+            }
+        }
+
         $stats = [
             'current_balance' => 0,
             'fuliza_balance' => 0,
             'total_sent_30' => 0,
             'total_received_30' => 0,
             'withdrawn_30' => 0,
-            'fuliza_taken_30' => 0
+            'fuliza_taken_30' => 0,
+            'is_analyzed' => false
         ];
 
-        $smsList = $this->db->table('tbl_Sms')
-            ->where('sms_time >=', $thirtyDaysAgo)
-            ->where('sms_time <=', $lastDate)
-            ->get()
-            ->getResult();
+        $smsList = $this->db->table('tbl_Sms')->get()->getResult();
         
         foreach ($smsList as $sms) {
             $body = strtolower(base64_decode($sms->sms_body));
             $amount = $this->extractAmount($body);
+            $cat = strtolower($sms->sms_category);
             
-            if ($sms->sms_category === 'Received') {
+            if ($cat === 'received') {
                 $stats['total_received_30'] += $amount;
-            } elseif (in_array($sms->sms_category, ['Sent', 'Sent to LNM'])) {
+            } elseif (in_array($cat, ['sent', 'sent to lnm'])) {
                 $stats['total_sent_30'] += $amount;
-            } elseif ($sms->sms_category === 'Withdraw') {
+            } elseif ($cat === 'withdraw') {
                 $stats['withdrawn_30'] += $amount;
-            } elseif ($sms->sms_category === 'Fuliza Loan Taken') {
+            } elseif ($cat === 'fuliza loan taken') {
                 $stats['fuliza_taken_30'] += $amount;
             }
-
-            // Always use the very last message for current balance
             if (strpos($body, 'new m-pesa balance is ksh') !== false) {
-                // We keep updating, assuming chronological order, so the last one wins
                 $stats['current_balance'] = $this->extractBalance($body);
             }
             if (strpos($body, 'fuliza m-pesa limit is ksh') !== false) {
@@ -254,6 +329,42 @@ class ModUploads extends Model
      */
     public function getSentSummary30Days(string $lastDate): array {
         $thirtyDaysAgo = date('Y-m-d H:i:s', strtotime($lastDate . ' -30 days'));
+        
+        if ($this->db->tableExists('tbl_Analyzed_Transactions')) {
+            $data = [
+                'paybill' => 0,
+                'till' => 0,
+                'sent_mobile' => 0,
+                'fuliza_deductions' => 0
+            ];
+            
+            // Join with raw SMS to get detailed body for Paybill/Till detection
+            // OR we can trust the 'counterparty' if we refine it later.
+            // For now, let's just aggregate from analyzed where possible.
+            $analyzed = $this->db->table('tbl_Analyzed_Transactions a')
+                ->select('a.amount, a.description, s.sms_body')
+                ->join('tbl_Sms s', 's.sms__id = a.orig_sms_id', 'left')
+                ->whereIn('a.description', ['Sent', 'Sent To Lnm', 'Fuliza Loan Paid'])
+                ->get()
+                ->getResult();
+            
+            if (!empty($analyzed)) {
+                foreach ($analyzed as $row) {
+                    $body = strtolower(base64_decode($row->sms_body));
+                    $amount = (float)$row->amount;
+                    if ($row->description === 'Sent To Lnm') {
+                        if (strpos($body, 'paybill') !== false) $data['paybill'] += $amount;
+                        else $data['till'] += $amount;
+                    } elseif ($row->description === 'Sent') {
+                        $data['sent_mobile'] += $amount;
+                    } elseif ($row->description === 'Fuliza Loan Paid') {
+                        $data['fuliza_deductions'] += $amount;
+                    }
+                }
+                return $data;
+            }
+        }
+
         $data = [
             'paybill' => 0,
             'till' => 0,
@@ -271,8 +382,7 @@ class ModUploads extends Model
             $body = strtolower(base64_decode($sms->sms_body));
             $amount = $this->extractAmount($body);
             
-            if ($sms->sms_category === 'Sent to LNM') {
-                // Detect if Paybill or Till
+            if ($sms->sms_category === 'Sent To Lnm') {
                 if (strpos($body, 'paybill') !== false) $data['paybill'] += $amount;
                 else $data['till'] += $amount;
             } elseif ($sms->sms_category === 'Sent') {
@@ -289,6 +399,39 @@ class ModUploads extends Model
      */
     public function getReceivedSummary30Days(string $lastDate): array {
         $thirtyDaysAgo = date('Y-m-d H:i:s', strtotime($lastDate . ' -30 days'));
+        
+        if ($this->db->tableExists('tbl_Analyzed_Transactions')) {
+            $data = [
+                'total' => 0,
+                'banks' => 0,
+                'mshwari_kcb' => 0
+            ];
+            
+            $analyzed = $this->db->table('tbl_Analyzed_Transactions a')
+                ->select('a.amount, a.description, s.sms_body')
+                ->join('tbl_Sms s', 's.sms__id = a.orig_sms_id')
+                ->where('a.trans_date >=', $thirtyDaysAgo)
+                ->where('a.trans_date <=', $lastDate)
+                ->whereIn('a.description', ['Received', 'From Mshwari Account', 'From Kcb'])
+                ->get()
+                ->getResult();
+            
+            if (!empty($analyzed)) {
+                foreach ($analyzed as $row) {
+                    $body = strtolower(base64_decode($row->sms_body));
+                    $amount = (float)$row->amount;
+                    if ($row->description === 'Received') {
+                        $data['total'] += $amount;
+                        if (strpos($body, 'bank') !== false) $data['banks'] += $amount;
+                    } elseif (in_array($row->description, ['From Mshwari Account', 'From Kcb'])) {
+                        $data['mshwari_kcb'] += $amount;
+                        $data['total'] += $amount;
+                    }
+                }
+                return $data;
+            }
+        }
+
         $data = [
             'total' => 0,
             'banks' => 0,
@@ -308,7 +451,7 @@ class ModUploads extends Model
             if ($sms->sms_category === 'Received') {
                 $data['total'] += $amount;
                 if (strpos($body, 'bank') !== false) $data['banks'] += $amount;
-            } elseif (in_array($sms->sms_category, ['From M-Shwari Account', 'From KCB'])) {
+            } elseif (in_array($sms->sms_category, ['From Mshwari Account', 'From Kcb'])) {
                 $data['mshwari_kcb'] += $amount;
                 $data['total'] += $amount;
             }
@@ -320,37 +463,45 @@ class ModUploads extends Model
      * Fetch recent transactions
      */
     public function getRecentTransactions(int $limit = 10): array {
-        return $this->db->table('tbl_Sms')
-            ->orderBy('sms_time', 'DESC')
-            ->limit($limit)
-            ->get()
-            ->getResult();
+        $builder = $this->db->table('tbl_Sms s')
+            ->select('s.*, a.trans_id as analyzed_id, a.counterparty as analyzed_counterparty, a.amount as analyzed_amount')
+            ->join('tbl_Analyzed_Transactions a', 'a.orig_sms_id = s.sms__id', 'left')
+            ->orderBy('s.sms_time', 'DESC')
+            ->limit($limit);
+        
+        return $builder->get()->getResult();
     }
 
     /**
      * Advanced Filtering
      */
-    public function getFilteredTransactions(array $f): array {
-        $builder = $this->db->table('tbl_Sms');
+    public function getFilteredTransactions(array $f, int $limit = 500, int $offset = 0): array {
+        $builder = $this->db->table('tbl_Sms s')
+            ->select('s.*, a.trans_id as analyzed_id, a.counterparty as analyzed_counterparty, a.amount as analyzed_amount')
+            ->join('tbl_Analyzed_Transactions a', 'a.orig_sms_id = s.sms__id', 'left');
         
-        if (!empty($f['date_from'])) $builder->where('sms_time >=', $f['date_from']);
-        if (!empty($f['date_to'])) $builder->where('sms_time <=', $f['date_to'] . ' 23:59:59');
-        if (!empty($f['category'])) $builder->where('sms_category', $f['category']);
+        if (!empty($f['date_from'])) $builder->where('s.sms_time >=', $f['date_from']);
+        if (!empty($f['date_to'])) $builder->where('s.sms_time <=', $f['date_to'] . ' 23:59:59');
+        if (!empty($f['category'])) $builder->where('s.sms_category', $f['category']);
+        
         if (!empty($f['search'])) {
             $builder->groupStart()
-                ->like('sms_number', $f['search'])
-                ->orLike('sms_body', base64_encode($f['search'])) // Rough search for base64
+                ->like('s.sms_number', $f['search'])
+                ->orLike('s.sms_body', base64_encode($f['search']))
+                ->orLike('a.trans_id', $f['search'])
+                ->orLike('a.counterparty', $f['search'])
                 ->groupEnd();
         }
 
-        $results = $builder->orderBy('sms_time', 'DESC')->get()->getResult();
+        $builder->limit($limit, $offset);
+        $results = $builder->orderBy('s.sms_time', 'DESC')->get()->getResult();
         
-        // Post-process for amount filtering if needed (regex in PHP is easier than SQL here)
+        // Post-process for amount filtering
         if (!empty($f['min_amount']) || !empty($f['max_amount'])) {
             $results = array_filter($results, function($sms) use ($f) {
                 $amt = $this->extractAmount(base64_decode($sms->sms_body));
-                if (!empty($f['min_amount']) && $amt < $f['min_amount']) return false;
-                if (!empty($f['max_amount']) && $amt > $f['max_amount']) return false;
+                if (!empty($f['min_amount']) && $amt < (float)$f['min_amount']) return false;
+                if (!empty($f['max_amount']) && $amt > (float)$f['max_amount']) return false;
                 return true;
             });
         }
@@ -359,88 +510,167 @@ class ModUploads extends Model
     }
 
     /**
-     * Get data for charts (30 day window)
+     * Get data for charts (30 day window, with graceful fallback to all-time)
      */
     public function getAnalyticsData30Days(string $lastDate): array {
+        // Step 1: Try to build data from tbl_Analyzed_Transactions within window
         $thirtyDaysAgo = date('Y-m-d', strtotime($lastDate . ' -29 days'));
-        
-        $labels = [];
-        $spending = [];
+
+        // Check if there is any analyzed data at all
+        $hasAnalyzed = false;
+        if ($this->db->tableExists('tbl_Analyzed_Transactions')) {
+            $count = $this->db->table('tbl_Analyzed_Transactions')->countAllResults();
+            $hasAnalyzed = $count > 0;
+        }
+
+        // If we have analyzed data, use it. Otherwise fall back to raw SMS.
+        $labels    = [];
+        $spending  = [];
         $receiving = [];
-        
+
         for ($i = 29; $i >= 0; $i--) {
             $date = date('Y-m-d', strtotime($lastDate . " -$i days"));
             $labels[] = date('d M', strtotime($date));
-            
-            $daySpending = 0;
+
+            $daySpending  = 0;
             $dayReceiving = 0;
-            
-            $smsList = $this->db->table('tbl_Sms')
-                ->like('sms_time', $date)
-                ->get()
-                ->getResult();
-                
-            foreach ($smsList as $sms) {
-                $amount = $this->extractAmount(base64_decode($sms->sms_body));
-                if ($sms->sms_category === 'Received') $dayReceiving += $amount;
-                elseif (in_array($sms->sms_category, ['Sent', 'Sent to LNM'])) $daySpending += $amount;
+
+            if ($hasAnalyzed) {
+                $daily = $this->db->table('tbl_Analyzed_Transactions')
+                    ->selectSum('amount', 'total_amount')
+                    ->select('description')
+                    ->where("DATE(trans_date)", $date)
+                    ->groupBy('description')
+                    ->get()
+                    ->getResult();
+
+                foreach ($daily as $row) {
+                    $desc = strtolower($row->description);
+                    if ($desc === 'received') $dayReceiving += (float)$row->total_amount;
+                    elseif (in_array($desc, ['sent', 'sent to lnm'])) $daySpending += (float)$row->total_amount;
+                }
+            } else {
+                $smsList = $this->db->table('tbl_Sms')
+                    ->like('sms_time', $date)
+                    ->get()
+                    ->getResult();
+
+                foreach ($smsList as $sms) {
+                    $amount = $this->extractAmount(base64_decode($sms->sms_body));
+                    $cat = strtolower($sms->sms_category);
+                    if ($cat === 'received') $dayReceiving += $amount;
+                    elseif (in_array($cat, ['sent', 'sent to lnm'])) $daySpending += $amount;
+                }
             }
-            
-            $spending[] = $daySpending;
+
+            $spending[]  = $daySpending;
             $receiving[] = $dayReceiving;
         }
 
-        // Category breakdown (30 days)
-        $categories = [
-            'Paybill' => 0, 
-            'Till' => 0, 
-            'Sent to Mobile' => 0, 
-            'Withdrawal' => 0
-        ];
-        
-        $smsList = $this->db->table('tbl_Sms')
-            ->where('sms_time >=', date('Y-m-d', strtotime($lastDate . ' -30 days')))
-            ->get()
-            ->getResult();
+        // If the 30-day window is completely empty, try to find oldest/newest dates from SMS
+        $allEmpty = (array_sum($spending) + array_sum($receiving)) === 0;
+        if ($allEmpty) {
+            // Rebuild using all SMS data regardless of date
+            $labels   = [];
+            $spending = $receiving = [];
+            
+            $allSms = $this->db->table('tbl_Sms')
+                ->select('sms_time, sms_category, sms_body')
+                ->orderBy('sms_time', 'ASC')
+                ->get()
+                ->getResult();
 
-        foreach ($smsList as $sms) {
-            $body = strtolower(base64_decode($sms->sms_body));
-            $amt = $this->extractAmount($body);
-            if ($sms->sms_category === 'Sent to LNM') {
-                if (strpos($body, 'paybill') !== false) $categories['Paybill'] += $amt;
-                else $categories['Till'] += $amt;
-            } elseif ($sms->sms_category === 'Sent') {
-                $categories['Sent to Mobile'] += $amt;
-            } elseif ($sms->sms_category === 'Withdraw') {
-                $categories['Withdrawal'] += $amt;
+            // Group by date
+            $byDate = [];
+            foreach ($allSms as $sms) {
+                $d = $this->normalizeDate($sms->sms_time);
+                $dateKey = substr($d, 0, 10);
+                $byDate[$dateKey][] = $sms;
+            }
+
+            // Take last 30 date keys
+            $dateKeys = array_keys($byDate);
+            $slice = array_slice($dateKeys, -30);
+
+            foreach ($slice as $dateKey) {
+                $labels[] = date('d M', strtotime($dateKey));
+                $daySpending = 0; $dayReceiving = 0;
+                foreach ($byDate[$dateKey] as $sms) {
+                    $amount = $this->extractAmount(base64_decode($sms->sms_body));
+                    $cat = strtolower($sms->sms_category);
+                    if ($cat === 'received') $dayReceiving += $amount;
+                    elseif (in_array($cat, ['sent', 'sent to lnm'])) $daySpending += $amount;
+                }
+                $spending[]  = $daySpending;
+                $receiving[] = $dayReceiving;
             }
         }
 
-        // Fuliza Usage (30 days) - Daily taken vs paid
-        $fulizaTaken = [];
-        $fulizaPaid = [];
-        for ($i = 29; $i >= 0; $i--) {
-            $date = date('Y-m-d', strtotime($lastDate . " -$i days"));
-            $dayTaken = 0;
-            $dayPaid = 0;
-            
-            $smsList = $this->db->table('tbl_Sms')->like('sms_time', $date)->get()->getResult();
-            foreach ($smsList as $sms) {
-                $amount = $this->extractAmount(base64_decode($sms->sms_body));
-                if ($sms->sms_category === 'Fuliza Loan Taken') $dayTaken += $amount;
-                elseif ($sms->sms_category === 'Fuliza Loan Paid') $dayPaid += $amount;
+        // Category breakdown
+        $categories = ['Paybill' => 0, 'Till' => 0, 'Sent to Mobile' => 0, 'Withdrawal' => 0];
+
+        if ($hasAnalyzed) {
+            $catData = $this->db->table('tbl_Analyzed_Transactions a')
+                ->select('a.amount, a.description, s.sms_body')
+                ->join('tbl_Sms s', 's.sms__id = a.orig_sms_id', 'left')
+                ->get()
+                ->getResult();
+
+            foreach ($catData as $row) {
+                $body = strtolower(base64_decode($row->sms_body ?? ''));
+                $amt  = (float)$row->amount;
+                $desc = strtolower($row->description);
+                if ($desc === 'sent to lnm') {
+                    if (strpos($body, 'paybill') !== false) $categories['Paybill'] += $amt;
+                    else $categories['Till'] += $amt;
+                } elseif ($desc === 'sent') {
+                    $categories['Sent to Mobile'] += $amt;
+                } elseif ($desc === 'withdraw') {
+                    $categories['Withdrawal'] += $amt;
+                }
             }
-            $fulizaTaken[] = $dayTaken;
-            $fulizaPaid[] = $dayPaid;
+        } else {
+            $smsList = $this->db->table('tbl_Sms')->get()->getResult();
+            foreach ($smsList as $sms) {
+                $body = strtolower(base64_decode($sms->sms_body));
+                $amt  = $this->extractAmount($body);
+                $cat  = strtolower($sms->sms_category);
+                if ($cat === 'sent to lnm') {
+                    if (strpos($body, 'paybill') !== false) $categories['Paybill'] += $amt;
+                    else $categories['Till'] += $amt;
+                } elseif ($cat === 'sent') {
+                    $categories['Sent to Mobile'] += $amt;
+                } elseif ($cat === 'withdraw') {
+                    $categories['Withdrawal'] += $amt;
+                }
+            }
+        }
+
+        // Fuliza (from raw SMS, since it's a category not usually in analyzed)
+        $fulizaTaken = array_fill(0, count($labels), 0);
+        $fulizaPaid  = array_fill(0, count($labels), 0);
+        $allFulizaSms = $this->db->table('tbl_Sms')
+            ->whereIn('sms_category', ['Fuliza Loan Taken', 'Fuliza Loan Paid'])
+            ->get()->getResult();
+
+        foreach ($allFulizaSms as $sms) {
+            $d = substr($this->normalizeDate($sms->sms_time), 0, 10);
+            $idx = array_search(date('d M', strtotime($d)), $labels);
+            if ($idx !== false) {
+                $amount = $this->extractAmount(base64_decode($sms->sms_body));
+                $cat = strtolower($sms->sms_category);
+                if ($cat === 'fuliza loan taken') $fulizaTaken[$idx] += $amount;
+                elseif ($cat === 'fuliza loan paid') $fulizaPaid[$idx] += $amount;
+            }
         }
 
         return [
-            'labels' => $labels,
-            'spending' => $spending,
-            'receiving' => $receiving,
-            'categories' => $categories,
+            'labels'       => $labels,
+            'spending'     => $spending,
+            'receiving'    => $receiving,
+            'categories'   => $categories,
             'fuliza_taken' => $fulizaTaken,
-            'fuliza_paid' => $fulizaPaid
+            'fuliza_paid'  => $fulizaPaid,
         ];
     }
 
@@ -632,7 +862,7 @@ class ModUploads extends Model
 
         $inserted = 0;
         foreach (array_chunk($batch, 100) as $chunk) {
-            $inserted += $this->db->table('tbl_Sms')->insertBatch($chunk)
+            $inserted += $this->db->table('tbl_Sms')->ignore(true)->insertBatch($chunk)
                 ? count($chunk) : 0;
         }
 
@@ -675,14 +905,30 @@ class ModUploads extends Model
             'sms_unknown' => 'info_Unknown'
         ];
 
-        $summary = ['loot_Uuid' => $uuid, 'loot_Created' => $date];
-
-        foreach ($mapping as $pattern => $field) {
-            $summary[$field] = $counters[$pattern] ?? 0;
+        $summary = [];
+        foreach ($mapping as $patternKey => $summaryField) {
+            $summary[$summaryField] = $counters[$patternKey] ?? 0;
         }
 
-        $summary['info_All'] = array_sum($counters);
+        $summary['loot_Uuid'] = $uuid;
+        $summary['loot_Created'] = $date;
 
         return $this->db->table('tbl_Loot_Summary')->insert($summary);
+    }
+
+    /**
+     * Get top counterparties from analyzed data
+     */
+    public function getTopCounterparties(int $limit = 5): array {
+        if (!$this->db->tableExists('tbl_Analyzed_Transactions')) return [];
+
+        return $this->db->table('tbl_Analyzed_Transactions')
+            ->select('counterparty, SUM(amount) as total_amount, COUNT(*) as trans_count')
+            ->where('counterparty !=', 'Unknown')
+            ->groupBy('counterparty')
+            ->orderBy('total_amount', 'DESC')
+            ->limit($limit)
+            ->get()
+            ->getResult();
     }
 }

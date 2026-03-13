@@ -11,9 +11,12 @@ class Search extends BaseController
         $mod_uploads = new ModUploads();
         helper(['mpesa_date', 'form']);
 
+        $lastUploadDate = $mod_uploads->getLastUploadDate();
+        $defaultDate = $lastUploadDate ? date('Y-m-d', strtotime($lastUploadDate)) : date('Y-m-d');
+
         $filters = [
-            'date_from'  => $this->request->getGet('date_from'),
-            'date_to'    => $this->request->getGet('date_to'),
+            'date_from'  => $this->request->getGet('date_from') ?? $defaultDate,
+            'date_to'    => $this->request->getGet('date_to') ?? $defaultDate,
             'category'   => $this->request->getGet('category'),
             'search'     => $this->request->getGet('search'),
             'min_amount' => $this->request->getGet('min_amount'),

@@ -36,7 +36,10 @@
         <h2 class="fw-bold mb-1" style="color: var(--primary);">Dashboard Overview</h2>
         <p class="text-secondary mb-0">High-level summary of your financial data (Last 30 Days).</p>
     </div>
-    <div>
+    <div class="d-flex gap-2">
+        <button id="runAnalysis" class="btn btn-success rounded-pill px-4 shadow-sm">
+            <i class="fa-solid fa-microchip me-2"></i> Analyse Data
+        </button>
         <a href="<?= base_url('dashboard/search') ?>" class="btn btn-primary rounded-pill px-4 shadow-sm">
             <i class="fa-solid fa-magnifying-glass me-2"></i> Search and Filtering
         </a>
@@ -46,56 +49,133 @@
 
 <?= $this->section('content') ?>
 <div class="row g-4 mb-4">
-    <!-- ... (Cards remain the same) ... -->
-<?php /* Keeping cards content same as before but ensuring variables are used */ ?>
-<!-- Received Summary etc (omitted for brevity in search/replace block) -->
-</div>
-
-<div class="row">
-    <div class="col-12">
-        <div class="card border-0 shadow-sm rounded-4">
-            <div class="card-header bg-white border-0 py-3">
-                <h5 class="fw-bold mb-0"><i class="fa-solid fa-list-ul me-2 text-primary"></i> Last 10 Transactions</h5>
+    <!-- General Summary Card -->
+    <div class="col-md-4">
+        <div class="card summary-card card-purple h-100 shadow-sm">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0 opacity-75">Finance Overview</h5>
+                    <i class="fa-solid fa-wallet metric-icon opacity-50"></i>
+                </div>
+                <div class="metric-box text-center mb-0">
+                    <h2 class="fw-bold mb-1">Ksh <?= number_format($metrics['current_balance'], 2) ?></h2>
+                    <p class="small mb-0 opacity-75">Current Balance</p>
+                </div>
+                <div class="mt-3 small">
+                    <div class="d-flex justify-content-between opacity-75 mb-1">
+                        <span>Fuliza Limit:</span>
+                        <span class="fw-bold">Ksh <?= number_format($metrics['fuliza_balance'], 2) ?></span>
+                    </div>
+                </div>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover mb-0 align-middle">
-                        <thead class="bg-light">
-                            <tr>
-                                <th class="ps-4">Date</th>
-                                <th>Category</th>
-                                <th>Type</th>
-                                <th class="text-end pe-4">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($recent_transactions as $sms): ?>
-                            <tr>
-                                <td class="ps-4 small text-secondary">
-                                    <?= format_mpesa_date($sms->sms_time) ?>
-                                </td>
-                                <td>
-                                    <span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle px-3">
-                                        <?= $sms->sms_category ?>
-                                    </span>
-                                </td>
-                                <td><?= $sms->sms_type ?></td>
-                                <td class="text-end pe-4">
-                                    <button class="btn btn-sm btn-light rounded-circle shadow-sm view-sms-btn" 
-                                            data-time="<?= format_mpesa_date($sms->sms_time) ?>"
-                                            data-body="<?= htmlspecialchars(base64_decode($sms->sms_body)) ?>">
-                                        <i class="fa-solid fa-eye text-primary"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+        </div>
+    </div>
+
+    <!-- Spending Summary Card -->
+    <div class="col-md-4">
+        <div class="card summary-card card-blue h-100 shadow-sm">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0 opacity-75">Spending (30 Days)</h5>
+                    <i class="fa-solid fa-paper-plane metric-icon opacity-50"></i>
+                </div>
+                <div class="metric-box text-center mb-0">
+                    <h2 class="fw-bold mb-1">Ksh <?= number_format($metrics['total_sent_30'], 2) ?></h2>
+                    <p class="small mb-0 opacity-75">Total Outflow</p>
+                </div>
+                <div class="mt-3 small">
+                    <div class="d-flex justify-content-between opacity-75 mb-1">
+                        <span>Daily Avg:</span>
+                        <span class="fw-bold text-white">Ksh <?= number_format($metrics['daily_avg_spend'] ?? 0, 0) ?></span>
+                    </div>
+                    <div class="d-flex justify-content-between opacity-75">
+                        <span>Max Trans:</span>
+                        <span class="fw-bold text-white">Ksh <?= number_format($metrics['max_transaction'] ?? 0, 0) ?></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Income Summary Card -->
+    <div class="col-md-4">
+        <div class="card summary-card card-dark h-100 shadow-sm">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0 opacity-75">Income (30 Days)</h5>
+                    <i class="fa-solid fa-hand-holding-dollar metric-icon opacity-50"></i>
+                </div>
+                <div class="metric-box text-center mb-0">
+                    <h2 class="fw-bold mb-1">Ksh <?= number_format($metrics['total_received_30'], 2) ?></h2>
+                    <p class="small mb-0 opacity-75">Total Inflow</p>
+                </div>
+                <div class="mt-3 small">
+                    <div class="d-flex justify-content-between opacity-75 mb-1">
+                        <span>Banks/Other:</span>
+                        <span class="fw-bold">Ksh <?= number_format($received_summary['banks'], 0) ?></span>
+                    </div>
+                    <div class="d-flex justify-content-between opacity-75">
+                        <span>M-Shwari/KCB:</span>
+                        <span class="fw-bold">Ksh <?= number_format($received_summary['mshwari_kcb'], 0) ?></span>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<?php if (!empty($top_counterparties)): ?>
+<div class="row g-4 mb-4">
+    <div class="col-md-12">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-white border-0 py-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="fw-bold mb-0 text-dark">Top Spending & Receiving Entities</h4>
+                    <p class="text-secondary small mb-0">Your most frequent transaction partners and their total volumes.</p>
+                </div>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2">
+                    <i class="fa-solid fa-bolt me-1"></i> Smart Insights
+                </span>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <?php 
+                $maxVolume = !empty($top_counterparties) ? $top_counterparties[0]->total_amount : 1; 
+                $colors = ['#5D5FEF', '#2ED573', '#FFA502', '#FF4757', '#1E90FF'];
+                foreach ($top_counterparties as $index => $entity): 
+                    $percentage = ($entity->total_amount / $maxVolume) * 100;
+                    $color = $colors[$index % count($colors)];
+                ?>
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center me-3" 
+                                 style="width: 48px; height: 48px; background-color: <?= $color ?>20; border: 1px solid <?= $color ?>40;">
+                                <i class="fa-solid <?= strpos(strtolower($entity->counterparty), 'bank') !== false ? 'fa-building-columns' : 'fa-user' ?>" style="color: <?= $color ?>;"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-0 text-dark"><?= htmlspecialchars($entity->counterparty) ?></h6>
+                                <small class="text-muted"><i class="fa-solid fa-repeat me-1"></i> <?= $entity->trans_count ?> transactions</small>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="h6 fw-bold mb-0" style="color: <?= $color ?>;">Ksh <?= number_format($entity->total_amount, 2) ?></span>
+                        </div>
+                    </div>
+                    <div class="progress rounded-pill shadow-none" style="height: 8px; background-color: #f0f0f0;">
+                        <div class="progress-bar rounded-pill" role="progressbar" 
+                             style="width: <?= $percentage ?>%; background: <?= $color ?>;" 
+                             aria-valuenow="<?= $percentage ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+            </div>
+        </div>
+    </div>
 
 <!-- SMS Detail Modal -->
 <div class="modal fade" id="smsDetailModal" tabindex="-1" aria-hidden="true">
@@ -141,6 +221,38 @@
                 modalBody.innerHTML = btn.getAttribute('data-body').replace(/\n/g, '<br>');
                 smsModal.show();
             }
+        });
+        // Analysis button logic
+        const analysisBtn = document.getElementById('runAnalysis');
+        analysisBtn.addEventListener('click', function() {
+            const originalText = analysisBtn.innerHTML;
+            analysisBtn.disabled = true;
+            analysisBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Analysing...';
+            
+            fetch('<?= base_url('dashboard/analyse') ?>')
+                .then(response => {
+                    const contentType = response.headers.get('content-type');
+                    if (!response.ok || !contentType || !contentType.includes('application/json')) {
+                        return response.text().then(text => {
+                            throw new Error(`Server returned ${response.status}: ${text.substring(0, 100)}...`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    alert(data.message);
+                    if (data.status === 'success') {
+                        location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.error('Analysis Error:', error);
+                    alert('Analysis failed: ' + error.message);
+                })
+                .finally(() => {
+                    analysisBtn.disabled = false;
+                    analysisBtn.innerHTML = originalText;
+                });
         });
     });
 </script>
