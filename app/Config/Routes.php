@@ -40,6 +40,14 @@ $routes->get('/dashboard/history', 'History::index', ['filter' => 'session']);
 $routes->get('/dashboard/info', 'Info::index', ['filter' => 'session']);
 $routes->post('/dashboard/info/generate-token', 'Info::generateToken', ['filter' => 'session']);
 $routes->post('/dashboard/info/revoke-token', 'Info::revokeToken', ['filter' => 'session']);
+
+// Analytics & Insights
+$routes->get('/dashboard/reports', 'Reports::index', ['filter' => 'session']);
+$routes->get('/dashboard/reports/print', 'Reports::printView', ['filter' => 'session']);
+$routes->get('/dashboard/budget', 'Budget::index', ['filter' => 'session']);
+$routes->match(['get', 'post'], '/dashboard/budget/save', 'Budget::save', ['filter' => 'session']);
+$routes->match(['get', 'post'], '/dashboard/budget/delete', 'Budget::delete', ['filter' => 'session']);
+
 $routes->get('/home', 'Home::index');
 
 $routes->group('auth', function ($routes) {

@@ -48,7 +48,73 @@
 <?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
+
+<?php
+// Sort alerts so Danger is top
+$alerts = $smart_alerts ?? [];
+usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
+?>
+
+<?php if (!empty($alerts)): ?>
+<div class="row mb-4">
+    <div class="col-12">
+        <h6 class="fw-bold mb-3 text-secondary text-uppercase small"><i class="fa-solid fa-robot me-2"></i>Intelligent Alerts</h6>
+        <?php foreach ($alerts as $al): ?>
+            <div class="alert alert-<?= $al['level'] ?> shadow-sm border-0 rounded-4 d-flex align-items-center gap-3 py-3 mb-2">
+                <?php if ($al['type'] === 'low_balance'): ?>
+                    <i class="fa-solid fa-wallet fa-2x"></i>
+                <?php elseif ($al['type'] === 'unusual_activity'): ?>
+                    <i class="fa-solid fa-shield-halved fa-2x"></i>
+                <?php elseif ($al['type'] === 'fuliza_index'): ?>
+                    <i class="fa-solid fa-percent fa-2x"></i>
+                <?php endif; ?>
+                <div>
+                    <h6 class="fw-bold mb-1 text-dark"><?= $al['title'] ?></h6>
+                    <div class="small text-dark"><?= $al['message'] ?></div>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($budget_alerts)): 
+    $overLimit = array_filter($budget_alerts, fn($b) => $b['over_limit']);
+    $nearLimit = array_filter($budget_alerts, fn($b) => !$b['over_limit'] && $b['percentage'] >= 80);
+?>
+    <?php if (!empty($overLimit)): ?>
+    <div class="alert alert-danger shadow-sm border-0 rounded-4 d-flex align-items-center gap-3 mb-4">
+        <i class="fa-solid fa-triangle-exclamation fa-2x"></i>
+        <div>
+            <h6 class="fw-bold mb-1">Budget Exceeded!</h6>
+            <div class="small">
+                <?php foreach ($overLimit as $b): ?>
+                    <span class="me-3"><strong><?= htmlspecialchars($b['label'] ?: $b['category']) ?>:</strong> <?= number_format($b['percentage'], 0) ?>% used</span>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <a href="<?= base_url('dashboard/budget') ?>" class="btn btn-sm btn-danger ms-auto rounded-pill px-3 fw-bold">View Budget</a>
+    </div>
+    <?php endif; ?>
+
+    <?php if (!empty($nearLimit) && empty($overLimit)): ?>
+    <div class="alert alert-warning shadow-sm border-0 rounded-4 d-flex align-items-center gap-3 mb-4">
+        <i class="fa-solid fa-bell fa-2x text-warning"></i>
+        <div>
+            <h6 class="fw-bold mb-1 text-dark">Approaching Budget Limit</h6>
+            <div class="small text-dark">
+                <?php foreach ($nearLimit as $b): ?>
+                    <span class="me-3"><strong><?= htmlspecialchars($b['label'] ?: $b['category']) ?>:</strong> <?= number_format($b['percentage'], 0) ?>% used</span>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <a href="<?= base_url('dashboard/budget') ?>" class="btn btn-sm btn-warning text-dark ms-auto rounded-pill px-3 fw-bold">Manage Budget</a>
+    </div>
+    <?php endif; ?>
+<?php endif; ?>
+
 <div class="row g-4 mb-4">
+
     <!-- General Summary Card -->
     <div class="col-md-4">
         <div class="card summary-card card-purple h-100 shadow-sm">

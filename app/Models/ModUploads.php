@@ -960,4 +960,99 @@ class ModUploads extends Model
             ->get()
             ->getResult();
     }
+
+    /**
+     * Get full report data for a given month/year
+     */
+    public function getReportData(int $year, int $month): array {
+        $daysInMonth  = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+        $monthStr     = sprintf('%04d-%02d', $year, $month);
+
+        $labels   = [];
+        $inflow   = [];
+        $outflow  = [];
+
+        // Build daily data
+        $allSms = $this->db->table('tbl_Sms')->get()->getResult();
+
+        // Index SMS by date
+        $byDate = [];
+        foreach ($allSms as $sms) {
+            $normalized = $this->normalizeDate($sms->sms_time);
+            $dateKey    = substr($normalized, 0, 10); // YYYY-MM-DD
+            if (substr($dateKey, 0, 7) !== $monthStr) continue;
+            $byDate[$dateKey][] = $sms;
+        }
+
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $dateKey    = sprintf('%04d-%02d-%02d', $year, $month, $d);
+            $labels[]   = date('d', strtotime($dateKey));
+            $dayIn      = 0;
+            $dayOut     = 0;
+
+            foreach ($byDate[$dateKey] ?? [] as $sms) {
+                $body   = strtolower(base64_decode($sms->sms_body));
+                $amount = $this->extractAmount($body);
+                $cat    = strtolower($sms->sms_category);
+                if ($cat === 'received') $dayIn += $amount;
+                elseif (in_array($cat, ['sent', 'sent to lnm', 'withdraw'])) $dayOut += $amount;
+            }
+
+            $inflow[]  = $dayIn;
+            $outflow[] = $dayOut;
+        }
+
+        // Totals
+        $totalIn  = array_sum($inflow);
+        $totalOut = array_sum($outflow);
+        $net      = $totalIn - $totalOut;
+
+        // Category breakdown (all SMS in this month)
+        $categories = ['Received' => 0, 'Sent' => 0, 'Withdraw' => 0, 'Fuliza' => 0, 'Other' => 0];
+        foreach ($byDate as $rows) {
+            foreach ($rows as $sms) {
+                $body   = strtolower(base64_decode($sms->sms_body));
+                $amount = $this->extractAmount($body);
+                $cat    = strtolower($sms->sms_category);
+                if ($cat === 'received') $categories['Received'] += $amount;
+                elseif (in_array($cat, ['sent', 'sent to lnm'])) $categories['Sent'] += $amount;
+                elseif ($cat === 'withdraw') $categories['Withdraw'] += $amount;
+                elseif (strpos($cat, 'fuliza') !== false) $categories['Fuliza'] += $amount;
+                else $categories['Other'] += $amount;
+            }
+        }
+
+        // Top counterparties this month (from analyzed or raw)
+        $topCounterparties = [];
+        if ($this->db->tableExists('tbl_Analyzed_Transactions')) {
+            $rows = $this->db->table('tbl_Analyzed_Transactions')
+                ->select('counterparty, SUM(amount) as total_amount, COUNT(*) as trans_count')
+                ->where("DATE_FORMAT(trans_date, '%Y-%m')", $monthStr)
+                ->where('counterparty !=', 'Unknown')
+                ->groupBy('counterparty')
+                ->orderBy('total_amount', 'DESC')
+                ->limit(5)
+                ->get()->getResult();
+            $topCounterparties = $rows;
+        }
+
+        // Transaction count
+        $txCount = 0;
+        foreach ($byDate as $rows) $txCount += count($rows);
+
+        return [
+            'year'              => $year,
+            'month'             => $month,
+            'month_name'        => date('F', mktime(0, 0, 0, $month, 1, $year)),
+            'labels'            => $labels,
+            'inflow'            => $inflow,
+            'outflow'           => $outflow,
+            'total_in'          => $totalIn,
+            'total_out'         => $totalOut,
+            'net'               => $net,
+            'categories'        => $categories,
+            'top_counterparties'=> $topCounterparties,
+            'tx_count'          => $txCount,
+        ];
+    }
 }

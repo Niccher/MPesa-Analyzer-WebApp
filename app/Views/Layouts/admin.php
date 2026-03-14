@@ -166,6 +166,16 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link <?= strpos($currentURL, 'dashboard/reports') !== false ? 'active' : '' ?>" href="<?= base_url('dashboard/reports') ?>">
+                        <i class="fa-solid fa-file-invoice-dollar"></i> Reports & Insights
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= strpos($currentURL, 'dashboard/budget') !== false ? 'active' : '' ?>" href="<?= base_url('dashboard/budget') ?>">
+                        <i class="fa-solid fa-bullseye"></i> Budget Tracker
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link <?= ($currentURL == 'dashboard/history') ? 'active' : '' ?>" href="<?= url_to('History::index') ?>">
                         <i class="fa-solid fa-clock-rotate-left"></i> History
                     </a>

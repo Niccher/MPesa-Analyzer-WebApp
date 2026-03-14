@@ -4,6 +4,8 @@ namespace App\Controllers;
 
 use App\Controllers\BaseController;
 use App\Models\ModUploads;
+use App\Models\ModBudget;
+use App\Models\ModInsights;
 
 class Dash extends BaseController
 {
@@ -19,14 +21,20 @@ class Dash extends BaseController
         $received_summary = $mod_uploads->getReceivedSummary30Days($lastDate);
         $recent_transactions = $mod_uploads->getRecentTransactions(10);
         
+        $modBudget   = new ModBudget();
+        $modInsights = new ModInsights();
+
         $data = [
-            'total_uploads' => $mod_uploads->countAll(),
-            'metrics' => $metrics,
-            'sent_summary' => $sent_summary,
-            'received_summary' => $received_summary,
+            'total_uploads'       => $mod_uploads->countAll(),
+            'metrics'             => $metrics,
+            'sent_summary'        => $sent_summary,
+            'received_summary'    => $received_summary,
             'recent_transactions' => $recent_transactions,
-            'top_counterparties' => $mod_uploads->getTopCounterparties(5),
-            'bg_color' => '#B1B8ED'
+            'top_counterparties'  => $mod_uploads->getTopCounterparties(5),
+            'budget_alerts'       => $modBudget->getBudgetProgress($modBudget->getBudgets()),
+            'smart_alerts'        => $modInsights->getSmartAlerts(),
+            'trends'              => $modInsights->getSpendingTrends(),
+            'bg_color'            => '#B1B8ED'
         ];
 
         return view('Dash/index', $data);
