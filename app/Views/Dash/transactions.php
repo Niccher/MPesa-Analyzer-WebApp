@@ -50,7 +50,7 @@
                     <tr>
                         <th class="ps-4">Date &amp; Time</th>
                         <th>Category</th>
-                        <th>Number</th>
+                        <th>Counterparty</th>
                         <th>Preview</th>
                         <th class="text-end pe-4">Actions</th>
                     </tr>
@@ -76,14 +76,29 @@
                                 </td>
                                 <td>
                                     <span class="badge rounded-pill <?= $badgeClass ?>"><?= htmlspecialchars($tx->sms_category) ?></span>
+                                    <?php if (!empty($tx->analyzed_category)): ?>
+                                        <div class="mt-1"><span class="badge bg-light text-dark border border-secondary border-opacity-25" style="font-size:0.7rem;"><i class="fa-solid fa-tag me-1 text-secondary"></i> <?= htmlspecialchars($tx->analyzed_category) ?></span></div>
+                                    <?php endif; ?>
                                 </td>
-                                <td class="fw-bold small"><?= htmlspecialchars($tx->sms_number) ?></td>
+                                <td>
+                                    <div class="fw-bold small text-dark"><?= !empty($tx->counterparty) ? htmlspecialchars($tx->counterparty) : '<span class="text-muted fst-italic">Unknown</span>' ?></div>
+                                    <div class="text-muted font-monospace" style="font-size:0.7rem;"><?= htmlspecialchars($tx->sms_number) ?></div>
+                                </td>
                                 <td>
                                     <span class="d-inline-block text-truncate text-muted small" style="max-width: 250px;">
                                         <?= htmlspecialchars($bodyStr) ?>
                                     </span>
                                 </td>
                                 <td class="text-end pe-4">
+                                    <?php if (!empty($tx->counterparty) && $tx->counterparty !== 'Unknown'): ?>
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill shadow-sm me-2 py-1 px-3 fw-semibold recategorize-btn"
+                                            data-trans-id="<?= $tx->sms__id ?>"
+                                            data-counterparty="<?= htmlspecialchars($tx->counterparty) ?>"
+                                            data-category="<?= htmlspecialchars($tx->analyzed_category ?? '') ?>"
+                                            title="Smart Auto-Fix Rule">
+                                        <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Fix
+                                    </button>
+                                    <?php endif; ?>
                                     <button class="btn btn-sm btn-light rounded-circle shadow-sm view-sms-btn"
                                             data-time="<?= format_mpesa_date($tx->sms_time) ?>"
                                             data-body="<?= htmlspecialchars($bodyStr) ?>">
@@ -188,12 +203,58 @@
         </div>
     </div>
 </div>
+
+<!-- Recategorize Modal -->
+<div class="modal fade" id="recategorizeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold"><i class="fa-solid fa-wand-magic-sparkles text-primary me-2"></i>Smart Auto-Fix</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small mb-4">Teach the system! Choose the correct category for this entity. All past and future transactions matching this name will be updated.</p>
+                <form id="recategorizeForm">
+                    <input type="hidden" id="rc_trans_id" name="trans_id">
+                    
+                    <div class="mb-3">
+                        <label class="text-secondary small fw-bold text-uppercase">Entity / Keyword</label>
+                        <input type="text" class="form-control bg-light border-0" id="rc_keyword" name="keyword" readonly>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="text-secondary small fw-bold text-uppercase">Correct Category</label>
+                        <select class="form-select form-select-lg placeholder-wave border-primary-subtle" id="rc_category" name="category" required>
+                            <option value="" disabled selected>Select a category...</option>
+                            <option value="Groceries">Groceries & Supermarkets</option>
+                            <option value="Food">Food & Dining</option>
+                            <option value="Transport">Transport & Fuel</option>
+                            <option value="Utilities">Utilities & Bills</option>
+                            <option value="Shopping">Shopping & Retail</option>
+                            <option value="Health">Health & Fitness</option>
+                            <option value="Entertainment">Entertainment</option>
+                            <option value="Family">Family & Personal</option>
+                            <option value="Business">Business Expenses</option>
+                            <option value="Other">Other Miscellaneous</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-0 pt-0 bg-light rounded-bottom-4">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" id="saveRuleBtn">Save Rule & Apply</button>
+            </div>
+        </div>
+    </div>
+</div>
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
 <script>
     $(document).ready(function() {
         const detailModal = new bootstrap.Modal(document.getElementById('smsDetailModal'));
+        const fixModal = new bootstrap.Modal(document.getElementById('recategorizeModal'));
+        
         const modalTime = document.getElementById('modal-sms-time');
         const modalBody = document.getElementById('modal-sms-body');
 
@@ -201,6 +262,55 @@
             modalTime.textContent = $(this).attr('data-time');
             modalBody.innerHTML = $(this).attr('data-body').replace(/\n/g, '<br>');
             detailModal.show();
+        });
+
+        // Recategorize Logic
+        $(document).on('click', '.recategorize-btn', function() {
+            $('#rc_trans_id').val($(this).data('trans-id'));
+            $('#rc_keyword').val($(this).data('counterparty'));
+            
+            // Optionally pre-select current category if it matches the dropdown
+            const currentCat = $(this).data('category');
+            $('#rc_category').val('');
+            $('#rc_category option').each(function() {
+                if ($(this).val() === currentCat) {
+                    $('#rc_category').val(currentCat);
+                }
+            });
+            
+            fixModal.show();
+        });
+
+        $('#saveRuleBtn').click(function() {
+            const btn = $(this);
+            const form = $('#recategorizeForm');
+            
+            if (!$('#rc_category').val()) {
+                alert('Please select a category.');
+                return;
+            }
+
+            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Saving...');
+
+            $.ajax({
+                url: '<?= base_url('dashboard/analyse/rule') ?>',
+                method: 'POST',
+                data: form.serialize(),
+                success: function(response) {
+                    if (response.status === 'success') {
+                        alert(response.message);
+                        location.reload();
+                    } else {
+                        alert('Error: ' + response.message);
+                        btn.prop('disabled', false).text('Save Rule & Apply');
+                    }
+                },
+                error: function(xhr) {
+                    alert('Submission failed. Please try again.');
+                    btn.prop('disabled', false).text('Save Rule & Apply');
+                    console.error(xhr.responseText);
+                }
+            });
         });
     });
 </script>

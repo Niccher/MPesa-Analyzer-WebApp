@@ -203,6 +203,49 @@ class ModUploads extends Model
         return $this->db->table('tbl_Devices')->insert($print_dump);
     }
 
+    public function ensureUserDevicesTable()
+    {
+        $db = \Config\Database::connect();
+        if (!$db->tableExists('tbl_User_Devices')) {
+            $forge = \Config\Database::forge();
+            $forge->addField([
+                'id' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+                'user_id' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
+                'device_token' => ['type' => 'VARCHAR', 'constraint' => 255],
+                'device_name' => ['type' => 'VARCHAR', 'constraint' => 100, 'null' => true],
+                'created_at' => ['type' => 'DATETIME', 'null' => true],
+            ]);
+            $forge->addKey('id', true);
+            $forge->addKey('user_id');
+            $forge->addKey('device_token');
+            $forge->createTable('tbl_User_Devices');
+        }
+    }
+
+    public function getLinkedDevices(int $userId): array
+    {
+        $this->ensureUserDevicesTable();
+        return $this->db->table('tbl_User_Devices')->where('user_id', $userId)->get()->getResult();
+    }
+
+    public function linkDevice(int $userId, string $deviceToken, string $deviceName): bool
+    {
+        $this->ensureUserDevicesTable();
+        // Check if already linked
+        $exists = $this->db->table('tbl_User_Devices')
+            ->where(['user_id' => $userId, 'device_token' => $deviceToken])
+            ->countAllResults();
+            
+        if ($exists > 0) return true;
+        
+        return $this->db->table('tbl_User_Devices')->insert([
+            'user_id' => $userId,
+            'device_token' => $deviceToken,
+            'device_name' => $deviceName,
+            'created_at' => date('Y-m-d H:i:s')
+        ]);
+    }
+
     /**
      * Finds the date of the absolute last upload
      */
@@ -228,17 +271,21 @@ class ModUploads extends Model
     /**
      * Get aggregated metrics for the dashboard within 30 days of last upload
      */
-    public function getDashboardMetrics30Days(string $lastDate): array {
+    public function getDashboardMetrics30Days(string $lastDate, ?string $deviceToken = null): array {
         $thirtyDaysAgo = date('Y-m-d H:i:s', strtotime($lastDate . ' -30 days'));
         
         // Try Analyzed data first (use all-time if data is available)
         if ($this->db->tableExists('tbl_Analyzed_Transactions')) {
-            $analyzed = $this->db->table('tbl_Analyzed_Transactions')
-                ->selectSum('amount', 'total_amount')
-                ->select('description')
-                ->groupBy('description')
-                ->get()
-                ->getResult();
+            $builder = $this->db->table('tbl_Analyzed_Transactions a')
+                ->selectSum('a.amount', 'total_amount')
+                ->select('a.description');
+                
+            if ($deviceToken) {
+                $builder->join('tbl_Sms s', 's.sms__id = a.orig_sms_id', 'left')
+                        ->where('s.sms_owner', $deviceToken);
+            }
+            
+            $analyzed = $builder->groupBy('a.description')->get()->getResult();
             
             if (!empty($analyzed)) {
                 $stats = [
@@ -260,19 +307,25 @@ class ModUploads extends Model
                 
                 // Average daily spend and max transaction
                 $stats['daily_avg_spend'] = $stats['total_sent_30'] / 30;
-                $maxTrans = $this->db->table('tbl_Analyzed_Transactions')
-                    ->selectMax('amount')
-                    ->whereIn('description', ['Sent', 'Sent To Lnm'])
-                    ->get()
-                    ->getRow();
+                
+                $maxBuilder = $this->db->table('tbl_Analyzed_Transactions a')
+                    ->selectMax('a.amount', 'amount')
+                    ->whereIn('a.description', ['Sent', 'Sent To Lnm']);
+                if ($deviceToken) {
+                    $maxBuilder->join('tbl_Sms s', 's.sms__id = a.orig_sms_id', 'left')
+                               ->where('s.sms_owner', $deviceToken);
+                }
+                $maxTrans = $maxBuilder->get()->getRow();
                 $stats['max_transaction'] = (float)($maxTrans->amount ?? 0);
 
                 // Still need latest balance from raw SMS
-                $latestSms = $this->db->table('tbl_Sms')
+                $smsBuilder = $this->db->table('tbl_Sms')
                     ->orderBy('sms_time', 'DESC')
-                    ->limit(100)
-                    ->get()
-                    ->getResult();
+                    ->limit(100);
+                if ($deviceToken) {
+                    $smsBuilder->where('sms_owner', $deviceToken);
+                }
+                $latestSms = $smsBuilder->get()->getResult();
                 foreach ($latestSms as $sms) {
                     $body = strtolower(base64_decode($sms->sms_body));
                     if ($stats['current_balance'] == 0 && strpos($body, 'new m-pesa balance is ksh') !== false) {
@@ -297,7 +350,9 @@ class ModUploads extends Model
             'is_analyzed' => false
         ];
 
-        $smsList = $this->db->table('tbl_Sms')->get()->getResult();
+        $smsBuilder = $this->db->table('tbl_Sms');
+        if ($deviceToken) $smsBuilder->where('sms_owner', $deviceToken);
+        $smsList = $smsBuilder->get()->getResult();
         
         foreach ($smsList as $sms) {
             $body = strtolower(base64_decode($sms->sms_body));
@@ -327,7 +382,7 @@ class ModUploads extends Model
     /**
      * Detailed Sent Summary (30 days)
      */
-    public function getSentSummary30Days(string $lastDate): array {
+    public function getSentSummary30Days(string $lastDate, ?string $deviceToken = null): array {
         $thirtyDaysAgo = date('Y-m-d H:i:s', strtotime($lastDate . ' -30 days'));
         
         if ($this->db->tableExists('tbl_Analyzed_Transactions')) {
@@ -338,15 +393,16 @@ class ModUploads extends Model
                 'fuliza_deductions' => 0
             ];
             
-            // Join with raw SMS to get detailed body for Paybill/Till detection
-            // OR we can trust the 'counterparty' if we refine it later.
-            // For now, let's just aggregate from analyzed where possible.
-            $analyzed = $this->db->table('tbl_Analyzed_Transactions a')
+            $builder = $this->db->table('tbl_Analyzed_Transactions a')
                 ->select('a.amount, a.description, s.sms_body')
                 ->join('tbl_Sms s', 's.sms__id = a.orig_sms_id', 'left')
-                ->whereIn('a.description', ['Sent', 'Sent To Lnm', 'Fuliza Loan Paid'])
-                ->get()
-                ->getResult();
+                ->whereIn('a.description', ['Sent', 'Sent To Lnm', 'Fuliza Loan Paid']);
+                
+            if ($deviceToken) {
+                $builder->where('s.sms_owner', $deviceToken);
+            }
+                
+            $analyzed = $builder->get()->getResult();
             
             if (!empty($analyzed)) {
                 foreach ($analyzed as $row) {
@@ -372,11 +428,15 @@ class ModUploads extends Model
             'fuliza_deductions' => 0
         ];
 
-        $smsList = $this->db->table('tbl_Sms')
+        $smsBuilder = $this->db->table('tbl_Sms')
             ->where('sms_time >=', $thirtyDaysAgo)
-            ->where('sms_time <=', $lastDate)
-            ->get()
-            ->getResult();
+            ->where('sms_time <=', $lastDate);
+            
+        if ($deviceToken) {
+            $smsBuilder->where('sms_owner', $deviceToken);
+        }
+        
+        $smsList = $smsBuilder->get()->getResult();
 
         foreach ($smsList as $sms) {
             $body = strtolower(base64_decode($sms->sms_body));
@@ -462,12 +522,16 @@ class ModUploads extends Model
     /**
      * Fetch recent transactions
      */
-    public function getRecentTransactions(int $limit = 10): array {
+    public function getRecentTransactions(int $limit = 10, ?string $deviceToken = null): array {
         $builder = $this->db->table('tbl_Sms s')
             ->select('s.*, a.trans_id as analyzed_id, a.counterparty as analyzed_counterparty, a.amount as analyzed_amount')
             ->join('tbl_Analyzed_Transactions a', 'a.orig_sms_id = s.sms__id', 'left')
             ->orderBy('s.sms_time', 'DESC')
             ->limit($limit);
+            
+        if ($deviceToken) {
+            $builder->where('s.sms_owner', $deviceToken);
+        }
         
         return $builder->get()->getResult();
     }
@@ -541,7 +605,7 @@ class ModUploads extends Model
     /**
      * Get data for charts (30 day window, with graceful fallback to all-time)
      */
-    public function getAnalyticsData30Days(string $lastDate): array {
+    public function getAnalyticsData30Days(string $lastDate, ?string $deviceToken = null): array {
         // Step 1: Try to build data from tbl_Analyzed_Transactions within window
         $thirtyDaysAgo = date('Y-m-d', strtotime($lastDate . ' -29 days'));
 
@@ -565,13 +629,17 @@ class ModUploads extends Model
             $dayReceiving = 0;
 
             if ($hasAnalyzed) {
-                $daily = $this->db->table('tbl_Analyzed_Transactions')
-                    ->selectSum('amount', 'total_amount')
-                    ->select('description')
-                    ->where("DATE(trans_date)", $date)
-                    ->groupBy('description')
-                    ->get()
-                    ->getResult();
+                $builder = $this->db->table('tbl_Analyzed_Transactions a')
+                    ->selectSum('a.amount', 'total_amount')
+                    ->select('a.description')
+                    ->where("DATE(a.trans_date)", $date);
+                    
+                if ($deviceToken) {
+                    $builder->join('tbl_Sms s', 's.sms__id = a.orig_sms_id', 'left')
+                            ->where('s.sms_owner', $deviceToken);
+                }
+                    
+                $daily = $builder->groupBy('a.description')->get()->getResult();
 
                 foreach ($daily as $row) {
                     $desc = strtolower($row->description);
@@ -579,10 +647,9 @@ class ModUploads extends Model
                     elseif (in_array($desc, ['sent', 'sent to lnm'])) $daySpending += (float)$row->total_amount;
                 }
             } else {
-                $smsList = $this->db->table('tbl_Sms')
-                    ->like('sms_time', $date)
-                    ->get()
-                    ->getResult();
+                $smsBuilder = $this->db->table('tbl_Sms')->like('sms_time', $date);
+                if ($deviceToken) $smsBuilder->where('sms_owner', $deviceToken);
+                $smsList = $smsBuilder->get()->getResult();
 
                 foreach ($smsList as $sms) {
                     $amount = $this->extractAmount(base64_decode($sms->sms_body));
@@ -603,11 +670,12 @@ class ModUploads extends Model
             $labels   = [];
             $spending = $receiving = [];
             
-            $allSms = $this->db->table('tbl_Sms')
+            $allBuilder = $this->db->table('tbl_Sms')
                 ->select('sms_time, sms_category, sms_body')
-                ->orderBy('sms_time', 'ASC')
-                ->get()
-                ->getResult();
+                ->orderBy('sms_time', 'ASC');
+                
+            if ($deviceToken) $allBuilder->where('sms_owner', $deviceToken);
+            $allSms = $allBuilder->get()->getResult();
 
             // Group by date
             $byDate = [];
@@ -635,15 +703,15 @@ class ModUploads extends Model
             }
         }
 
-        // Category breakdown
         $categories = ['Paybill' => 0, 'Till' => 0, 'Sent to Mobile' => 0, 'Withdrawal' => 0];
 
         if ($hasAnalyzed) {
-            $catData = $this->db->table('tbl_Analyzed_Transactions a')
+            $catBuilder = $this->db->table('tbl_Analyzed_Transactions a')
                 ->select('a.amount, a.description, s.sms_body')
-                ->join('tbl_Sms s', 's.sms__id = a.orig_sms_id', 'left')
-                ->get()
-                ->getResult();
+                ->join('tbl_Sms s', 's.sms__id = a.orig_sms_id', 'left');
+                
+            if ($deviceToken) $catBuilder->where('s.sms_owner', $deviceToken);
+            $catData = $catBuilder->get()->getResult();
 
             foreach ($catData as $row) {
                 $body = strtolower(base64_decode($row->sms_body ?? ''));
@@ -659,7 +727,9 @@ class ModUploads extends Model
                 }
             }
         } else {
-            $smsList = $this->db->table('tbl_Sms')->get()->getResult();
+            $smsListBuilder = $this->db->table('tbl_Sms');
+            if ($deviceToken) $smsListBuilder->where('sms_owner', $deviceToken);
+            $smsList = $smsListBuilder->get()->getResult();
             foreach ($smsList as $sms) {
                 $body = strtolower(base64_decode($sms->sms_body));
                 $amt  = $this->extractAmount($body);
@@ -678,9 +748,11 @@ class ModUploads extends Model
         // Fuliza (from raw SMS, since it's a category not usually in analyzed)
         $fulizaTaken = array_fill(0, count($labels), 0);
         $fulizaPaid  = array_fill(0, count($labels), 0);
-        $allFulizaSms = $this->db->table('tbl_Sms')
-            ->whereIn('sms_category', ['Fuliza Loan Taken', 'Fuliza Loan Paid'])
-            ->get()->getResult();
+        
+        $fulizaBuilder = $this->db->table('tbl_Sms')
+            ->whereIn('sms_category', ['Fuliza Loan Taken', 'Fuliza Loan Paid']);
+        if ($deviceToken) $fulizaBuilder->where('sms_owner', $deviceToken);
+        $allFulizaSms = $fulizaBuilder->get()->getResult();
 
         foreach ($allFulizaSms as $sms) {
             $d = substr($this->normalizeDate($sms->sms_time), 0, 10);
@@ -948,17 +1020,22 @@ class ModUploads extends Model
     /**
      * Get top counterparties from analyzed data
      */
-    public function getTopCounterparties(int $limit = 5): array {
+    public function getTopCounterparties(int $limit = 5, ?string $deviceToken = null): array {
         if (!$this->db->tableExists('tbl_Analyzed_Transactions')) return [];
 
-        return $this->db->table('tbl_Analyzed_Transactions')
-            ->select('counterparty, SUM(amount) as total_amount, COUNT(*) as trans_count')
-            ->where('counterparty !=', 'Unknown')
-            ->groupBy('counterparty')
+        $builder = $this->db->table('tbl_Analyzed_Transactions a')
+            ->select('a.counterparty, SUM(a.amount) as total_amount, COUNT(*) as trans_count')
+            ->where('a.counterparty !=', 'Unknown')
+            ->groupBy('a.counterparty')
             ->orderBy('total_amount', 'DESC')
-            ->limit($limit)
-            ->get()
-            ->getResult();
+            ->limit($limit);
+            
+        if ($deviceToken) {
+            $builder->join('tbl_Sms s', 's.sms__id = a.orig_sms_id', 'left')
+                    ->where('s.sms_owner', $deviceToken);
+        }
+
+        return $builder->get()->getResult();
     }
 
     /**

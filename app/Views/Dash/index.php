@@ -36,13 +36,64 @@
         <h2 class="fw-bold mb-1" style="color: var(--primary);">Dashboard Overview</h2>
         <p class="text-secondary mb-0">High-level summary of your financial data (Last 30 Days).</p>
     </div>
-    <div class="d-flex gap-2">
-        <button id="runAnalysis" class="btn btn-success rounded-pill px-4 shadow-sm">
-            <i class="fa-solid fa-microchip me-2"></i> Analyse Data
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <?php if (!empty($linked_devices)): ?>
+        <form method="get" action="<?= base_url('dashboard') ?>" class="me-2 mb-0">
+            <div class="input-group input-group-sm rounded-pill shadow-sm bg-white overflow-hidden border border-primary-subtle">
+                <span class="input-group-text bg-transparent border-0 pe-1"><i class="fa-solid fa-mobile-screen text-primary"></i></span>
+                <select name="device" class="form-select border-0 shadow-none pe-4 font-monospace small" style="background-color: transparent; cursor: pointer;" onchange="this.form.submit()">
+                    <option value="">All Devices</option>
+                    <?php foreach ($linked_devices as $ld): ?>
+                        <option value="<?= htmlspecialchars($ld->device_token) ?>" <?= (($device_filter ?? '') === $ld->device_token) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($ld->device_name ?: substr($ld->device_token, 0, 8)) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </form>
+        <?php endif; ?>
+
+        <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-sm focus-ring" data-bs-toggle="modal" data-bs-target="#linkDeviceModal">
+            <i class="fa-solid fa-link"></i> Link Device
         </button>
-        <a href="<?= base_url('dashboard/search') ?>" class="btn btn-primary rounded-pill px-4 shadow-sm">
-            <i class="fa-solid fa-magnifying-glass me-2"></i> Search and Filtering
+
+        <button id="runAnalysis" class="btn btn-success btn-sm rounded-pill px-3 shadow-sm">
+            <i class="fa-solid fa-microchip me-1"></i> Analyze
+        </button>
+        <a href="<?= base_url('dashboard/search') ?>" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm">
+            <i class="fa-solid fa-magnifying-glass me-1"></i> Search
         </a>
+    </div>
+</div>
+
+<!-- Link Device Modal -->
+<div class="modal fade" id="linkDeviceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-lg">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold"><i class="fa-solid fa-mobile-screen-button text-primary me-2"></i>Link a Device</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="<?= base_url('dashboard/device/link') ?>" method="post">
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-4">Link an Android device running the M-Pesa SMS sync app using its unique Device Token (found in API settings).</p>
+                    
+                    <div class="mb-3">
+                        <label class="text-secondary small fw-bold text-uppercase">Device Token / SMS Owner</label>
+                        <input type="text" class="form-control form-control-lg bg-light border-0 font-monospace" name="device_token" placeholder="e.g. uuid-1234..." required>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="text-secondary small fw-bold text-uppercase">Device Name (Optional)</label>
+                        <input type="text" class="form-control bg-light border-0" name="device_name" placeholder="e.g. My Pixel 7">
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0 bg-light rounded-bottom-4">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">Save Link</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 <?= $this->endSection() ?>
@@ -113,10 +164,10 @@ usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
     <?php endif; ?>
 <?php endif; ?>
 
-<div class="row g-4 mb-4">
+<div class="row g-4 mb-4" id="dashboardGrid">
 
     <!-- General Summary Card -->
-    <div class="col-md-4">
+    <div class="col-md-3" data-id="finance_overview">
         <div class="card summary-card card-purple h-100 shadow-sm">
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -138,7 +189,7 @@ usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
     </div>
 
     <!-- Spending Summary Card -->
-    <div class="col-md-4">
+    <div class="col-md-3" data-id="spending_summary">
         <div class="card summary-card card-blue h-100 shadow-sm">
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -164,7 +215,7 @@ usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
     </div>
 
     <!-- Income Summary Card -->
-    <div class="col-md-4">
+    <div class="col-md-3" data-id="income_summary">
         <div class="card summary-card card-dark h-100 shadow-sm">
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -188,11 +239,43 @@ usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
             </div>
         </div>
     </div>
-</div>
+
+    <!-- AI Financial Health Score Card -->
+    <div class="col-md-3" data-id="health_score">
+        <div class="card summary-card border border-2 opacity-100 h-100 shadow-sm" style="border-color: <?= $health_score['color'] ?>50 !important; background: linear-gradient(135deg, <?= $health_score['color'] ?>20 0%, transparent 100%);">
+            <div class="card-body p-4 text-dark">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0 fw-bold" style="color: <?= $health_score['color'] ?>;">Health Score</h5>
+                    <i class="fa-solid fa-heart-pulse metric-icon" style="color: <?= $health_score['color'] ?>80;"></i>
+                </div>
+                
+                <div class="d-flex align-items-center mb-3">
+                    <div class="me-3 position-relative" style="width: 70px; height: 70px;">
+                        <svg viewBox="0 0 36 36" class="circular-chart" style="width: 100%; height: 100%;">
+                            <path class="circle-bg" stroke="#e6e6e6" stroke-width="3" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path class="circle" stroke="<?= $health_score['color'] ?>" stroke-width="3" fill="none" stroke-dasharray="<?= $health_score['score'] ?>, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <text x="18" y="20.35" fill="currentColor" text-anchor="middle" font-size="10" font-weight="bold" font-family="Outfit"><?= $health_score['score'] ?></text>
+                        </svg>
+                    </div>
+                    <div>
+                        <h4 class="fw-bold mb-0 text-dark"><?= $health_score['score'] >= 80 ? 'Excellent' : ($health_score['score'] >= 50 ? 'Fair' : 'Needs Action') ?></h4>
+                        <p class="small text-muted mb-0">Based on last 60 days</p>
+                    </div>
+                </div>
+                
+                <div class="mt-2 small opacity-75">
+                    <?php if (!empty($health_score['tips'])): ?>
+                    <ul class="list-unstyled mb-0">
+                        <li><i class="fa-solid fa-check text-success me-1"></i> <?= htmlspecialchars($health_score['tips'][0]) ?></li>
+                    </ul>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
 
 <?php if (!empty($top_counterparties)): ?>
-<div class="row g-4 mb-4">
-    <div class="col-md-12">
+    <div class="col-md-12" data-id="top_counterparties">
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
             <div class="card-header bg-white border-0 py-4 d-flex justify-content-between align-items-center">
                 <div>
@@ -237,8 +320,9 @@ usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
             </div>
         </div>
     </div>
-</div>
 <?php endif; ?>
+</div>
+
             </div>
         </div>
     </div>
@@ -290,36 +374,58 @@ usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
         });
         // Analysis button logic
         const analysisBtn = document.getElementById('runAnalysis');
-        analysisBtn.addEventListener('click', function() {
-            const originalText = analysisBtn.innerHTML;
-            analysisBtn.disabled = true;
-            analysisBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Analysing...';
-            
-            fetch('<?= base_url('dashboard/analyse') ?>')
-                .then(response => {
-                    const contentType = response.headers.get('content-type');
-                    if (!response.ok || !contentType || !contentType.includes('application/json')) {
-                        return response.text().then(text => {
-                            throw new Error(`Server returned ${response.status}: ${text.substring(0, 100)}...`);
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    alert(data.message);
-                    if (data.status === 'success') {
-                        location.reload();
-                    }
-                })
-                .catch(error => {
-                    console.error('Analysis Error:', error);
-                    alert('Analysis failed: ' + error.message);
-                })
-                .finally(() => {
-                    analysisBtn.disabled = false;
-                    analysisBtn.innerHTML = originalText;
-                });
-        });
+        if (analysisBtn) {
+            analysisBtn.addEventListener('click', function() {
+                const originalText = analysisBtn.innerHTML;
+                analysisBtn.disabled = true;
+                analysisBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Analysing...';
+                
+                fetch('<?= base_url('dashboard/analyse') ?>')
+                    .then(response => {
+                        const contentType = response.headers.get('content-type');
+                        if (!response.ok || !contentType || !contentType.includes('application/json')) {
+                            return response.text().then(text => {
+                                throw new Error(`Server returned ${response.status}: ${text.substring(0, 100)}...`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        alert(data.message);
+                        if (data.status === 'success') {
+                            location.reload();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Analysis Error:', error);
+                        alert('Analysis failed: ' + error.message);
+                    })
+                    .finally(() => {
+                        analysisBtn.disabled = false;
+                        analysisBtn.innerHTML = originalText;
+                    });
+            });
+        }
+        
+        // SortableJS Logic for Dashboard Widgets
+        const grid = document.getElementById('dashboardGrid');
+        if (grid) {
+            const sortable = Sortable.create(grid, {
+                animation: 150,
+                handle: '.card', // Drag handles are the cards themselves
+                ghostClass: 'opacity-50',
+                onEnd: function() {
+                    const order = sortable.toArray();
+                    localStorage.setItem('dashboard_order', JSON.stringify(order));
+                }
+            });
+
+            // Apply saved layout
+            const savedOrder = JSON.parse(localStorage.getItem('dashboard_order'));
+            if (savedOrder && savedOrder.length > 0) {
+                sortable.sort(savedOrder);
+            }
+        }
     });
 </script>
 <?= $this->endSection() ?>

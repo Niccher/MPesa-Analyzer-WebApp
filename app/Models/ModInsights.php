@@ -31,7 +31,7 @@ class ModInsights extends Model
     /**
      * 2.3 Spending Trends (This month vs Last month outflow)
      */
-    public function getSpendingTrends(): array {
+    public function getSpendingTrends(?string $deviceToken = null): array {
         $now = time();
         $thisMonthStart = mktime(0, 0, 0, (int)date('m', $now), 1, (int)date('Y', $now));
         $lastMonthStart = mktime(0, 0, 0, (int)date('m', $now) - 1, 1, (int)date('Y', $now));
@@ -39,7 +39,9 @@ class ModInsights extends Model
         $thisMonthOutflow = 0.0;
         $lastMonthOutflow = 0.0;
         
-        $allSms = $this->db->table('tbl_Sms')->get()->getResult();
+        $builder = $this->db->table('tbl_Sms');
+        if ($deviceToken) $builder->where('sms_owner', $deviceToken);
+        $allSms = $builder->get()->getResult();
         
         foreach ($allSms as $sms) {
             $cat = strtolower($sms->sms_category);
@@ -69,24 +71,37 @@ class ModInsights extends Model
     /**
      * 2.4 Recurring Payments Detector
      */
-    public function getRecurringPayments(): array {
+    public function getRecurringPayments(?string $deviceToken = null): array {
         if (!$this->db->tableExists('tbl_Analyzed_Transactions')) return [];
         
         $sixMonthsAgo = date('Y-m-d H:i:s', strtotime('-6 months'));
         
         // Find transactions with same counterparty and same amount appearing 3+ times
         $db = \Config\Database::connect();
-        $query = $db->query("
-            SELECT counterparty, amount, COUNT(*) as occurs, MAX(trans_date) as last_paid
-            FROM tbl_Analyzed_Transactions
-            WHERE description IN ('Paybill', 'Till', 'Sent', 'Sent to LNM', 'Sent to Mobile')
-              AND trans_date >= ?
-              AND counterparty != 'Unknown'
-            GROUP BY counterparty, amount
+        
+        $sql = "
+            SELECT a.counterparty, a.amount, COUNT(*) as occurs, MAX(a.trans_date) as last_paid
+            FROM tbl_Analyzed_Transactions a
+            LEFT JOIN tbl_Sms s ON s.sms__id = a.orig_sms_id
+            WHERE a.description IN ('Paybill', 'Till', 'Sent', 'Sent to LNM', 'Sent to Mobile')
+              AND a.trans_date >= ?
+              AND a.counterparty != 'Unknown'
+        ";
+        $params = [$sixMonthsAgo];
+        
+        if ($deviceToken) {
+            $sql .= " AND s.sms_owner = ? ";
+            $params[] = $deviceToken;
+        }
+        
+        $sql .= "
+            GROUP BY a.counterparty, a.amount
             HAVING occurs >= 3
             ORDER BY last_paid DESC
             LIMIT 10
-        ", [$sixMonthsAgo]);
+        ";
+        
+        $query = $db->query($sql, $params);
 
         return $query->getResult();
     }
@@ -94,9 +109,12 @@ class ModInsights extends Model
     /**
      * 3. Smart Alerts Engine
      */
-    public function getSmartAlerts(): array {
+    public function getSmartAlerts(?string $deviceToken = null): array {
         $alerts = [];
-        $allSms = $this->db->table('tbl_Sms')->orderBy('sms_time', 'DESC')->get()->getResult();
+        $builder = $this->db->table('tbl_Sms')->orderBy('sms_time', 'DESC');
+        if ($deviceToken) $builder->where('sms_owner', $deviceToken);
+        $allSms = $builder->get()->getResult();
+        
         if (empty($allSms)) return $alerts;
         
         // 1. Low Balance Warning
@@ -178,5 +196,74 @@ class ModInsights extends Model
         }
 
         return $alerts;
+    }
+
+    /**
+     * 4. AI Financial Health Score (0-100)
+     */
+    public function getFinancialHealthScore(?string $deviceToken = null): array {
+        $builder = $this->db->table('tbl_Sms')->orderBy('sms_time', 'DESC');
+        if ($deviceToken) $builder->where('sms_owner', $deviceToken);
+        $allSms = $builder->get()->getResult();
+        
+        $score = 100;
+        $inflow = 0.0;
+        $outflow = 0.0;
+        $fuliza = 0.0;
+
+        $sixtyDaysAgo = strtotime('-60 days');
+
+        foreach ($allSms as $sms) {
+            $ts = $this->normalizeTimestamp($sms->sms_time);
+            if ($ts < $sixtyDaysAgo) continue;
+
+            $cat = strtolower($sms->sms_category);
+            $amount = $this->extractAmount(strtolower(base64_decode($sms->sms_body)));
+
+            if (in_array($cat, ['sent', 'withdraw', 'paybill', 'till', 'sent to lnm', 'sent to mobile'])) {
+                $outflow += $amount;
+            } elseif (in_array($cat, ['received', 'bank to mpesa', 'deposit'])) {
+                $inflow += $amount;
+            } elseif (strpos($cat, 'fuliza') !== false) {
+                $fuliza += $amount;
+            }
+        }
+
+        $tips = [];
+
+        // 1. Savings Ratio (40 points)
+        if ($outflow > $inflow) {
+            $ratio = $inflow == 0 ? 2 : ($outflow / $inflow);
+            if ($ratio > 1.5) { $score -= 35; $tips[] = "Spending significantly exceeds income (High Risk)."; }
+            elseif ($ratio > 1.1) { $score -= 20; $tips[] = "Spending slightly higher than income (Moderate Risk)."; }
+            elseif ($ratio > 1.0) { $score -= 10; }
+        } else {
+            $tips[] = "Excellent savings ratio (Inflow > Outflow).";
+        }
+
+        // 2. Fuliza Dependency (40 points)
+        if ($outflow > 0) {
+            $fulizaRatio = $fuliza / $outflow;
+            if ($fulizaRatio > 0.4) { $score -= 40; $tips[] = "Heavy Fuliza reliance detected (>40% of spend)."; }
+            elseif ($fulizaRatio > 0.2) { $score -= 20; $tips[] = "Moderate Fuliza usage (>20% of spend)."; }
+            elseif ($fulizaRatio > 0.05) { $score -= 5; }
+        } else {
+            $tips[] = "Healthy independent spending (No/Low Fuliza).";
+        }
+
+        // 3. Activity Consistency (20 points)
+        if ($outflow == 0 && $inflow == 0) {
+            $score -= 20;
+            $tips[] = "Not enough recent data to calculate a robust score.";
+        }
+
+        $score = max(0, min(100, $score));
+        $color = $score >= 80 ? '#2ED573' : ($score >= 50 ? '#FFA502' : '#FF4757');
+
+        return [
+            'score' => $score,
+            'color' => $color,
+            'tips'  => $tips
+        ];
     }
 }

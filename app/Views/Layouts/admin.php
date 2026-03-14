@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title><?= $this->renderSection('title') ?? 'Mpesa Analyzer' ?></title>
     
+    <!-- Prevent Light Flash -->
+    <script>
+        const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        if (theme === 'dark') document.documentElement.setAttribute('data-bs-theme', 'dark');
+    </script>
+
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
@@ -28,6 +34,30 @@
             font-family: 'Outfit', sans-serif;
             background-color: var(--bg-color);
             overflow: hidden; /* Prevent double scrollbars, allow main to scroll */
+            transition: background-color 0.3s ease;
+        }
+
+        [data-bs-theme="dark"] body {
+            --bg-color: #121212;
+            background-color: var(--bg-color);
+        }
+
+        [data-bs-theme="dark"] #sidebar, 
+        [data-bs-theme="dark"] .navbar,
+        [data-bs-theme="dark"] .dashboard-footer {
+            background-color: #1e1e1e !important;
+            border-color: #333 !important;
+        }
+
+        [data-bs-theme="dark"] #sidebar .nav-link,
+        [data-bs-theme="dark"] .navbar .nav-link,
+        [data-bs-theme="dark"] .text-dark {
+            color: #e0e0e0 !important;
+        }
+
+        [data-bs-theme="dark"] .card {
+            background-color: #1e1e1e;
+            border-color: #333;
         }
 
         /* Sidebar Styling */
@@ -216,6 +246,11 @@
                                 <?= $username ?>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                <li>
+                                    <button class="dropdown-item d-flex align-items-center" id="themeToggleBtn">
+                                        <i class="fa-solid fa-moon me-2" id="themeIcon"></i> <span id="themeText">Dark Mode</span>
+                                    </button>
+                                </li>
                                 <li><a class="dropdown-item" href="<?= url_to('Info::index') ?>"><i class="fa-solid fa-user me-2"></i> Profile</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item text-danger" href="<?= url_to('logout') ?>"><i class="fa-solid fa-right-from-bracket me-2"></i> Logout</a></li>
@@ -265,6 +300,9 @@
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
 
+    <!-- SortableJS for Drag-and-Drop Widgets -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
     <!-- Sidebar Toggle Script -->
     <script>
         document.getElementById("sidebarToggle").addEventListener("click", function(e) {
@@ -274,6 +312,39 @@
         document.getElementById("sidebarClose").addEventListener("click", function(e) {
             e.preventDefault();
             document.getElementById("sidebar").classList.remove("toggled");
+        });
+
+        // Dark Mode Logic
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeToggleBtn = document.getElementById('themeToggleBtn');
+            const themeIcon = document.getElementById('themeIcon');
+            const themeText = document.getElementById('themeText');
+            
+            function updateThemeUI(theme) {
+                if (theme === 'dark') {
+                    themeIcon.classList.remove('fa-moon');
+                    themeIcon.classList.add('fa-sun');
+                    themeText.textContent = 'Light Mode';
+                } else {
+                    themeIcon.classList.remove('fa-sun');
+                    themeIcon.classList.add('fa-moon');
+                    themeText.textContent = 'Dark Mode';
+                }
+            }
+
+            // Init UI
+            const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+            updateThemeUI(currentTheme);
+
+            themeToggleBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                
+                document.documentElement.setAttribute('data-bs-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                updateThemeUI(newTheme);
+            });
         });
     </script>
 

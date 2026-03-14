@@ -18,19 +18,22 @@ class Transactions extends BaseController
         $category = $this->request->getGet('category') ?? '';
 
         // Count total rows for pagination
-        $countBuilder = $db->table('tbl_Sms');
+        $countBuilder = $db->table('tbl_Sms s')
+            ->join('tbl_Analyzed_Transactions a', 's.sms__id = a.orig_sms_id', 'left');
         if (!empty($category)) {
-            $countBuilder->like('sms_category', $category);
+            $countBuilder->like('s.sms_category', $category);
         }
         $total = $countBuilder->countAllResults();
 
         // Fetch just this page
-        $builder = $db->table('tbl_Sms');
+        $builder = $db->table('tbl_Sms s')
+            ->select('s.*, a.counterparty, a.description as analyzed_category')
+            ->join('tbl_Analyzed_Transactions a', 's.sms__id = a.orig_sms_id', 'left');
         if (!empty($category)) {
-            $builder->like('sms_category', $category);
+            $builder->like('s.sms_category', $category);
         }
         $transactions = $builder
-            ->orderBy('sms_time', 'DESC')
+            ->orderBy('s.sms_time', 'DESC')
             ->limit($this->perPage, $offset)
             ->get()
             ->getResult();

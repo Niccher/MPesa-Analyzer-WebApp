@@ -15,6 +15,14 @@ class Analyse extends BaseController
 
             // 1. Ensure output table exists
             $this->ensureAnalysisTable($db);
+            $this->ensureCategoryRulesTable($db);
+
+            // Fetch Custom Rules
+            $categoryRules = [];
+            $rulesQuery = $db->table('tbl_Category_Rules')->get()->getResultArray();
+            foreach ($rulesQuery as $r) {
+                $categoryRules[strtolower($r['keyword'])] = $r['correct_category'];
+            }
 
             // 2. Fetch SMS not yet analyzed
             $smsList = $db->table('tbl_Sms s')
@@ -35,7 +43,7 @@ class Analyse extends BaseController
                 $body = base64_decode($sms->sms_body);
                 if ($body === false) continue;
 
-                $parsed = $this->deepParse($body, $sms->sms_category);
+                $parsed = $this->deepParse($body, $sms->sms_category, $categoryRules);
                 
                 // Normalize the date: handle numeric timestamps
                 $transDate = $this->normalizeDate($sms->sms_time);
@@ -140,7 +148,39 @@ class Analyse extends BaseController
         $forge->createTable('tbl_Analyzed_Transactions');
     }
 
-    private function deepParse($body, $category): array
+    private function ensureCategoryRulesTable($db)
+    {
+        if ($db->tableExists('tbl_Category_Rules')) {
+            return;
+        }
+
+        $forge = \Config\Database::forge();
+        $forge->addField([
+            'id' => [
+                'type'           => 'INT',
+                'constraint'     => 11,
+                'unsigned'       => true,
+                'auto_increment' => true,
+            ],
+            'keyword' => [
+                'type'       => 'VARCHAR',
+                'constraint' => '255',
+                'unique'     => true
+            ],
+            'correct_category' => [
+                'type'       => 'VARCHAR',
+                'constraint' => '100',
+            ],
+            'created_at' => [
+                'type' => 'DATETIME',
+                'null' => true,
+            ],
+        ]);
+        $forge->addKey('id', true);
+        $forge->createTable('tbl_Category_Rules');
+    }
+
+    private function deepParse($body, $category, $categoryRules = []): array
     {
         $data = [
             'trans_id'     => '',
@@ -184,6 +224,53 @@ class Analyse extends BaseController
             $data['counterparty'] = trim($data['counterparty'], " .,");
         }
 
+        // Apply Smart Auto-Fix Rules
+        $cp = strtolower($data['counterparty']);
+        if (isset($categoryRules[$cp])) {
+            $data['description'] = $categoryRules[$cp];
+        }
+
         return $data;
+    }
+
+    public function saveRule()
+    {
+        $keyword = $this->request->getPost('keyword');
+        $category = $this->request->getPost('category');
+        $transId = $this->request->getPost('trans_id'); // Just to update the specific transaction immediately
+
+        if (empty($keyword) || empty($category)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Keyword and Category required.']);
+        }
+
+        $db = \Config\Database::connect();
+        $this->ensureCategoryRulesTable($db);
+
+        // Upsert Rule
+        $builder = $db->table('tbl_Category_Rules');
+        $existing = $builder->where('keyword', $keyword)->get()->getRow();
+
+        if ($existing) {
+            $builder->where('id', $existing->id)->update(['correct_category' => $category]);
+        } else {
+            $builder->insert([
+                'keyword'          => $keyword,
+                'correct_category' => $category,
+                'created_at'       => date('Y-m-d H:i:s')
+            ]);
+        }
+
+        // Apply immediately to the analyzed table
+        if (!empty($transId)) {
+            $db->table('tbl_Analyzed_Transactions')->where('orig_sms_id', $transId)->update(['description' => $category]);
+        }
+
+        // Retroactively apply to past transactions with the same counterparty
+        $db->table('tbl_Analyzed_Transactions')->where('counterparty', $keyword)->update(['description' => $category]);
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'message' => "Rule saved! Future and past transactions for '$keyword' will be mapped to '$category'."
+        ]);
     }
 }

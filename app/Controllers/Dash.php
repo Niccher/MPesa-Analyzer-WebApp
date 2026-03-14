@@ -14,29 +14,54 @@ class Dash extends BaseController
         $mod_uploads = new ModUploads();
         helper('mpesa_date');
         
+        $userId = auth()->user()->id;
+        $linkedDevices = $mod_uploads->getLinkedDevices($userId);
+        
+        $deviceToken = $this->request->getGet('device');
+        if (empty($deviceToken)) {
+            $deviceToken = null;
+        }
+
         $lastDate = $mod_uploads->getLatestTransactionDate() ?? date('Y-m-d H:i:s');
         
-        $metrics = $mod_uploads->getDashboardMetrics30Days($lastDate);
-        $sent_summary = $mod_uploads->getSentSummary30Days($lastDate);
-        $received_summary = $mod_uploads->getReceivedSummary30Days($lastDate);
-        $recent_transactions = $mod_uploads->getRecentTransactions(10);
+        $metrics = $mod_uploads->getDashboardMetrics30Days($lastDate, $deviceToken);
+        $sent_summary = $mod_uploads->getSentSummary30Days($lastDate, $deviceToken);
+        $received_summary = $mod_uploads->getReceivedSummary30Days($lastDate, $deviceToken);
+        $recent_transactions = $mod_uploads->getRecentTransactions(10, $deviceToken);
         
         $modBudget   = new ModBudget();
         $modInsights = new ModInsights();
 
         $data = [
+            'device_filter'       => $deviceToken,
+            'linked_devices'      => $linkedDevices,
             'total_uploads'       => $mod_uploads->countAll(),
             'metrics'             => $metrics,
             'sent_summary'        => $sent_summary,
             'received_summary'    => $received_summary,
             'recent_transactions' => $recent_transactions,
-            'top_counterparties'  => $mod_uploads->getTopCounterparties(5),
+            'top_counterparties'  => $mod_uploads->getTopCounterparties(5, $deviceToken),
             'budget_alerts'       => $modBudget->getBudgetProgress($modBudget->getBudgets()),
-            'smart_alerts'        => $modInsights->getSmartAlerts(),
-            'trends'              => $modInsights->getSpendingTrends(),
+            'smart_alerts'        => $modInsights->getSmartAlerts($deviceToken),
+            'trends'              => $modInsights->getSpendingTrends($deviceToken),
+            'health_score'        => $modInsights->getFinancialHealthScore($deviceToken),
             'bg_color'            => '#B1B8ED'
         ];
 
         return view('Dash/index', $data);
+    }
+
+    public function linkDevice()
+    {
+        $userId = auth()->user()->id;
+        $deviceToken = $this->request->getPost('device_token');
+        $deviceName = $this->request->getPost('device_name');
+        if (empty($deviceName)) $deviceName = 'My Device';
+        
+        if (!empty($deviceToken)) {
+            $mod_uploads = new ModUploads();
+            $mod_uploads->linkDevice($userId, $deviceToken, $deviceName);
+        }
+        return redirect()->to(base_url('dashboard'))->with('message', 'Device linked successfully');
     }
 }
