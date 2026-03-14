@@ -473,40 +473,69 @@ class ModUploads extends Model
     }
 
     /**
-     * Advanced Filtering
+     * Advanced Filtering — handles numeric sms_time and base64 bodies
      */
     public function getFilteredTransactions(array $f, int $limit = 500, int $offset = 0): array {
         $builder = $this->db->table('tbl_Sms s')
             ->select('s.*, a.trans_id as analyzed_id, a.counterparty as analyzed_counterparty, a.amount as analyzed_amount')
             ->join('tbl_Analyzed_Transactions a', 'a.orig_sms_id = s.sms__id', 'left');
-        
-        if (!empty($f['date_from'])) $builder->where('s.sms_time >=', $f['date_from']);
-        if (!empty($f['date_to'])) $builder->where('s.sms_time <=', $f['date_to'] . ' 23:59:59');
-        if (!empty($f['category'])) $builder->where('s.sms_category', $f['category']);
-        
+
+        // Category filter — safe SQL filter
+        if (!empty($f['category'])) {
+            $builder->where('s.sms_category', $f['category']);
+        }
+
+        // Keyword search in number or analyzed fields (body search done in PHP below)
         if (!empty($f['search'])) {
             $builder->groupStart()
                 ->like('s.sms_number', $f['search'])
-                ->orLike('s.sms_body', base64_encode($f['search']))
                 ->orLike('a.trans_id', $f['search'])
                 ->orLike('a.counterparty', $f['search'])
                 ->groupEnd();
         }
 
-        $builder->limit($limit, $offset);
+        $builder->limit(5000, $offset); // Fetch generous amount for PHP filters
         $results = $builder->orderBy('s.sms_time', 'DESC')->get()->getResult();
-        
-        // Post-process for amount filtering
-        if (!empty($f['min_amount']) || !empty($f['max_amount'])) {
-            $results = array_filter($results, function($sms) use ($f) {
-                $amt = $this->extractAmount(base64_decode($sms->sms_body));
-                if (!empty($f['min_amount']) && $amt < (float)$f['min_amount']) return false;
-                if (!empty($f['max_amount']) && $amt > (float)$f['max_amount']) return false;
-                return true;
-            });
+
+        // Post-process all filters in PHP (handles numeric timestamps and base64 bodies)
+        $filtered = [];
+        $dateFrom = !empty($f['date_from']) ? strtotime($f['date_from'] . ' 00:00:00') : null;
+        $dateTo   = !empty($f['date_to'])   ? strtotime($f['date_to'] . ' 23:59:59')   : null;
+
+        foreach ($results as $sms) {
+            // Normalize the timestamp
+            $ts = is_numeric($sms->sms_time) && $sms->sms_time > 1000000000000
+                ? (int)($sms->sms_time / 1000)
+                : (is_numeric($sms->sms_time) ? (int)$sms->sms_time : strtotime($sms->sms_time));
+
+            // Date range filter
+            if ($dateFrom !== null && $ts < $dateFrom) continue;
+            if ($dateTo   !== null && $ts > $dateTo)   continue;
+
+            // Body keyword search (decoded)
+            if (!empty($f['search'])) {
+                $body = strtolower(base64_decode($sms->sms_body));
+                $needle = strtolower($f['search']);
+                if (strpos($body, $needle) === false &&
+                    stripos($sms->sms_number, $f['search']) === false &&
+                    stripos($sms->analyzed_id ?? '', $f['search']) === false &&
+                    stripos($sms->analyzed_counterparty ?? '', $f['search']) === false) {
+                    continue;
+                }
+            }
+
+            // Amount filter
+            if (!empty($f['min_amount']) || !empty($f['max_amount'])) {
+                $amt = (float)($sms->analyzed_amount ?? $this->extractAmount(base64_decode($sms->sms_body)));
+                if (!empty($f['min_amount']) && $amt < (float)$f['min_amount']) continue;
+                if (!empty($f['max_amount']) && $amt > (float)$f['max_amount']) continue;
+            }
+
+            $filtered[] = $sms;
+            if (count($filtered) >= $limit) break;
         }
 
-        return $results;
+        return $filtered;
     }
 
     /**

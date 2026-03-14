@@ -11,12 +11,9 @@ class Search extends BaseController
         $mod_uploads = new ModUploads();
         helper(['mpesa_date', 'form']);
 
-        $lastUploadDate = $mod_uploads->getLastUploadDate();
-        $defaultDate = $lastUploadDate ? date('Y-m-d', strtotime($lastUploadDate)) : date('Y-m-d');
-
         $filters = [
-            'date_from'  => $this->request->getGet('date_from') ?? $defaultDate,
-            'date_to'    => $this->request->getGet('date_to') ?? $defaultDate,
+            'date_from'  => $this->request->getGet('date_from'),   // null = no filter
+            'date_to'    => $this->request->getGet('date_to'),      // null = no filter
             'category'   => $this->request->getGet('category'),
             'search'     => $this->request->getGet('search'),
             'min_amount' => $this->request->getGet('min_amount'),
@@ -28,7 +25,7 @@ class Search extends BaseController
         $categories = $db->table('tbl_Sms')->select('sms_category')->distinct()->get()->getResultArray();
         $categories = array_column($categories, 'sms_category');
 
-        $transactions = $mod_uploads->getFilteredTransactions($filters);
+        $transactions = $mod_uploads->getFilteredTransactions($filters, 500);
 
         $data = [
             'transactions' => $transactions,
