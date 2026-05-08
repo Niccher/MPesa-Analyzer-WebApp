@@ -27,7 +27,7 @@ class Transactions extends BaseController
 
         // Fetch just this page
         $builder = $db->table('tbl_Sms s')
-            ->select('s.*, a.counterparty, a.description as analyzed_category')
+            ->select('s.*, a.counterparty, a.description as analyzed_category, a.amount as analyzed_amount')
             ->join('tbl_Analyzed_Transactions a', 's.sms__id = a.orig_sms_id', 'left');
         if (!empty($category)) {
             $builder->like('s.sms_category', $category);

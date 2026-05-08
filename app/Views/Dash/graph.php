@@ -217,18 +217,28 @@
         <div class="glass-card card border-0 p-4 h-100">
             <h5 class="fw-bold mb-4">AI Observations</h5>
             <div class="d-flex flex-column gap-3">
-                <div class="insight-card border-primary">
-                    <p class="mb-0 small text-secondary fw-bold">HIGHEST EXPENSE</p>
-                    <p class="mb-0 fw-bold">Usually happens on weekends. Try setting a budget for Friday evenings.</p>
+                <?php foreach ($ai_observations as $obs):
+                    $borderClass = match($obs['type']) {
+                        'success' => 'border-success',
+                        'danger'  => 'border-danger',
+                        'warning' => 'border-warning',
+                        default   => 'border-primary',
+                    };
+                    $iconColor = match($obs['type']) {
+                        'success' => 'text-success',
+                        'danger'  => 'text-danger',
+                        'warning' => 'text-warning',
+                        default   => 'text-primary',
+                    };
+                ?>
+                <div class="insight-card <?= $borderClass ?>">
+                    <p class="mb-1 small text-secondary fw-bold d-flex align-items-center gap-2">
+                        <i class="fa-solid <?= htmlspecialchars($obs['icon']) ?> <?= $iconColor ?>"></i>
+                        <?= htmlspecialchars($obs['label']) ?>
+                    </p>
+                    <p class="mb-0 fw-bold small"><?= $obs['text'] ?></p>
                 </div>
-                <div class="insight-card border-success">
-                    <p class="mb-0 small text-secondary fw-bold">SAVINGS OPPORTUNITY</p>
-                    <p class="mb-0 fw-bold">Your Bank transfers are 15% lower than last week. Keep it up!</p>
-                </div>
-                <div class="insight-card border-warning">
-                    <p class="mb-0 small text-secondary fw-bold">FULIZA USAGE</p>
-                    <p class="mb-0 fw-bold">Debt repayments accounted for <?= round((array_sum($analytics['fuliza_paid']) / $total) * 100) ?>% of outgoings.</p>
-                </div>
+                <?php endforeach; ?>
             </div>
         </div>
     </div>

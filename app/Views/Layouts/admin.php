@@ -263,13 +263,11 @@
                 </div>
             </nav>
 
-            <!-- Fixed Page Header Area (Non-scrollable) -->
-            <div class="container-fluid px-4 pt-4 pb-2 flex-shrink-0">
-                <?= $this->renderSection('page_header') ?>
-            </div>
-
             <!-- Main Content Area (Scrollable) -->
-            <main class="container-fluid px-4 pb-4 pt-2 flex-grow-1 overflow-auto d-flex flex-column">
+            <main class="container-fluid px-4 pb-4 pt-0 flex-grow-1 overflow-auto d-flex flex-column">
+                <div class="pt-4 mb-2 flex-shrink-0">
+                    <?= $this->renderSection('page_header') ?>
+                </div>
                 <div class="flex-grow-1">
                     <?= $this->renderSection('content') ?>
                 </div>

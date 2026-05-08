@@ -51,6 +51,7 @@
                         <th class="ps-4">Date &amp; Time</th>
                         <th>Category</th>
                         <th>Counterparty</th>
+                        <th>Amount</th>
                         <th>Preview</th>
                         <th class="text-end pe-4">Actions</th>
                     </tr>
@@ -85,6 +86,24 @@
                                     <div class="text-muted font-monospace" style="font-size:0.7rem;"><?= htmlspecialchars($tx->sms_number) ?></div>
                                 </td>
                                 <td>
+                                    <?php
+                                    $amt = isset($tx->analyzed_amount) && $tx->analyzed_amount > 0
+                                        ? (float)$tx->analyzed_amount : null;
+                                    $isInflow  = strpos($catLower, 'received') !== false;
+                                    $isOutflow = strpos($catLower, 'sent') !== false
+                                                || strpos($catLower, 'withdraw') !== false
+                                                || strpos($catLower, 'fuliza') !== false;
+                                    ?>
+                                    <?php if ($amt !== null): ?>
+                                        <span class="fw-bold small <?= $isInflow ? 'text-success' : ($isOutflow ? 'text-danger' : 'text-dark') ?>">
+                                            <?= $isInflow ? '+' : ($isOutflow ? '-' : '') ?>
+                                            Ksh <?= number_format($amt, 2) ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="text-muted small">—</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
                                     <span class="d-inline-block text-truncate text-muted small" style="max-width: 250px;">
                                         <?= htmlspecialchars($bodyStr) ?>
                                     </span>
@@ -109,7 +128,7 @@
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="5" class="text-center py-5 text-muted">
+                            <td colspan="6" class="text-center py-5 text-muted">
                                 <i class="fa-solid fa-inbox fa-2x mb-3 d-block opacity-25"></i>
                                 No transactions found
                             </td>

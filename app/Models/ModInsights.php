@@ -199,6 +199,123 @@ class ModInsights extends Model
     }
 
     /**
+     * AI Observations — Real computed insights for the Analytics page
+     */
+    public function getAIObservations(?string $deviceToken = null): array {
+        $observations = [];
+
+        $builder = $this->db->table('tbl_Sms')->orderBy('sms_time', 'DESC');
+        if ($deviceToken) $builder->where('sms_owner', $deviceToken);
+        $allSms = $builder->get()->getResult();
+
+        if (empty($allSms)) {
+            return [
+                ['type' => 'neutral', 'label' => 'NO DATA YET', 'icon' => 'fa-circle-info',
+                 'text' => 'No transactions have been synced yet. Upload data from your Android device to get personalized insights.'],
+            ];
+        }
+
+        // --- 1. Peak Spending Day of the Week ---
+        $dayTotals = array_fill(0, 7, 0); // 0=Sun, 1=Mon ... 6=Sat
+        $dayNames  = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        $sixtyDaysAgo = strtotime('-60 days');
+
+        foreach ($allSms as $sms) {
+            $ts = $this->normalizeTimestamp($sms->sms_time);
+            if ($ts < $sixtyDaysAgo) continue;
+            $cat = strtolower($sms->sms_category);
+            if (!in_array($cat, ['sent', 'sent to lnm', 'withdraw'])) continue;
+            $amount = $this->extractAmount(strtolower(base64_decode($sms->sms_body)));
+            $dow = (int) date('w', $ts); // 0 = Sunday
+            $dayTotals[$dow] += $amount;
+        }
+
+        $peakDayIndex = array_search(max($dayTotals), $dayTotals);
+        $peakDayTotal = max($dayTotals);
+        if ($peakDayTotal > 0) {
+            $observations[] = [
+                'type'  => 'warning',
+                'label' => 'PEAK SPENDING DAY',
+                'icon'  => 'fa-calendar-day',
+                'text'  => 'You spend the most on <strong>' . $dayNames[$peakDayIndex] . 's</strong>. '
+                         . 'Total outflow on ' . $dayNames[$peakDayIndex] . 's over the last 60 days: '
+                         . '<strong>Ksh ' . number_format($peakDayTotal, 0) . '</strong>. '
+                         . 'Consider setting a ' . $dayNames[$peakDayIndex] . ' budget.'
+            ];
+        }
+
+        // --- 2. Month-over-Month Spending Trend ---
+        $trends = $this->getSpendingTrends($deviceToken);
+        if ($trends['last_month'] > 0) {
+            $pct = abs($trends['percentage']);
+            if ($trends['trend'] === 'down') {
+                $observations[] = [
+                    'type'  => 'success',
+                    'label' => 'SAVINGS OPPORTUNITY',
+                    'icon'  => 'fa-arrow-trend-down',
+                    'text'  => 'Great news! Your spending this month is <strong>' . number_format($pct, 1) . '% lower</strong> '
+                             . 'than last month (Ksh ' . number_format($trends['last_month'], 0) . ' → '
+                             . 'Ksh ' . number_format($trends['this_month'], 0) . '). Keep it up!'
+                ];
+            } elseif ($trends['trend'] === 'up') {
+                $observations[] = [
+                    'type'  => 'danger',
+                    'label' => 'SPENDING INCREASE',
+                    'icon'  => 'fa-arrow-trend-up',
+                    'text'  => 'Your spending this month is <strong>' . number_format($pct, 1) . '% higher</strong> '
+                             . 'than last month (Ksh ' . number_format($trends['last_month'], 0) . ' → '
+                             . 'Ksh ' . number_format($trends['this_month'], 0) . '). Review your outgoings.'
+                ];
+            } else {
+                $observations[] = [
+                    'type'  => 'neutral',
+                    'label' => 'SPENDING STABLE',
+                    'icon'  => 'fa-equals',
+                    'text'  => 'Your spending is consistent with last month at around Ksh ' . number_format($trends['this_month'], 0) . '.'
+                ];
+            }
+        }
+
+        // --- 3. Fuliza Dependency ---
+        $totalOutflow = 0.0;
+        $fulizaTaken  = 0.0;
+        foreach ($allSms as $sms) {
+            $ts = $this->normalizeTimestamp($sms->sms_time);
+            if ($ts < $sixtyDaysAgo) continue;
+            $cat    = strtolower($sms->sms_category);
+            $amount = $this->extractAmount(strtolower(base64_decode($sms->sms_body)));
+            if (in_array($cat, ['sent', 'sent to lnm', 'withdraw'])) $totalOutflow += $amount;
+            if ($cat === 'fuliza loan taken') $fulizaTaken += $amount;
+        }
+
+        if ($totalOutflow > 0) {
+            $fulizaRatio = ($fulizaTaken / $totalOutflow) * 100;
+            if ($fulizaRatio > 0) {
+                $severity = $fulizaRatio > 40 ? 'danger' : ($fulizaRatio > 15 ? 'warning' : 'success');
+                $assessment = $fulizaRatio > 40 ? 'Heavy reliance — consider reducing Fuliza usage to avoid compounding debt.'
+                    : ($fulizaRatio > 15 ? 'Moderate usage — monitor closely to keep debt in check.'
+                    : 'Low usage — you are managing Fuliza responsibly.');
+                $observations[] = [
+                    'type'  => $severity,
+                    'label' => 'FULIZA USAGE',
+                    'icon'  => 'fa-percent',
+                    'text'  => '<strong>' . number_format($fulizaRatio, 1) . '%</strong> of your last 60-day outflow '
+                             . '(Ksh ' . number_format($fulizaTaken, 0) . ') came from Fuliza. ' . $assessment
+                ];
+            } else {
+                $observations[] = [
+                    'type'  => 'success',
+                    'label' => 'FULIZA USAGE',
+                    'icon'  => 'fa-circle-check',
+                    'text'  => 'No Fuliza usage detected in the last 60 days. Excellent financial discipline!'
+                ];
+            }
+        }
+
+        return $observations;
+    }
+
+    /**
      * 4. AI Financial Health Score (0-100)
      */
     public function getFinancialHealthScore(?string $deviceToken = null): array {
