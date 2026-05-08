@@ -5,10 +5,10 @@
 <?= $this->section('styles') ?>
 <style>
     .trx-card {
-        background: #fff;
+        background: var(--card-bg);
         border-radius: 16px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-        border: none;
+        border: 1px solid var(--card-border);
     }
     .badge { font-weight: 600; padding: 0.4em 0.8em; }
     .page-item.active .page-link {
@@ -37,6 +37,12 @@
         <a href="<?= base_url('dashboard/transactions?category=Sent') ?>" class="btn btn-outline-primary filter-btn <?= $category === 'Sent' ? 'active' : '' ?>">Sent</a>
         <a href="<?= base_url('dashboard/transactions?category=Withdraw') ?>" class="btn btn-outline-warning filter-btn <?= $category === 'Withdraw' ? 'active' : '' ?>">Withdraw</a>
         <a href="<?= base_url('dashboard/transactions?category=Fuliza') ?>" class="btn btn-outline-danger filter-btn <?= $category === 'Fuliza' ? 'active' : '' ?>">Fuliza</a>
+        
+        <div class="vr mx-1 d-none d-md-block"></div>
+        
+        <a href="<?= base_url('dashboard/transactions/export' . (!empty($category) ? '?category='.$category : '')) ?>" class="btn btn-dark filter-btn shadow-sm">
+            <i class="fa-solid fa-file-csv me-1"></i> Export CSV
+        </a>
     </div>
 </div>
 <?= $this->endSection() ?>
@@ -304,8 +310,11 @@
             const btn = $(this);
             const form = $('#recategorizeForm');
             
-            if (!$('#rc_category').val()) {
-                alert('Please select a category.');
+            const cp = $('#rc_keyword').val();
+            const cat = $('#rc_category').val();
+            
+            if (!cat) {
+                showAlert('Validation Error', 'Please select a category.', 'warning');
                 return;
             }
 
@@ -314,20 +323,22 @@
             $.ajax({
                 url: '<?= base_url('dashboard/analyse/rule') ?>',
                 method: 'POST',
-                data: form.serialize(),
+                data: {
+                    keyword: cp,
+                    category: cat
+                },
                 success: function(response) {
                     if (response.status === 'success') {
-                        alert(response.message);
-                        location.reload();
+                        showAlert('Success', response.message, 'success');
+                        setTimeout(() => location.reload(), 1500);
                     } else {
-                        alert('Error: ' + response.message);
+                        showAlert('Error', response.message, 'danger');
                         btn.prop('disabled', false).text('Save Rule & Apply');
                     }
                 },
-                error: function(xhr) {
-                    alert('Submission failed. Please try again.');
+                error: function() {
+                    showAlert('Failed', 'Submission failed. Please try again.', 'danger');
                     btn.prop('disabled', false).text('Save Rule & Apply');
-                    console.error(xhr.responseText);
                 }
             });
         });

@@ -6,8 +6,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
     :root {
-        --glass-bg: rgba(255, 255, 255, 0.7);
-        --glass-border: rgba(255, 255, 255, 0.3);
+        --glass-bg: var(--card-bg);
+        --glass-border: var(--card-border);
         --chart-gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         --chart-gradient-2: linear-gradient(135deg, #2ED573 0%, #7BED9F 100%);
     }
@@ -268,7 +268,7 @@
     gradientOut.addColorStop(0, 'rgba(93, 95, 239, 0.3)');
     gradientOut.addColorStop(1, 'rgba(93, 95, 239, 0)');
 
-    new Chart(ctxMain, {
+    const mainChart = new Chart(ctxMain, {
         type: 'line',
         data: {
             labels: <?= json_encode($analytics['labels']) ?>,
@@ -358,5 +358,17 @@
             }
         }
     });
+
+    // 3. Export Logic
+    window.exportGraph = function() {
+        const link = document.createElement('a');
+        link.download = 'mpesa_analytics_graph.png';
+        link.href = mainChart.toBase64Image();
+        link.click();
+        
+        if (typeof showAlert === 'function') {
+            showAlert('Export Success', 'Graph image has been downloaded.', 'success');
+        }
+    }
 </script>
 <?= $this->endSection() ?>

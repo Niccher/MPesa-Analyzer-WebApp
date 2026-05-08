@@ -19,14 +19,15 @@
     }
     
     .token-box {
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
+        background: var(--bg-color);
+        border: 1px solid var(--card-border);
         border-radius: 8px;
         padding: 15px;
         font-family: monospace;
         word-break: break-all;
         font-size: 1.1rem;
         color: var(--primary);
+        opacity: 0.8;
     }
 </style>
 <?= $this->endSection() ?>

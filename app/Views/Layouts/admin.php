@@ -31,36 +31,55 @@
             --primary: #5D5FEF;
             --bg-color: #B1B8ED;
             --sidebar-width: 260px;
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --card-border: rgba(255, 255, 255, 0.4);
+            --text-main: #2d3436;
+            --text-muted: #636e72;
+        }
+
+        [data-bs-theme="dark"] {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.8);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
         }
 
         body {
             font-family: 'Outfit', sans-serif;
             background-color: var(--bg-color);
-            overflow: hidden; /* Prevent double scrollbars, allow main to scroll */
-            transition: background-color 0.3s ease;
+            color: var(--text-main);
+            overflow: hidden; 
+            transition: all 0.3s ease;
         }
 
         [data-bs-theme="dark"] body {
-            --bg-color: #121212;
             background-color: var(--bg-color);
         }
+
+        /* Card Theme Overrides */
+        .glass-card, .trx-card, .history-card, .info-card, .card {
+            background-color: var(--card-bg) !important;
+            border-color: var(--card-border) !important;
+            color: var(--text-main);
+        }
+
+        [data-bs-theme="dark"] .text-dark { color: #f1f5f9 !important; }
+        [data-bs-theme="dark"] .text-secondary { color: #94a3b8 !important; }
+        [data-bs-theme="dark"] .table { color: #f1f5f9; border-color: #334155; }
+        [data-bs-theme="dark"] .table thead th { background-color: #1e293b !important; color: #f1f5f9 !important; border-color: #334155 !important; }
+        [data-bs-theme="dark"] .table-light { --bs-table-bg: #1e293b; --bs-table-color: #f1f5f9; }
+        [data-bs-theme="dark"] .form-control, [data-bs-theme="dark"] .form-select { background-color: #0f172a; border-color: #334155; color: #f1f5f9; }
+        [data-bs-theme="dark"] .form-control:focus, [data-bs-theme="dark"] .form-select:focus { background-color: #1e293b; color: #fff; }
+        [data-bs-theme="dark"] .dropdown-menu { background-color: #1e293b; border-color: #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important; }
+        [data-bs-theme="dark"] .dropdown-item { color: #f1f5f9; }
+        [data-bs-theme="dark"] .dropdown-item:hover { background-color: #334155; color: #fff; }
 
         [data-bs-theme="dark"] #sidebar, 
         [data-bs-theme="dark"] .navbar,
         [data-bs-theme="dark"] .dashboard-footer {
-            background-color: #1e1e1e !important;
-            border-color: #333 !important;
-        }
-
-        [data-bs-theme="dark"] #sidebar .nav-link,
-        [data-bs-theme="dark"] .navbar .nav-link,
-        [data-bs-theme="dark"] .text-dark {
-            color: #e0e0e0 !important;
-        }
-
-        [data-bs-theme="dark"] .card {
-            background-color: #1e1e1e;
-            border-color: #333;
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
         }
 
         /* Sidebar Styling */
@@ -347,6 +366,66 @@
                 updateThemeUI(newTheme);
             });
         });
+    </script>
+
+    <!-- Global Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 2000;">
+        <div id="liveToast" class="toast align-items-center border-0 shadow-lg glass-card" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body d-flex align-items-center gap-3">
+                    <div id="toastIconContainer" class="rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                        <i id="toastIcon" class="fa-solid"></i>
+                    </div>
+                    <div>
+                        <strong id="toastTitle" class="d-block">Notification</strong>
+                        <small id="toastMessage" class="text-secondary"></small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-dark me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global JS Helpers -->
+    <script>
+        /**
+         * Global Alert Helper (Replaces alert())
+         * @param {string} title
+         * @param {string} message
+         * @param {string} type - 'success', 'danger', 'warning', 'info'
+         */
+        function showAlert(title, message, type = 'info') {
+            const toastEl = document.getElementById('liveToast');
+            const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+            
+            const titleEl = document.getElementById('toastTitle');
+            const messageEl = document.getElementById('toastMessage');
+            const iconEl = document.getElementById('toastIcon');
+            const iconContainer = document.getElementById('toastIconContainer');
+            
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            
+            // Type Styling
+            iconContainer.className = 'rounded-circle d-flex align-items-center justify-content-center';
+            iconEl.className = 'fa-solid';
+            
+            if (type === 'success') {
+                iconContainer.classList.add('bg-success-subtle', 'text-success');
+                iconEl.classList.add('fa-check-circle');
+            } else if (type === 'danger') {
+                iconContainer.classList.add('bg-danger-subtle', 'text-danger');
+                iconEl.classList.add('fa-triangle-exclamation');
+            } else if (type === 'warning') {
+                iconContainer.classList.add('bg-warning-subtle', 'text-warning');
+                iconEl.classList.add('fa-circle-exclamation');
+            } else {
+                iconContainer.classList.add('bg-primary-subtle', 'text-primary');
+                iconEl.classList.add('fa-circle-info');
+            }
+            
+            toast.show();
+        }
     </script>
 
     <?= $this->renderSection('scripts') ?>

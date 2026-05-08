@@ -1,120 +1,238 @@
 <?= $this->extend('Layouts/admin') ?>
 
-<?= $this->section('title') ?> Sync History - Mpesa Analyzer <?= $this->endSection() ?>
+<?= $this->section('title') ?> Sync Activity - Mpesa Analyzer <?= $this->endSection() ?>
 
 <?= $this->section('styles') ?>
 <style>
-    .timeline {
+    .activity-feed {
         position: relative;
-        padding-left: 3rem;
-        margin-top: 2rem;
+        padding: 1rem 0;
     }
-    .timeline::before {
-        content: '';
+    
+    .activity-item {
+        position: relative;
+        padding-left: 100px;
+        margin-bottom: 2.5rem;
+    }
+    
+    .activity-date {
         position: absolute;
+        left: 0;
         top: 0;
-        bottom: 0;
-        left: 14px;
-        width: 4px;
-        background: #e9ecef;
-        border-radius: 4px;
+        width: 80px;
+        text-align: right;
     }
-    .timeline-item {
-        position: relative;
-        margin-bottom: 2rem;
+    
+    .activity-date .day {
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--primary);
     }
-    .timeline-marker {
+    
+    .activity-date .month {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 1px;
+        color: var(--text-muted);
+    }
+
+    .activity-line {
         position: absolute;
-        left: -3rem;
-        top: 0.25rem;
-        width: 20px;
-        height: 20px;
+        left: 88px;
+        top: 0;
+        bottom: -2.5rem;
+        width: 2px;
+        background: var(--card-border);
+    }
+    
+    .activity-item:last-child .activity-line {
+        display: none;
+    }
+
+    .activity-marker {
+        position: absolute;
+        left: 82px;
+        top: 8px;
+        width: 14px;
+        height: 14px;
         border-radius: 50%;
-        background: white;
-        border: 4px solid var(--primary);
-        box-shadow: 0 0 0 4px rgba(93, 95, 239, 0.1);
-        z-index: 1;
+        background: var(--primary);
+        border: 3px solid var(--bg-color);
+        box-shadow: 0 0 0 4px rgba(93, 95, 239, 0.15);
+        z-index: 2;
     }
-    .history-card {
-        border: none;
+
+    .sync-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+    }
+    
+    .sync-card:hover {
+        transform: translateX(8px);
+        box-shadow: 0 10px 30px rgba(93, 95, 239, 0.08);
+        border-color: var(--primary);
+    }
+
+    .stat-pill {
+        padding: 8px 16px;
         border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        background: var(--bg-color);
+        border: 1px solid var(--card-border);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: all 0.2s;
     }
-    .stat-box {
-        background: #f8f9fa;
-        padding: 1rem;
+    
+    .sync-card:hover .stat-pill {
+        border-color: var(--primary-subtle);
+    }
+
+    .icon-box {
+        width: 32px;
+        height: 32px;
         border-radius: 8px;
-        border: 1px solid #dee2e6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+    }
+
+    .uuid-tag {
+        font-family: 'JetBrains Mono', 'Courier New', monospace;
+        font-size: 0.7rem;
+        background: rgba(93, 95, 239, 0.05);
+        color: var(--primary);
+        padding: 2px 8px;
+        border-radius: 4px;
     }
 </style>
 <?= $this->endSection() ?>
 
 <?= $this->section('page_header') ?>
-<div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-3">
+<div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4">
     <div>
-        <h2 class="fw-bold mb-1" style="color: var(--primary);">Data Sync History</h2>
-        <p class="text-secondary mb-0">Timeline of data uploads from your Android application.</p>
+        <h2 class="fw-bold mb-1" style="color: var(--primary);">Sync Activity</h2>
+        <p class="text-secondary mb-0">Detailed log of data imports from linked devices.</p>
+    </div>
+    <div>
+        <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">
+            <i class="fa-solid fa-clock-rotate-left me-1"></i> 
+            <?= count($history) ?> Sync Events
+        </span>
     </div>
 </div>
 <?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
 
-<div class="card history-card mb-4">
-    <div class="card-body p-4 p-md-5">
-        
-        <?php if (!empty($history)) : ?>
-            <div class="timeline">
-                <?php foreach ($history as $log) : ?>
-                    <div class="timeline-item">
-                        <div class="timeline-marker"></div>
-                        <div class="card bg-light border-0 shadow-sm">
-                            <div class="card-body p-4">
-                                <h5 class="fw-bold text-primary mb-1">
-                                    <i class="fa-solid fa-cloud-arrow-up me-2"></i>
-                                    <?= date('M d, Y - h:i A', strtotime($log->loot_Created)) ?>
-                                </h5>
-                                <p class="text-muted small mb-3">Device Upload UUID: <?= substr($log->loot_Uuid, 0, 8) ?>...</p>
-                                
-                                <div class="row g-3 text-center">
-                                    <div class="col-6 col-md-3">
-                                        <div class="stat-box border-primary border-bottom border-3">
-                                            <h4 class="fw-bold mb-1"><?= $log->info_All ?></h4>
-                                            <small class="text-uppercase text-muted fw-bold" style="font-size:0.7rem;">Processed</small>
-                                        </div>
+<?php if (!empty($history)) : ?>
+    <div class="activity-feed">
+        <?php foreach ($history as $log) : 
+            $timestamp = strtotime($log->loot_Created);
+            $day = date('d', $timestamp);
+            $month = date('M', $timestamp);
+            $time = date('h:i A', $timestamp);
+        ?>
+            <div class="activity-item">
+                <div class="activity-date">
+                    <div class="day"><?= $day ?></div>
+                    <div class="month"><?= $month ?></div>
+                    <div class="small text-muted mt-1"><?= $time ?></div>
+                </div>
+                
+                <div class="activity-line"></div>
+                <div class="activity-marker"></div>
+                
+                <div class="card sync-card">
+                    <div class="card-body p-4">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="icon-box bg-primary-subtle text-primary">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold mb-0 text-dark">Data Import Completed</h6>
+                                    <span class="uuid-tag">UUID: <?= htmlspecialchars($log->loot_Uuid) ?></span>
+                                </div>
+                            </div>
+                            <div class="text-end d-none d-md-block">
+                                <span class="badge bg-success-subtle text-success rounded-pill px-3">
+                                    <i class="fa-solid fa-check-circle me-1"></i> Success
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-sm-6 col-md-3">
+                                <div class="stat-pill">
+                                    <div class="icon-box bg-dark-subtle text-dark">
+                                        <i class="fa-solid fa-list-ul"></i>
                                     </div>
-                                    <div class="col-6 col-md-3">
-                                        <div class="stat-box border-success border-bottom border-3">
-                                            <h4 class="fw-bold mb-1"><?= $log->info_Get_from_MPESA ?></h4>
-                                            <small class="text-uppercase text-muted fw-bold" style="font-size:0.7rem;">Received</small>
-                                        </div>
+                                    <div>
+                                        <div class="fw-bold mb-0" style="font-size: 1.1rem;"><?= number_format($log->info_All) ?></div>
+                                        <div class="text-muted" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase;">Total</div>
                                     </div>
-                                    <div class="col-6 col-md-3">
-                                        <div class="stat-box border-info border-bottom border-3">
-                                            <h4 class="fw-bold mb-1"><?= $log->info_Sent_to_MPESA ?></h4>
-                                            <small class="text-uppercase text-muted fw-bold" style="font-size:0.7rem;">Sent</small>
-                                        </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-md-3">
+                                <div class="stat-pill">
+                                    <div class="icon-box bg-success-subtle text-success">
+                                        <i class="fa-solid fa-arrow-down"></i>
                                     </div>
-                                    <div class="col-6 col-md-3">
-                                        <div class="stat-box border-danger border-bottom border-3">
-                                            <h4 class="fw-bold mb-1"><?= $log->info_Unknown ?></h4>
-                                            <small class="text-uppercase text-muted fw-bold" style="font-size:0.7rem;">Errors / Unknown</small>
-                                        </div>
+                                    <div>
+                                        <div class="fw-bold mb-0" style="font-size: 1.1rem;"><?= number_format($log->info_Get_from_MPESA) ?></div>
+                                        <div class="text-muted" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase;">Inflow</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-md-3">
+                                <div class="stat-pill">
+                                    <div class="icon-box bg-primary-subtle text-primary">
+                                        <i class="fa-solid fa-arrow-up"></i>
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold mb-0" style="font-size: 1.1rem;"><?= number_format($log->info_Sent_to_MPESA) ?></div>
+                                        <div class="text-muted" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase;">Outflow</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-md-3">
+                                <div class="stat-pill">
+                                    <div class="icon-box bg-warning-subtle text-warning">
+                                        <i class="fa-solid fa-circle-question"></i>
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold mb-0" style="font-size: 1.1rem;"><?= number_format($log->info_Unknown) ?></div>
+                                        <div class="text-muted" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase;">Other</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                <?php endforeach; ?>
+                </div>
             </div>
-        <?php else : ?>
-            <div class="text-center p-5 text-muted">
-                <i class="fa-solid fa-timeline mb-3" style="font-size: 3rem; color: #ddd;"></i>
-                <h5>No sync history recorded yet.</h5>
-                <p>Connect your Android app to start logging data.</p>
-            </div>
-        <?php endif; ?>
-        
+        <?php endforeach; ?>
     </div>
-</div>
+<?php else : ?>
+    <div class="card sync-card text-center p-5 border-0 shadow-sm">
+        <div class="card-body">
+            <div class="icon-box bg-light text-muted mx-auto mb-4" style="width: 80px; height: 80px; font-size: 2.5rem;">
+                <i class="fa-solid fa-timeline"></i>
+            </div>
+            <h5 class="fw-bold">No sync history found</h5>
+            <p class="text-secondary">Your device hasn't uploaded any data yet. Make sure your Android app is configured correctly.</p>
+            <a href="<?= url_to('Info::index') ?>" class="btn btn-primary rounded-pill px-4 mt-2">
+                <i class="fa-solid fa-gear me-2"></i> Configure App
+            </a>
+        </div>
+    </div>
+<?php endif; ?>
+
 <?= $this->endSection() ?>

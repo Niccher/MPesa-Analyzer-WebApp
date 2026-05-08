@@ -39,6 +39,7 @@ $routes->get('/dashboard/analyse', 'Analyse::index', ['filter' => 'session']);
 $routes->post('/dashboard/analyse/rule', 'Analyse::saveRule', ['filter' => 'session']);
 $routes->get('/dashboard/errors/test/(:num)', 'Debug::error/$1');
 $routes->get('/dashboard/transactions', 'Transactions::index', ['filter' => 'session']);
+$routes->get('/dashboard/transactions/export', 'Transactions::export', ['filter' => 'session']);
 $routes->get('/dashboard/history', 'History::index', ['filter' => 'session']);
 $routes->get('/dashboard/info', 'Info::index', ['filter' => 'session']);
 $routes->post('/dashboard/info/generate-token', 'Info::generateToken', ['filter' => 'session']);

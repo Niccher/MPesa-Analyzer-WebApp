@@ -52,4 +52,47 @@ class Transactions extends BaseController
 
         return view('Dash/transactions', $data);
     }
+
+    public function export()
+    {
+        $db = \Config\Database::connect();
+        $category = $this->request->getGet('category') ?? '';
+
+        $builder = $db->table('tbl_Sms s')
+            ->select('s.sms_time, s.sms_category, a.counterparty, a.amount as analyzed_amount, s.sms_body')
+            ->join('tbl_Analyzed_Transactions a', 's.sms__id = a.orig_sms_id', 'left');
+        
+        if (!empty($category)) {
+            $builder->like('s.sms_category', $category);
+        }
+
+        $transactions = $builder->orderBy('s.sms_time', 'DESC')->get()->getResult();
+
+        $filename = "mpesa_transactions_" . date('Ymd_His') . ".csv";
+        
+        header('Content-Type: text/csv');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+
+        $output = fopen('php://output', 'w');
+        
+        // CSV Headers
+        fputcsv($output, ['Date & Time', 'Category', 'Counterparty', 'Amount (Ksh)', 'Message Body']);
+
+        foreach ($transactions as $tx) {
+            $body = base64_decode($tx->sms_body);
+            // Remove newlines and excess whitespace for CSV safety
+            $body = trim(preg_replace('/\s+/', ' ', $body));
+            
+            fputcsv($output, [
+                $tx->sms_time,
+                $tx->sms_category,
+                $tx->counterparty ?? 'Unknown',
+                number_format((float)($tx->analyzed_amount ?? 0), 2, '.', ''),
+                $body
+            ]);
+        }
+
+        fclose($output);
+        exit;
+    }
 }

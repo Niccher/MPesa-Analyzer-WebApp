@@ -39,10 +39,10 @@
     <div class="d-flex flex-wrap gap-2 align-items-center">
         <?php if (!empty($linked_devices)): ?>
         <form method="get" action="<?= base_url('dashboard') ?>" class="me-2 mb-0">
-            <div class="input-group input-group-sm rounded-pill shadow-sm bg-white overflow-hidden border border-primary-subtle">
+            <div class="input-group input-group-sm rounded-pill shadow-sm overflow-hidden border border-primary-subtle" style="background: var(--card-bg);">
                 <span class="input-group-text bg-transparent border-0 pe-1"><i class="fa-solid fa-mobile-screen text-primary"></i></span>
-                <select name="device" class="form-select border-0 shadow-none pe-4 font-monospace small" style="background-color: transparent; cursor: pointer;" onchange="this.form.submit()">
-                    <option value="">All Devices</option>
+                <select name="device" class="form-select border-0 shadow-none pe-4 font-monospace small" style="background-color: transparent; cursor: pointer; color: var(--text-main);" onchange="this.form.submit()">
+                    <option value="" style="background: var(--card-bg); color: var(--text-main);">All Devices</option>
                     <?php foreach ($linked_devices as $ld): ?>
                         <option value="<?= htmlspecialchars($ld->device_token) ?>" <?= (($device_filter ?? '') === $ld->device_token) ? 'selected' : '' ?>>
                             <?= htmlspecialchars($ld->device_name ?: substr($ld->device_token, 0, 8)) ?>
@@ -80,15 +80,15 @@
                     
                     <div class="mb-3">
                         <label class="text-secondary small fw-bold text-uppercase">Device Token / SMS Owner</label>
-                        <input type="text" class="form-control form-control-lg bg-light border-0 font-monospace" name="device_token" placeholder="e.g. uuid-1234..." required>
+                        <input type="text" class="form-control form-control-lg border-0 font-monospace" style="background: var(--bg-color); color: var(--text-main);" name="device_token" placeholder="e.g. uuid-1234..." required>
                     </div>
 
                     <div class="mb-2">
                         <label class="text-secondary small fw-bold text-uppercase">Device Name (Optional)</label>
-                        <input type="text" class="form-control bg-light border-0" name="device_name" placeholder="e.g. My Pixel 7">
+                        <input type="text" class="form-control border-0" style="background: var(--bg-color); color: var(--text-main);" name="device_name" placeholder="e.g. My Pixel 7">
                     </div>
                 </div>
-                <div class="modal-footer border-0 pt-0 bg-light rounded-bottom-4">
+                <div class="modal-footer border-0 pt-0 rounded-bottom-4" style="background: var(--card-bg);">
                     <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">Save Link</button>
                 </div>
@@ -391,14 +391,16 @@ usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
                         return response.json();
                     })
                     .then(data => {
-                        alert(data.message);
                         if (data.status === 'success') {
-                            location.reload();
+                            showAlert('Analysis Complete', data.message, 'success');
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            showAlert('Analysis Error', data.message, 'danger');
                         }
                     })
                     .catch(error => {
                         console.error('Analysis Error:', error);
-                        alert('Analysis failed: ' + error.message);
+                        showAlert('Analysis Failed', error.message, 'danger');
                     })
                     .finally(() => {
                         analysisBtn.disabled = false;
