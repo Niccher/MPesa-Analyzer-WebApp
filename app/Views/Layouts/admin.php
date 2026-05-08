@@ -4,7 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title><?= $this->renderSection('title') ?? 'Mpesa Analyzer' ?></title>
-    
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="<?= base_url('assets/img/favicon.png') ?>">
+
     <!-- Prevent Light Flash -->
     <script>
         const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');

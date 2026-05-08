@@ -37,6 +37,7 @@ $routes->get('/dashboard/search', 'Search::index', ['filter' => 'session']);
 $routes->post('/dashboard/device/link', 'Dash::linkDevice', ['filter' => 'session']);
 $routes->get('/dashboard/analyse', 'Analyse::index', ['filter' => 'session']);
 $routes->post('/dashboard/analyse/rule', 'Analyse::saveRule', ['filter' => 'session']);
+$routes->get('/dashboard/errors/test/(:num)', 'Debug::error/$1');
 $routes->get('/dashboard/transactions', 'Transactions::index', ['filter' => 'session']);
 $routes->get('/dashboard/history', 'History::index', ['filter' => 'session']);
 $routes->get('/dashboard/info', 'Info::index', ['filter' => 'session']);
