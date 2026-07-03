@@ -156,7 +156,7 @@ class App extends BaseConfig
      *
      * @deprecated use Config\Session::$cookieName  instead.
      */
-    public string $sessionCookieName = 'mpesa_sess_c_name';
+    public string $sessionCookieName = 'mpesa_analyzer_session';
 
     /**
      * --------------------------------------------------------------------------
@@ -168,7 +168,7 @@ class App extends BaseConfig
      *
      * @deprecated use Config\Session::$expiration instead.
      */
-    public int $sessionExpiration = 5184000;
+    public int $sessionExpiration = 2592000;
 
     /**
      * --------------------------------------------------------------------------
@@ -349,7 +349,7 @@ class App extends BaseConfig
      *
      * @deprecated Use `Config\Security` $tokenName property instead of using this property.
      */
-    public string $CSRFTokenName = 'mpesa_csrf_token';
+    public string $CSRFTokenName = 'mpesa_analyzer_csrf_token';
 
     /**
      * --------------------------------------------------------------------------
@@ -360,7 +360,7 @@ class App extends BaseConfig
      *
      * @deprecated Use `Config\Security` $headerName property instead of using this property.
      */
-    public string $CSRFHeaderName = 'mpesa_csrf_header';
+    public string $CSRFHeaderName = 'X-CSRF-TOKEN';
 
     /**
      * --------------------------------------------------------------------------
@@ -371,7 +371,7 @@ class App extends BaseConfig
      *
      * @deprecated Use `Config\Security` $cookieName property instead of using this property.
      */
-    public string $CSRFCookieName = 'mpesa_csrf_cookie';
+    public string $CSRFCookieName = 'mpesa_analyzer_csrf_cookie';
 
     /**
      * --------------------------------------------------------------------------
@@ -442,4 +442,10 @@ class App extends BaseConfig
      * @see http://www.w3.org/TR/CSP/
      */
     public bool $CSPEnabled = false;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->baseURL = env('app.baseURL', $this->baseURL);
+    }
 }
