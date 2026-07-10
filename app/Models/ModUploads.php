@@ -1042,7 +1042,7 @@ class ModUploads extends Model
      * Get full report data for a given month/year
      */
     public function getReportData(int $year, int $month): array {
-        $daysInMonth  = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+        $daysInMonth  = date('t', mktime(0, 0, 0, $month, 1, $year));
         $monthStr     = sprintf('%04d-%02d', $year, $month);
 
         $labels   = [];

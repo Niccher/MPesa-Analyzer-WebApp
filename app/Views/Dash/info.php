@@ -48,10 +48,24 @@
         <h5 class="alert-heading"><i class="fa-solid fa-circle-check"></i> New API Token Generated!</h5>
         <p>Please copy this token now. For your security, <strong>it will not be shown again</strong>.</p>
         <hr>
-        <div class="token-box mb-2 user-select-all"><?= session('new_token') ?></div>
-        <p class="mb-0 small text-muted">Paste this token into the Settings page of your Android application.</p>
+        <div class="d-flex justify-content-center mb-3">
+            <div id="qrcode" class="bg-white p-2 rounded"></div>
+        </div>
+        <div class="token-box mb-2 user-select-all" id="rawTokenValue"><?= session('new_token') ?></div>
+        <p class="mb-0 small text-muted">Scan the QR code or paste this token into the Link Device page of your Android application.</p>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var token = document.getElementById("rawTokenValue").innerText;
+            new QRCode(document.getElementById("qrcode"), {
+                text: token,
+                width: 200,
+                height: 200
+            });
+        });
+    </script>
 <?php endif; ?>
 
 <?php if (session()->has('message')) : ?>

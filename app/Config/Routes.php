@@ -64,6 +64,7 @@ $routes->group('auth', function ($routes) {
 $routes->group('auth', function ($routes) {
     $routes->add('auth_login', 'UserAuth::user_login');
     $routes->add('auth_register', 'UserAuth::user_register');
+    $routes->add('verify_token', 'UserAuth::verify_token');
 });
 
 $routes->add('/process/upload', 'Upload::upload');
@@ -80,6 +81,7 @@ $routes->add('/process/get/list_all_sms_in_category', 'Upload::list_all_sms_in_c
 
 $routes->add('/process/test', 'Testar::random');
 $routes->add('/process/test_data', 'Upload::prepare_dataset');
+$routes->add('/process/verify_token', 'UserAuth::verify_token');
 
 // Explicit Shield Authentication Routes
 $routes->group('', ['namespace' => '\CodeIgniter\Shield\Controllers'], static function ($routes) {

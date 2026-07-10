@@ -75,4 +75,39 @@ class UserAuth extends BaseController{
         }
 
     }
+
+    public function verify_token(){
+        $tokenStr = $this->request->getPost('token');
+        if (empty($tokenStr)) {
+            return $this->respond(["status" => "0", "message" => "Token is required"]);
+        }
+
+        $hashedToken = hash('sha256', $tokenStr);
+        $db = \Config\Database::connect();
+        
+        $identity = $db->table('auth_identities')
+            ->where('type', \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN)
+            ->where('secret', $hashedToken)
+            ->get()
+            ->getRow();
+
+        if ($identity) {
+            $userModel = new UserModel();
+            $user = $userModel->find($identity->user_id);
+            if ($user) {
+                // Return payload matching the expected Android format
+                return $this->respond([
+                    "status" => "1",
+                    "message" => "Token Valid",
+                    "time" => date('Y-m-d H:i:s'),
+                    "userid" => strval($user->id),
+                    "uuid" => "device_paired", // Place-holder for UUID
+                    "user_name" => $user->username,
+                    "user_email" => $user->email ?? "null"
+                ]);
+            }
+        }
+        
+        return $this->respond(["status" => "0", "message" => "Invalid Token"]);
+    }
 }
