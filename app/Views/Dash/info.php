@@ -107,6 +107,32 @@
                         <span class="badge bg-warning text-dark rounded-pill px-3 py-2">Awaiting Sync</span>
                     <?php endif; ?>
                 </div>
+
+                <div class="setting-item mt-3 pt-3 border-top border-warning">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold text-warning text-dark">Delete My Data</div>
+                            <small class="text-muted">Delete all your uploaded SMS data and summaries, but keep your account.</small>
+                        </div>
+                        <form action="<?= base_url('process/delete_data') ?>" method="POST" onsubmit="return confirm('WARNING: Are you sure you want to delete all your uploaded data? Your account will remain active. This cannot be undone.');">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="btn btn-outline-warning btn-sm px-3 fw-bold text-dark"><i class="fa-solid fa-eraser me-1"></i> Delete Data</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="setting-item mt-3 pt-3 border-top border-danger">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold text-danger">Delete Account</div>
+                            <small class="text-muted">Permanently remove your account and all data.</small>
+                        </div>
+                        <form action="<?= base_url('process/delete_account') ?>" method="POST" onsubmit="return confirm('WARNING: Are you absolutely sure? This will delete all your M-Pesa data, devices, and your user account permanently. This cannot be undone.');">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="btn btn-outline-danger btn-sm px-3 fw-bold"><i class="fa-solid fa-trash-can me-1"></i> Delete Account</button>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

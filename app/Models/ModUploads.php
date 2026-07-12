@@ -63,7 +63,7 @@ class ModUploads extends Model
     // ============ PUBLIC METHODS ============ //
 
     public function file_upload(array $data): bool {
-        return $this->db->table($this->table)->insert($data);
+        return $this->insert($data) ? true : false;
     }
 
     public function loot_zip_extract(string $zipFilePath): bool {

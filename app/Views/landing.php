@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>M-Pesa Analyzer - Financial Insights</title>
     
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="<?= base_url('favicon.png') ?>">
+    <link rel="apple-touch-icon" href="<?= base_url('favicon.png') ?>">
+    
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     

@@ -6,7 +6,8 @@
     <title><?= $this->renderSection('title') ?? 'Mpesa Analyzer' ?></title>
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="<?= base_url('assets/img/favicon.png') ?>">
+    <link rel="icon" type="image/png" href="<?= base_url('favicon.png') ?>">
+    <link rel="apple-touch-icon" href="<?= base_url('favicon.png') ?>">
 
     <!-- Prevent Light Flash -->
     <script>

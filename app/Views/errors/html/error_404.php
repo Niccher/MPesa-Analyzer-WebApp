@@ -6,7 +6,7 @@
     <title>Page Not Found - M-Pesa Analyzer</title>
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/assets/img/favicon.png">
+    <link rel="icon" type="image/png" href="/favicon.png">
     
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">

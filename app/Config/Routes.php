@@ -82,6 +82,8 @@ $routes->add('/process/get/list_all_sms_in_category', 'Upload::list_all_sms_in_c
 $routes->add('/process/test', 'Testar::random');
 $routes->add('/process/test_data', 'Upload::prepare_dataset');
 $routes->add('/process/verify_token', 'UserAuth::verify_token');
+$routes->add('/process/delete_account', 'UserAuth::delete_account');
+$routes->add('/process/delete_data', 'UserAuth::delete_data');
 
 // Explicit Shield Authentication Routes
 $routes->group('', ['namespace' => '\CodeIgniter\Shield\Controllers'], static function ($routes) {
