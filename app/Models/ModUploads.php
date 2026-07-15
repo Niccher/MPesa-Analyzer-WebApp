@@ -1001,16 +1001,66 @@ class ModUploads extends Model
         }
 
         $inserted = 0;
+        $smsIds = [];
         foreach (array_chunk($batch, 100) as $chunk) {
-            if ($this->db->table('tbl_Sms')->ignore(true)->insertBatch($chunk)) {
-                $inserted += count($chunk);
+            $this->db->table('tbl_Sms')->ignore(true)->insertBatch($chunk);
+            $inserted += count($chunk);
+            // Collect IDs of inserted rows; lastInsertID gives the first ID of this chunk
+            $firstId = $this->db->insertID();
+            for ($i = 0; $i < count($chunk); $i++) {
+                $smsIds[] = $firstId + $i;
             }
+        }
+
+        // Build classification rows aligned 1:1 with $mpesaMessages
+        // and the same ordering as the batch insert
+        $classBatch = [];
+        $flatIndex = 0;
+        foreach ($mpesaMessages as $index => $sms) {
+            if ($flatIndex >= count($smsIds)) break;
+            $category = $categorized['categories'][$index] ?? 'Unknown';
+            $direction = $this->infer_direction($category);
+            $classBatch[] = [
+                'sms_id'    => $smsIds[$flatIndex],
+                'sender'    => 'MPESA',
+                'category'  => $category,
+                'direction' => $direction,
+                'is_finance' => 1,
+                'method'    => 'pattern',
+                'confidence' => 1.0000,
+                'created_at' => date('Y-m-d H:i:s'),
+            ];
+            $flatIndex++;
+        }
+
+        if (!empty($classBatch)) {
+            $this->db->table('tbl_Sms_Classification')
+                ->ignore(true)
+                ->insertBatch($classBatch);
         }
 
         return [
             'inserted_count' => $inserted,
             'counters' => $categorized['counters']
         ];
+    }
+
+    /**
+     * Infer direction from a human-readable category string.
+     */
+    protected function infer_direction(string $category): string
+    {
+        $lower = strtolower($category);
+        $incomingPatterns = ['received', 'from ', 'reversal', 'loan taken', 'loan limit', 'fuliza loan taken', 'balance'];
+        $outgoingPatterns = ['sent', 'paid to', 'withdraw', 'sent cancel', 'fuliza loan paid'];
+
+        foreach ($incomingPatterns as $p) {
+            if (str_contains($lower, $p)) return 'incoming';
+        }
+        foreach ($outgoingPatterns as $p) {
+            if (str_contains($lower, $p)) return 'outgoing';
+        }
+        return 'none';
     }
 
     /**

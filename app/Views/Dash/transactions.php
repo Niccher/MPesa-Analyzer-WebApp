@@ -66,14 +66,17 @@
                     <?php if (!empty($transactions)): ?>
                         <?php foreach ($transactions as $tx): ?>
                             <?php
-                                $catLower = strtolower($tx->sms_category);
+                                $catLower = strtolower($tx->cl_category ?? $tx->sms_category);
                                 $badgeClass = 'bg-secondary';
                                 if (strpos($catLower, 'received') !== false) $badgeClass = 'bg-success';
                                 elseif (strpos($catLower, 'sent') !== false) $badgeClass = 'bg-primary';
+                                elseif (strpos($catLower, 'from ') !== false) $badgeClass = 'bg-success';
                                 elseif (strpos($catLower, 'withdraw') !== false) $badgeClass = 'bg-warning text-dark';
                                 elseif (strpos($catLower, 'fuliza') !== false) $badgeClass = 'bg-danger';
                                 elseif (strpos($catLower, 'error') !== false) $badgeClass = 'bg-danger';
+                                elseif (strpos($catLower, 'balance') !== false) $badgeClass = 'bg-info text-dark';
 
+                                $displayCategory = $tx->cl_category ?? $tx->sms_category;
                                 $body = base64_decode($tx->sms_body);
                                 $bodyStr = mb_check_encoding($body, 'UTF-8') ? $body : "Unable to decode";
                             ?>
@@ -82,7 +85,14 @@
                                     <div class="fw-bold small"><?= format_mpesa_date($tx->sms_time) ?></div>
                                 </td>
                                 <td>
-                                    <span class="badge rounded-pill <?= $badgeClass ?>"><?= htmlspecialchars($tx->sms_category) ?></span>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <span class="badge rounded-pill <?= $badgeClass ?>"><?= htmlspecialchars($displayCategory) ?></span>
+                                        <?php if (!empty($tx->cl_direction)): ?>
+                                            <span class="badge bg-light text-secondary border" style="font-size:0.65rem;">
+                                                <?= $tx->cl_direction === 'incoming' ? '↓ IN' : ($tx->cl_direction === 'outgoing' ? '↑ OUT' : '—') ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
                                     <?php if (!empty($tx->analyzed_category)): ?>
                                         <div class="mt-1"><span class="badge bg-light text-dark border border-secondary border-opacity-25" style="font-size:0.7rem;"><i class="fa-solid fa-tag me-1 text-secondary"></i> <?= htmlspecialchars($tx->analyzed_category) ?></span></div>
                                     <?php endif; ?>

@@ -61,4 +61,37 @@ abstract class BaseController extends Controller
             $this->session = \Config\Services::session();
         }
     }
+
+    /**
+     * Get the current SMS view mode (mpesa | finance).
+     * Reads from query param, falls back to session, defaults to 'mpesa'.
+     */
+    protected function getSmsView(): string
+    {
+        $view = $this->request->getGet('view');
+        if ($view && in_array($view, ['mpesa', 'finance'])) {
+            $this->session->set('sms_view', $view);
+            return $view;
+        }
+        return $this->session->get('sms_view') ?? 'mpesa';
+    }
+
+    /**
+     * Build a JOIN/WHERE snippet for filtering SMS by view.
+     * 'mpesa' → s.sms_number = 'MPESA'
+     * 'finance' → INNER JOIN tbl_Sms_Classification sc ON sc.sms_id = s.id AND sc.is_finance = 1
+     */
+    protected function smsViewFilter(string $view): array
+    {
+        if ($view === 'finance') {
+            return [
+                'join'  => 'INNER JOIN tbl_Sms_Classification sc ON sc.sms_id = s.id AND sc.is_finance = 1',
+                'where' => '',
+            ];
+        }
+        return [
+            'join'  => '',
+            'where' => "s.sms_number = 'MPESA'",
+        ];
+    }
 }

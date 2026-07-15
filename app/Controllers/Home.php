@@ -11,4 +11,12 @@ class Home extends BaseController
     {
         return view('landing');
     }
+
+    public function setView(string $view)
+    {
+        if (in_array($view, ['mpesa', 'finance'])) {
+            session()->set('sms_view', $view);
+        }
+        return $this->response->setJSON(['status' => 'ok']);
+    }
 }

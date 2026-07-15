@@ -196,7 +196,38 @@
                 <button class="btn btn-sm btn-close d-lg-none" id="sidebarClose"></button>
             </div>
             
-            <ul class="nav flex-column mt-3">
+            <?php
+                $smsView = session()->get('sms_view') ?? 'mpesa';
+                $viewParam = '?view=' . $smsView;
+                $baseUrl = base_url();
+            ?>
+
+            <!-- View Toggle -->
+            <div class="px-3 mb-2">
+                <div class="btn-group btn-group-sm w-100" role="group" id="viewToggle">
+                    <a href="#" data-view="mpesa"
+                       class="btn btn-outline-primary <?= $smsView === 'mpesa' ? 'active' : '' ?>">
+                        <i class="fa-solid fa-phone"></i> MPESA
+                    </a>
+                    <a href="#" data-view="finance"
+                       class="btn btn-outline-primary <?= $smsView === 'finance' ? 'active' : '' ?>">
+                        <i class="fa-solid fa-building-columns"></i> Finance
+                    </a>
+                </div>
+            </div>
+
+            <script>
+            document.getElementById('viewToggle')?.addEventListener('click', function(e) {
+                const btn = e.target.closest('[data-view]');
+                if (!btn) return;
+                e.preventDefault();
+                const view = btn.dataset.view;
+                fetch('<?= $baseUrl ?>set-view/' + view, { method: 'POST' })
+                    .then(() => location.reload());
+            });
+            </script>
+
+            <ul class="nav flex-column mt-2">
                 <?php $currentURL = uri_string(); ?>
                 <li class="nav-item">
                     <a class="nav-link <?= ($currentURL == 'dashboard' || $currentURL == '') ? 'active' : '' ?>" href="<?= url_to('Dash::index') ?>">
