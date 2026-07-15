@@ -72,10 +72,11 @@ $routes->add('/process/device', 'Upload::device_print');
 $routes->add('/process/get/my_uploads', 'Upload::upload_listing');
 $routes->add('/process/get/my_uploads_count', 'Upload::loot_uploaded_count');
 $routes->add('/process/get/my_uploads_category_count', 'Upload::loot_uploaded_category_count');
-$routes->add('/process/get/my_uploads_graph', 'Upload::loot_uploaded_graph');
-$routes->add('/process/set/delete_loot_by_uuid', 'Upload::loot_delete_by_uuid');
+    $routes->add('/process/get/my_uploads_graph', 'Upload::loot_uploaded_graph');
+    $routes->add('/process/set/delete_loot_by_uuid', 'Upload::loot_delete_by_uuid');
+    $routes->add('/process/get/user_info', 'Auths::user_info');
 
-$routes->add('/process/get/my_summary', 'Upload::upload_summary');
+    $routes->add('/process/get/my_summary', 'Upload::upload_summary');
 $routes->add('/process/get/my_summary_calculations', 'Upload::upload_summary_calculation');
 $routes->add('/process/get/list_all_sms_in_category', 'Upload::list_all_sms_in_category');
 

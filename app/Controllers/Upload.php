@@ -30,17 +30,28 @@ class Upload extends BaseController
      * Upload and process SMS data file
      */
     public function upload(): ResponseInterface {
+        helper('text');
         $modUpload = new ModUploads();
-        $dated = date('Y-m-d H:i:s');
+        $dated = time(); // Use Unix timestamp for BIGINT column in tbl_Loot
         $uuid = random_string('alnum', 16);
+        $token = (string) $this->request->getPost('varToken');
+        $devId = (string) $this->request->getPost('varDevId');
+        
+        // Enhanced logging for debugging
+        log_message('info', "=== UPLOAD REQUEST START ===");
+        log_message('info', 'Upload request: token=' . substr($token, 0, 8) . '... devId=' . $devId);
+        log_message('debug', 'Request method: ' . $this->request->getMethod());
+        log_message('debug', 'POST keys: ' . json_encode(array_keys($this->request->getPost())));
+        log_message('debug', 'FILES keys: ' . json_encode(array_keys($_FILES ?? [])));
 
         // Validate request method
         if (!$this->request->is('post')) {
+            log_message('warning', 'Upload: Method not allowed (not POST)');
             return $this->respond([
                 'status' => self::STATUS_INVALID_REQUEST,
                 'time' => $dated,
                 'message' => 'Method not allowed'
-            ]);
+            ], 405);
         }
 
         // Validate input
@@ -51,59 +62,104 @@ class Upload extends BaseController
         ]);
 
         if (!$validation) {
+            $errors = $this->validator->getErrors();
+            log_message('error', 'Upload validation failed: ' . json_encode($errors));
             return $this->respond([
                 'status' => self::STATUS_INVALID_REQUEST,
                 'time' => $dated,
-                'message' => 'Validation failed',
-                'errors' => $this->validator->getErrors()
-            ]);
+                'message' => 'Validation failed: ' . implode('; ', $errors),
+                'errors' => $errors
+            ], 422);
+        }
+
+        if ($devId === 'nullable' || $token === 'nullable') {
+            log_message('error', 'Upload rejected: token or device not registered (nullable)');
+            return $this->respond([
+                'status' => self::STATUS_INVALID_REQUEST,
+                'time' => $dated,
+                'message' => 'Device not registered. Re-link the app with your token (device fingerprint required).'
+            ], 422);
         }
 
         try {
             $file = $this->request->getFile('varLoot');
+            
+            if (!$file->isValid()) {
+                $fileErrors = $file->getErrorString();
+                log_message('error', 'Upload file invalid: ' . $fileErrors);
+                throw new \RuntimeException('Invalid file upload: ' . $fileErrors);
+            }
+            
+            log_message('info', 'Upload file received: name=' . $file->getClientName() . ' size=' . $file->getSize() . ' type=' . $file->getClientMimeType());
+            
             $newName = $file->getRandomName();
             $uploadPath = WRITEPATH . 'uploads/txt_loot/';
 
+            if (!is_dir($uploadPath)) {
+                if (!mkdir($uploadPath, 0755, true)) {
+                    log_message('error', 'Failed to create upload directory: ' . $uploadPath);
+                    throw new \RuntimeException('Failed to create upload directory');
+                }
+                log_message('info', 'Created upload directory: ' . $uploadPath);
+            }
+
             if (!$file->move($uploadPath, $newName)) {
+                log_message('error', 'File move failed to ' . $uploadPath . $newName);
                 throw new \RuntimeException('File move failed');
             }
+            
+            log_message('info', 'File moved successfully to: ' . $uploadPath . $newName);
 
             $data = [
                 'loot_Name' => $newName,
-                'loot_Type' => $file->getClientMimeType(),
-                'loot_Extension' => $file->getClientExtension(),
-                'loot_Size' => $file->getSize(),
-                'loot_Owner' => (string) $this->request->getPost('varToken'),
+                'loot_Owner' => $token,
                 'loot_Uuid' => $uuid,
-                'loot_Device' => (string) $this->request->getPost('varDevId'),
+                'loot_Device' => $devId,
                 'loot_Created' => $dated
             ];
 
             $this->db->transStart();
 
             if (!$modUpload->file_upload($data)) {
-                throw new \RuntimeException('Database insert failed');
+                log_message('error', 'Database insert failed for loot record');
+                throw new \RuntimeException('Database insert failed for loot record');
             }
 
-            $modUpload->loot_parse_sms($uuid, $data['loot_Owner'], $data['loot_Device'], $dated);
+            log_message('info', 'Loot record inserted, starting SMS parse for uuid=' . $uuid);
+
+            // Throws on decrypt/parse/summary failure — do not ignore result
+            $parseResult = $modUpload->loot_parse_sms($uuid, $data['loot_Owner'], $data['loot_Device'], $dated);
+
+            if (($parseResult['status'] ?? '') !== 'success') {
+                log_message('error', 'SMS parse failed: ' . ($parseResult['message'] ?? 'unknown'));
+                throw new \RuntimeException($parseResult['message'] ?? 'SMS parse failed');
+            }
 
             $this->db->transComplete();
+
+            if ($this->db->transStatus() === false) {
+                log_message('error', 'Upload transaction failed');
+                throw new \RuntimeException('Upload transaction failed');
+            }
+
+            log_message('info', 'Upload success uuid=' . $uuid . ' processed=' . ($parseResult['processed'] ?? 0));
 
             return $this->respond([
                 'status' => self::STATUS_SUCCESS,
                 'time' => $dated,
                 'message' => 'File uploaded and processed successfully',
-                'uuid' => $uuid
-            ]);
+                'uuid' => $uuid,
+                'processed' => $parseResult['processed'] ?? 0
+            ], 200);
 
         } catch (\Throwable $e) {
-            log_message('error', 'Upload Error: ' . $e->getMessage());
+            log_message('error', 'Upload Error: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
             return $this->respond([
                 'status' => self::STATUS_ERROR,
                 'time' => $dated,
-                'message' => 'File processing failed',
-                'error' => ENVIRONMENT === 'development' ? $e->getMessage() : null
-            ]);
+                'message' => 'File processing failed: ' . $e->getMessage(),
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
@@ -111,6 +167,7 @@ class Upload extends BaseController
      * Register or identify a device
      */
     public function device_print(): ResponseInterface {
+        helper('text');
         $modUpload = new ModUploads();
         $dated = date('Y-m-d H:i:s');
         $uuid = random_string('alnum', 16);
@@ -118,6 +175,10 @@ class Upload extends BaseController
         if (!$this->request->is('post')) {
             return $this->fail('Method not allowed', 405);
         }
+
+        $fingerprint = (string) $this->request->getPost('device_Fingerprint');
+        $model = (string) $this->request->getPost('device_Model');
+        $brand = (string) $this->request->getPost('device_Brand');
 
         $deviceData = [
             'device_Device' => (string) $this->request->getPost('device_Device'),
@@ -130,27 +191,34 @@ class Upload extends BaseController
             'device_Host' => (string) $this->request->getPost('device_Host'),
             'device_Display' => (string) $this->request->getPost('device_Display'),
             'device_Hardware' => (string) $this->request->getPost('device_Hardware'),
-            'device_Fingerprint' => (string) $this->request->getPost('device_Fingerprint'),
+            'device_Fingerprint' => $fingerprint,
             'device_Manufacturer' => (string) $this->request->getPost('device_Manufacturer'),
-            'device_Brand' => (string) $this->request->getPost('device_Brand'),
+            'device_Brand' => $brand,
             'device_Board' => (string) $this->request->getPost('device_Board'),
             'device_User' => (string) $this->request->getPost('device_User'),
-            'device_Model' => (string) $this->request->getPost('device_Model'),
+            'device_Model' => $model,
             'device_Time' => $this->parseLongInt($this->request->getPost('device_Time')),
             'device_Serial' => (string) $this->request->getPost('device_Serial')
         ];
 
         try {
-            $existingDevice = $modUpload->device_check_print($deviceData);
+            // Match on stable identity fields only (never include the freshly generated UUID)
+            $existingDevice = $modUpload->device_find_by_fingerprint($fingerprint, $model, $brand);
 
             if (empty($existingDevice)) {
                 if (!$modUpload->device_make_print($deviceData)) {
                     throw new \RuntimeException('Device registration failed');
                 }
-                $existingDevice = $modUpload->device_check_print($deviceData);
+                $existingDevice = $modUpload->device_find_by_fingerprint($fingerprint, $model, $brand);
                 $message = 'New device registered';
+                log_message('info', 'New device registered print_id=' . ($existingDevice[0]->device_Uuid ?? ''));
             } else {
                 $message = 'Existing device identified';
+                log_message('info', 'Existing device print_id=' . $existingDevice[0]->device_Uuid);
+            }
+
+            if (empty($existingDevice)) {
+                throw new \RuntimeException('Device registration succeeded but could not re-read print_id');
             }
 
             return $this->respond([
@@ -165,8 +233,8 @@ class Upload extends BaseController
             return $this->respond([
                 'status' => self::STATUS_ERROR,
                 'time' => $dated,
-                'message' => 'Device processing failed'
-            ]);
+                'message' => 'Device processing failed: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -190,9 +258,16 @@ class Upload extends BaseController
 
             foreach ($uploads as $upload) {
                 $summary = $modUpload->loot_summary($upload->loot_Uuid);
+                
+                // Convert loot_Created (BIGINT Unix timestamp) to formatted date string for Android
+                $createdRaw = $upload->loot_Created;
+                $summaryCreated = is_numeric($createdRaw) 
+                    ? date('Y-m-d H:i:s', (int)$createdRaw) 
+                    : $createdRaw;
+                
                 $result[] = [
                     'summary_Loot_Uuid' => $upload->loot_Uuid,
-                    'summary_Created' => $upload->loot_Created,
+                    'summary_Created' => $summaryCreated,
                     'summary_Count' => $summary[0]->info_All ?? 0,
                     'summary_Received' => $summary[0]->info_Get_from_MPESA ?? 0,
                     'summary_Sent' => $summary[0]->info_Sent_to_MPESA ?? 0,

