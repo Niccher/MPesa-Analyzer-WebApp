@@ -39,13 +39,15 @@ class ModInsights extends Model
         $thisMonthOutflow = 0.0;
         $lastMonthOutflow = 0.0;
         
-        $builder = $this->db->table('tbl_Sms');
-        if ($deviceToken) $builder->where('sms_owner', $deviceToken);
+        $builder = $this->db->table('tbl_Sms s')
+            ->select('s.*, sc.direction as cl_direction')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left');
+        if ($deviceToken) $builder->where('s.sms_owner', $deviceToken);
         $allSms = $builder->get()->getResult();
         
         foreach ($allSms as $sms) {
-            $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
-            if (!in_array($cat, ['sent', 'sent to lnm', 'withdraw'])) continue;
+            $dir = strtolower($sms->cl_direction ?? '');
+            if ($dir !== 'outgoing') continue;
             
             $ts = $this->normalizeTimestamp($sms->sms_time);
             $amount = $this->extractAmount(strtolower(base64_decode($sms->sms_body)));
@@ -111,8 +113,11 @@ class ModInsights extends Model
      */
     public function getSmartAlerts(?string $deviceToken = null): array {
         $alerts = [];
-        $builder = $this->db->table('tbl_Sms')->orderBy('sms_time', 'DESC');
-        if ($deviceToken) $builder->where('sms_owner', $deviceToken);
+        $builder = $this->db->table('tbl_Sms s')
+            ->select('s.*, sc.direction as cl_direction')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
+            ->orderBy('s.sms_time', 'DESC');
+        if ($deviceToken) $builder->where('s.sms_owner', $deviceToken);
         $allSms = $builder->get()->getResult();
         
         if (empty($allSms)) return $alerts;
@@ -149,17 +154,20 @@ class ModInsights extends Model
             $ts = $this->normalizeTimestamp($sms->sms_time);
             if ($ts < $sixtyDaysAgo) continue;
             
-            $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
-            $amount = $this->extractAmount(strtolower(base64_decode($sms->sms_body)));
+            $dir = strtolower($sms->cl_direction ?? '');
+            $body = strtolower(base64_decode($sms->sms_body));
+            $amount = $this->extractAmount($body);
             
-            if (in_array($cat, ['sent', 'sent to lnm', 'withdraw'])) {
+            if ($dir === 'outgoing') {
                 $outflowAmounts[] = $amount;
                 $totalOutflow += $amount;
                 
                 if ($ts >= $fortyEightHoursAgo && $amount > 0) {
                     $recentTransactions[] = ['amount' => $amount, 'sms' => $sms];
                 }
-            } elseif ($cat === 'fuliza loan taken') {
+            }
+            
+            if (strpos($body, 'fuliza') !== false && strpos($body, 'taken') !== false) {
                 $fulizaTaken += $amount;
             }
         }
@@ -204,8 +212,11 @@ class ModInsights extends Model
     public function getAIObservations(?string $deviceToken = null): array {
         $observations = [];
 
-        $builder = $this->db->table('tbl_Sms')->orderBy('sms_time', 'DESC');
-        if ($deviceToken) $builder->where('sms_owner', $deviceToken);
+        $builder = $this->db->table('tbl_Sms s')
+            ->select('s.*, sc.direction as cl_direction')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
+            ->orderBy('s.sms_time', 'DESC');
+        if ($deviceToken) $builder->where('s.sms_owner', $deviceToken);
         $allSms = $builder->get()->getResult();
 
         if (empty($allSms)) {
@@ -223,8 +234,8 @@ class ModInsights extends Model
         foreach ($allSms as $sms) {
             $ts = $this->normalizeTimestamp($sms->sms_time);
             if ($ts < $sixtyDaysAgo) continue;
-            $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
-            if (!in_array($cat, ['sent', 'sent to lnm', 'withdraw'])) continue;
+            $dir = strtolower($sms->cl_direction ?? '');
+            if ($dir !== 'outgoing') continue;
             $amount = $this->extractAmount(strtolower(base64_decode($sms->sms_body)));
             $dow = (int) date('w', $ts); // 0 = Sunday
             $dayTotals[$dow] += $amount;
@@ -282,10 +293,11 @@ class ModInsights extends Model
         foreach ($allSms as $sms) {
             $ts = $this->normalizeTimestamp($sms->sms_time);
             if ($ts < $sixtyDaysAgo) continue;
-            $cat    = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
-            $amount = $this->extractAmount(strtolower(base64_decode($sms->sms_body)));
-            if (in_array($cat, ['sent', 'sent to lnm', 'withdraw'])) $totalOutflow += $amount;
-            if ($cat === 'fuliza loan taken') $fulizaTaken += $amount;
+            $dir    = strtolower($sms->cl_direction ?? '');
+            $body   = strtolower(base64_decode($sms->sms_body));
+            $amount = $this->extractAmount($body);
+            if ($dir === 'outgoing') $totalOutflow += $amount;
+            if (strpos($body, 'fuliza') !== false && strpos($body, 'taken') !== false) $fulizaTaken += $amount;
         }
 
         if ($totalOutflow > 0) {
@@ -319,8 +331,11 @@ class ModInsights extends Model
      * 4. AI Financial Health Score (0-100)
      */
     public function getFinancialHealthScore(?string $deviceToken = null): array {
-        $builder = $this->db->table('tbl_Sms')->orderBy('sms_time', 'DESC');
-        if ($deviceToken) $builder->where('sms_owner', $deviceToken);
+        $builder = $this->db->table('tbl_Sms s')
+            ->select('s.*, sc.direction as cl_direction')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
+            ->orderBy('s.sms_time', 'DESC');
+        if ($deviceToken) $builder->where('s.sms_owner', $deviceToken);
         $allSms = $builder->get()->getResult();
         
         $score = 100;
@@ -334,14 +349,17 @@ class ModInsights extends Model
             $ts = $this->normalizeTimestamp($sms->sms_time);
             if ($ts < $sixtyDaysAgo) continue;
 
-            $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
-            $amount = $this->extractAmount(strtolower(base64_decode($sms->sms_body)));
+            $dir   = strtolower($sms->cl_direction ?? '');
+            $body  = strtolower(base64_decode($sms->sms_body));
+            $amount = $this->extractAmount($body);
 
-            if (in_array($cat, ['sent', 'withdraw', 'paybill', 'till', 'sent to lnm', 'sent to mobile'])) {
+            if ($dir === 'outgoing') {
                 $outflow += $amount;
-            } elseif (in_array($cat, ['received', 'bank to mpesa', 'deposit'])) {
+            } elseif ($dir === 'incoming') {
                 $inflow += $amount;
-            } elseif (strpos($cat, 'fuliza') !== false) {
+            }
+            
+            if (strpos($body, 'fuliza') !== false && strpos($body, 'taken') !== false) {
                 $fuliza += $amount;
             }
         }

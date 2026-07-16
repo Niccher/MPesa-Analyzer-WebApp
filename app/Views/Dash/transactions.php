@@ -6,16 +6,16 @@
 <style>
     .trx-card {
         background: var(--card-bg);
-        border-radius: 16px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        border-radius: 4px;
         border: 1px solid var(--card-border);
     }
     .badge { font-weight: 600; padding: 0.4em 0.8em; }
+    .badge-dir { font-size: 0.65rem; padding: 0.2em 0.5em; }
     .page-item.active .page-link {
         background-color: var(--primary);
         border-color: var(--primary);
     }
-    .page-link { color: var(--primary); border-radius: 8px !important; margin: 0 2px; }
+    .page-link { color: var(--primary); border-radius: 4px !important; margin: 0 2px; }
     .filter-btn.active { box-shadow: 0 4px 12px rgba(93, 95, 239, 0.25); }
     .pagination { margin: 0; }
     .table tbody tr:hover { background: rgba(93,95,239,0.03); }
@@ -32,16 +32,18 @@
         </p>
     </div>
     <div class="d-flex flex-wrap gap-2 mb-1">
-        <a href="<?= base_url('dashboard/transactions') ?>" class="btn btn-outline-primary filter-btn <?= empty($category) ? 'active' : '' ?>">All SMS</a>
-        <a href="<?= base_url('dashboard/transactions?category=Received') ?>" class="btn btn-outline-success filter-btn <?= $category === 'Received' ? 'active' : '' ?>">Received</a>
-        <a href="<?= base_url('dashboard/transactions?category=Sent') ?>" class="btn btn-outline-primary filter-btn <?= $category === 'Sent' ? 'active' : '' ?>">Sent</a>
-        <a href="<?= base_url('dashboard/transactions?category=Withdraw') ?>" class="btn btn-outline-warning filter-btn <?= $category === 'Withdraw' ? 'active' : '' ?>">Withdraw</a>
-        <a href="<?= base_url('dashboard/transactions?category=Fuliza') ?>" class="btn btn-outline-danger filter-btn <?= $category === 'Fuliza' ? 'active' : '' ?>">Fuliza</a>
+        <a href="<?= base_url('dashboard/transactions?category=finances') ?>" class="btn btn-outline-dark filter-btn <?= $category === 'finances' ? 'active' : '' ?>"><i class="fa-solid fa-coins me-1"></i> All Finances</a>
+        <a href="<?= base_url('dashboard/transactions?category=money_in') ?>" class="btn btn-outline-primary filter-btn <?= $category === 'money_in' ? 'active' : '' ?>"><i class="fa-solid fa-arrow-down me-1"></i> Money In</a>
+        <a href="<?= base_url('dashboard/transactions?category=money_out') ?>" class="btn btn-outline-danger filter-btn <?= $category === 'money_out' ? 'active' : '' ?>"><i class="fa-solid fa-arrow-up me-1"></i> Money Out</a>
+        <a href="<?= base_url('dashboard/transactions?category=notifications') ?>" class="btn btn-outline-secondary filter-btn <?= $category === 'notifications' ? 'active' : '' ?>"><i class="fa-solid fa-bell me-1"></i> Notifications</a>
         
         <div class="vr mx-1 d-none d-md-block"></div>
         
-        <a href="<?= base_url('dashboard/transactions/export' . (!empty($category) ? '?category='.$category : '')) ?>" class="btn btn-dark filter-btn shadow-sm">
-            <i class="fa-solid fa-file-csv me-1"></i> Export CSV
+        <button onclick="exportTableToPDF('transactionsTable', 'transactions', this)" class="btn btn-dark filter-btn shadow-sm btn-sm rounded-pill px-3">
+            <i class="fa-solid fa-file-pdf me-1"></i> PDF
+        </button>
+        <a href="<?= base_url('dashboard/transactions/export' . (!empty($category) ? '?category='.$category : '')) ?>" class="btn btn-dark filter-btn shadow-sm btn-sm rounded-pill px-3">
+            <i class="fa-solid fa-file-csv me-1"></i> CSV
         </a>
     </div>
 </div>
@@ -49,97 +51,92 @@
 
 <?= $this->section('content') ?>
 <div class="card trx-card mb-4">
-    <div class="card-body p-0">
+    <div class="card-body p-3">
         <div class="table-responsive">
-            <table class="table table-hover table-striped w-100 align-middle mb-0">
+            <table id="transactionsTable" class="table table-bordered table-hover table-striped w-100 align-middle mb-0">
                 <thead class="table-light">
                     <tr>
                         <th class="ps-4">Date &amp; Time</th>
                         <th>Category</th>
-                        <th>Counterparty</th>
+                        <th>Sender</th>
+                        <th>Recipient</th>
                         <th>Amount</th>
-                        <th>Preview</th>
-                        <th class="text-end pe-4">Actions</th>
+                        <th>Details</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (!empty($transactions)): ?>
                         <?php foreach ($transactions as $tx): ?>
                             <?php
-                                $catLower = strtolower($tx->cl_category ?? '');
-                                $badgeClass = 'bg-secondary';
-                                if (strpos($catLower, 'received') !== false) $badgeClass = 'bg-success';
-                                elseif (strpos($catLower, 'sent') !== false) $badgeClass = 'bg-primary';
-                                elseif (strpos($catLower, 'from ') !== false) $badgeClass = 'bg-success';
-                                elseif (strpos($catLower, 'withdraw') !== false) $badgeClass = 'bg-warning text-dark';
-                                elseif (strpos($catLower, 'fuliza') !== false) $badgeClass = 'bg-danger';
-                                elseif (strpos($catLower, 'error') !== false) $badgeClass = 'bg-danger';
-                                elseif (strpos($catLower, 'balance') !== false) $badgeClass = 'bg-info text-dark';
-                                elseif ($catLower === 'unclassified') $badgeClass = 'bg-light text-muted border';
+                                $dir = strtolower($tx->cl_direction ?? '');
+                                $cat = $tx->cl_category ?? 'Unclassified';
+                                $amt = (float)($tx->analyzed_amount ?? 0);
 
-                                $displayCategory = $tx->cl_category ?? '';
+                                if ($dir === 'incoming') {
+                                    $badgeClass = 'bg-success';
+                                    $dirLabel = '↓ Money In';
+                                } elseif ($dir === 'outgoing') {
+                                    $badgeClass = 'bg-danger';
+                                    $dirLabel = '↑ Money Out';
+                                } else {
+                                    $badgeClass = 'bg-secondary';
+                                    $dirLabel = '— Notification';
+                                }
+
                                 $body = base64_decode($tx->sms_body);
-                                $bodyStr = mb_check_encoding($body, 'UTF-8') ? $body : "Unable to decode";
+                                $bodyStr = mb_check_encoding($body, 'UTF-8') ? $body : "Unreadable content";
+
+                                $ts = is_numeric($tx->sms_time) && $tx->sms_time > 1000000000000
+                                    ? (int)($tx->sms_time / 1000)
+                                    : (is_numeric($tx->sms_time) ? (int)$tx->sms_time : strtotime($tx->sms_time));
+                                $datePart = date('D, M d, Y', $ts);
+                                $timePart = date('h:i A', $ts);
                             ?>
                             <tr>
-                                <td class="ps-4">
-                                    <div class="fw-bold small"><?= format_mpesa_date($tx->sms_time) ?></div>
+                                <td class="ps-4" style="min-width:120px;">
+                                    <div class="fw-semibold small lh-1"><?= $datePart ?></div>
+                                    <div class="text-muted" style="font-size:0.7rem; line-height:1;"><?= $timePart ?></div>
                                 </td>
                                 <td>
-                                    <div class="d-flex align-items-center gap-1">
-                                        <span class="badge rounded-pill <?= $badgeClass ?>"><?= htmlspecialchars($displayCategory) ?></span>
-                                        <?php if (!empty($tx->cl_direction)): ?>
-                                            <span class="badge bg-light text-secondary border" style="font-size:0.65rem;">
-                                                <?= $tx->cl_direction === 'incoming' ? '↓ IN' : ($tx->cl_direction === 'outgoing' ? '↑ OUT' : '—') ?>
-                                            </span>
-                                        <?php endif; ?>
+                                    <div class="d-flex flex-column gap-1">
+                                        <span class="badge rounded-pill <?= $badgeClass ?> badge-dir w-auto"><?= $dirLabel ?></span>
+                                        <span class="small text-secondary" style="font-size:0.7rem;"><?= htmlspecialchars($cat) ?></span>
                                     </div>
-                                    <?php if (!empty($tx->analyzed_category)): ?>
-                                        <div class="mt-1"><span class="badge bg-light text-dark border border-secondary border-opacity-25" style="font-size:0.7rem;"><i class="fa-solid fa-tag me-1 text-secondary"></i> <?= htmlspecialchars($tx->analyzed_category) ?></span></div>
-                                    <?php endif; ?>
                                 </td>
+                                <td class="font-monospace small"><?= htmlspecialchars($tx->sms_number) ?></td>
+                                <td class="fw-semibold small"><?= !empty($tx->counterparty) ? htmlspecialchars($tx->counterparty) : '<span class="text-muted fst-italic">—</span>' ?></td>
                                 <td>
-                                    <div class="fw-bold small text-dark"><?= !empty($tx->counterparty) ? htmlspecialchars($tx->counterparty) : '<span class="text-muted fst-italic">Unknown</span>' ?></div>
-                                    <div class="text-muted font-monospace" style="font-size:0.7rem;"><?= htmlspecialchars($tx->sms_number) ?></div>
-                                </td>
-                                <td>
-                                    <?php
-                                    $amt = isset($tx->analyzed_amount) && $tx->analyzed_amount > 0
-                                        ? (float)$tx->analyzed_amount : null;
-                                    $isInflow  = strpos($catLower, 'received') !== false;
-                                    $isOutflow = strpos($catLower, 'sent') !== false
-                                                || strpos($catLower, 'withdraw') !== false
-                                                || strpos($catLower, 'fuliza') !== false;
-                                    ?>
-                                    <?php if ($amt !== null): ?>
-                                        <span class="fw-bold small <?= $isInflow ? 'text-success' : ($isOutflow ? 'text-danger' : 'text-dark') ?>">
-                                            <?= $isInflow ? '+' : ($isOutflow ? '-' : '') ?>
+                                    <span class="fw-bold small <?= $dir === 'incoming' ? 'text-success' : ($dir === 'outgoing' ? 'text-danger' : 'text-muted') ?>">
+                                        <?php if ($amt > 0): ?>
+                                            <?= $dir === 'incoming' ? '+' : ($dir === 'outgoing' ? '-' : '') ?>
                                             Ksh <?= number_format($amt, 2) ?>
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="text-muted small">—</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <span class="d-inline-block text-truncate text-muted small" style="max-width: 250px;">
-                                        <?= htmlspecialchars($bodyStr) ?>
+                                        <?php else: ?>
+                                            —
+                                        <?php endif; ?>
                                     </span>
                                 </td>
-                                <td class="text-end pe-4">
-                                    <?php if (!empty($tx->counterparty) && $tx->counterparty !== 'Unknown'): ?>
-                                    <button class="btn btn-sm btn-outline-primary rounded-pill shadow-sm me-2 py-1 px-3 fw-semibold recategorize-btn"
-                                            data-trans-id="<?= $tx->sms__id ?>"
-                                            data-counterparty="<?= htmlspecialchars($tx->counterparty) ?>"
-                                            data-category="<?= htmlspecialchars($tx->analyzed_category ?? '') ?>"
-                                            title="Smart Auto-Fix Rule">
-                                        <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Fix
-                                    </button>
-                                    <?php endif; ?>
-                                    <button class="btn btn-sm btn-light rounded-circle shadow-sm view-sms-btn"
-                                            data-time="<?= format_mpesa_date($tx->sms_time) ?>"
-                                            data-body="<?= htmlspecialchars($bodyStr) ?>">
-                                        <i class="fa-solid fa-eye text-primary"></i>
-                                    </button>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="text-muted small" style="word-break: break-word;">
+                                            <?= htmlspecialchars($bodyStr) ?>
+                                        </span>
+                                        <?php if (!empty($tx->counterparty) && $tx->counterparty !== 'Unknown'): ?>
+                                        <button class="btn btn-sm btn-outline-primary rounded-pill shadow-sm flex-shrink-0 py-0 px-2 fw-semibold recategorize-btn"
+                                                data-trans-id="<?= $tx->sms__id ?>"
+                                                data-counterparty="<?= htmlspecialchars($tx->counterparty) ?>"
+                                                data-category="<?= htmlspecialchars($tx->analyzed_category ?? '') ?>"
+                                                title="Smart Auto-Fix Rule"
+                                                style="font-size:0.7rem;">
+                                            <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Fix
+                                        </button>
+                                        <?php endif; ?>
+                                        <button class="btn btn-sm btn-light rounded-circle shadow-sm view-sms-btn flex-shrink-0"
+                                                data-time="<?= $datePart ?> <?= $timePart ?>"
+                                                data-body="<?= htmlspecialchars($bodyStr) ?>"
+                                                title="View details">
+                                            <i class="fa-solid fa-eye text-primary"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -262,16 +259,23 @@
                         <label class="text-secondary small fw-bold text-uppercase">Correct Category</label>
                         <select class="form-select form-select-lg placeholder-wave border-primary-subtle" id="rc_category" name="category" required>
                             <option value="" disabled selected>Select a category...</option>
-                            <option value="Groceries">Groceries & Supermarkets</option>
-                            <option value="Food">Food & Dining</option>
-                            <option value="Transport">Transport & Fuel</option>
-                            <option value="Utilities">Utilities & Bills</option>
-                            <option value="Shopping">Shopping & Retail</option>
-                            <option value="Health">Health & Fitness</option>
-                            <option value="Entertainment">Entertainment</option>
-                            <option value="Family">Family & Personal</option>
-                            <option value="Business">Business Expenses</option>
-                            <option value="Other">Other Miscellaneous</option>
+                            <optgroup label="Transaction Types">
+                                <option value="Received">Received</option>
+                                <option value="Sent">Sent to Mobile</option>
+                                <option value="Sent to LNM">Paybill / Till</option>
+                                <option value="Paybill">Paybill</option>
+                                <option value="Till">Till Number</option>
+                                <option value="Withdraw">Withdrawal</option>
+                                <option value="Fuliza Loan Taken">Fuliza Loan Taken</option>
+                                <option value="Fuliza Loan Paid">Fuliza Loan Paid</option>
+                            </optgroup>
+                            <?php if (!empty($llm_categories)): ?>
+                            <optgroup label="LLM Categories">
+                                <?php foreach ($llm_categories as $lc): ?>
+                                <option value="<?= htmlspecialchars($lc) ?>"><?= htmlspecialchars($lc) ?></option>
+                                <?php endforeach; ?>
+                            </optgroup>
+                            <?php endif; ?>
                         </select>
                     </div>
                 </form>
@@ -286,6 +290,8 @@
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
     $(document).ready(function() {
         const detailModal = new bootstrap.Modal(document.getElementById('smsDetailModal'));
@@ -354,5 +360,49 @@
             });
         });
     });
+
+    // PDF Export — preserves table styling via html2canvas
+    window.exportTableToPDF = function(tableId, filename, btnEl) {
+        const btn = btnEl || document.querySelector(`button[onclick*="${tableId}"]`);
+        if (!btn) return;
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Exporting...';
+
+        const table = document.getElementById(tableId);
+        if (!table) { btn.disabled = false; btn.innerHTML = orig; return; }
+
+        const wrapper = document.createElement('div');
+        wrapper.style.padding = '20px';
+        wrapper.style.background = '#fff';
+        wrapper.style.width = table.offsetWidth + 'px';
+        const clone = table.cloneNode(true);
+        wrapper.appendChild(clone);
+        document.body.appendChild(wrapper);
+
+        html2canvas(wrapper, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#ffffff'
+        }).then(canvas => {
+            document.body.removeChild(wrapper);
+            const imgData = canvas.toDataURL('image/png');
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('l', 'mm', 'a4');
+            const pdfW = pdf.internal.pageSize.getWidth();
+            const pdfH = (canvas.height * pdfW) / canvas.width;
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH);
+            pdf.save(filename + '.pdf');
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        }).catch(err => {
+            document.body.removeChild(wrapper);
+            console.error('PDF export error:', err);
+            if (typeof showAlert === 'function') showAlert('Export Failed', 'Could not generate PDF.', 'danger');
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        });
+    }
 </script>
 <?= $this->endSection() ?>

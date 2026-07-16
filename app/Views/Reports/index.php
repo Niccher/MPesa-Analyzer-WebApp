@@ -5,13 +5,13 @@
 <?= $this->section('styles') ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-    .report-hero { background: linear-gradient(135deg, #5D5FEF 0%, #a29bfe 100%); border-radius: 20px; color: white; padding: 32px 40px; margin-bottom: 28px; position: relative; overflow: hidden; }
+    .report-hero { background: linear-gradient(135deg, #5D5FEF 0%, #a29bfe 100%); border-radius: 4px; color: white; padding: 32px 40px; margin-bottom: 28px; position: relative; overflow: hidden; }
     .report-hero::after { content: ''; position: absolute; top: -60%; right: -5%; width: 280px; height: 280px; background: rgba(255,255,255,0.08); border-radius: 50%; }
-    .glass-card { background: var(--card-bg); backdrop-filter: blur(10px); border: 1px solid var(--card-border); border-radius: 20px; box-shadow: 0 6px 24px rgba(31,38,135,0.06); transition: transform .2s, box-shadow .2s; }
+    .glass-card { background: var(--card-bg); backdrop-filter: blur(10px); border: 1px solid var(--card-border); border-radius: 4px; box-shadow: 0 6px 24px rgba(31,38,135,0.06); transition: transform .2s, box-shadow .2s; }
     .glass-card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(31,38,135,0.1); }
-    .metric-icon { width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; margin-bottom: 12px; }
-    select.period-select { border-radius: 12px; border: 1px solid var(--card-border); padding: 8px 16px; font-weight: 600; color: var(--primary); background: var(--bg-color); cursor: pointer; }
-    .trend-badge { padding: 4px 10px; border-radius: 20px; font-weight: bold; font-size: 0.8rem; }
+    .metric-icon { width: 48px; height: 48px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; margin-bottom: 12px; }
+    select.period-select { border-radius: 4px; border: 1px solid var(--card-border); padding: 8px 16px; font-weight: 600; color: var(--primary); background: var(--bg-color); cursor: pointer; }
+    .trend-badge { padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; }
     .trend-up { background: rgba(255,71,87,0.15); color: #FF4757; }
     .trend-down { background: rgba(46,213,115,0.15); color: #2ED573; }
     .trend-flat { background: rgba(160,160,160,0.15); color: #888; }
@@ -141,7 +141,7 @@
         </div>
     </div>
     <div class="table-responsive">
-        <table class="table table-borderless align-middle mb-0">
+        <table class="table table-bordered align-middle mb-0">
             <thead class="text-muted small text-uppercase">
                 <tr><th>Counterparty</th><th>Consistent Amount</th><th>Occurrences</th><th>Last Paid</th></tr>
             </thead>

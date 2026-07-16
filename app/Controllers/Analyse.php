@@ -268,6 +268,21 @@ class Analyse extends BaseController
         // Retroactively apply to past transactions with the same counterparty
         $db->table('tbl_Analyzed_Transactions')->where('counterparty', $keyword)->update(['description' => $category]);
 
+        // Also update tbl_Sms_Classification for matching SMS (aligns with LLM categories)
+        if ($db->tableExists('tbl_Sms_Classification')) {
+            $smsIds = $db->table('tbl_Analyzed_Transactions')
+                ->select('orig_sms_id')
+                ->where('counterparty', $keyword)
+                ->get()
+                ->getResultArray();
+            $ids = array_filter(array_column($smsIds, 'orig_sms_id'));
+            if (!empty($ids)) {
+                $db->table('tbl_Sms_Classification')
+                    ->whereIn('sms_id', $ids)
+                    ->update(['category' => $category]);
+            }
+        }
+
         return $this->response->setJSON([
             'status' => 'success',
             'message' => "Rule saved! Future and past transactions for '$keyword' will be mapped to '$category'."

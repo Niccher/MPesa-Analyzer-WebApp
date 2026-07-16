@@ -24,8 +24,6 @@
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     
-    <!-- DataTables Bootstrap 5 CSS -->
-    <link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     
     <style>
         :root {
@@ -36,6 +34,11 @@
             --card-border: rgba(255, 255, 255, 0.4);
             --text-main: #2d3436;
             --text-muted: #636e72;
+            --bs-card-border-radius: 4px;
+            --bs-border-radius-xl: 4px;
+            --bs-border-radius-lg: 4px;
+            --bs-border-radius-sm: 3px;
+            --bs-border-radius: 4px;
         }
 
         [data-bs-theme="dark"] {
@@ -111,7 +114,7 @@
             color: #666;
             font-weight: 500;
             padding: 12px 20px;
-            border-radius: 8px;
+            border-radius: 4px;
             margin: 5px 15px;
             transition: all 0.2s;
         }
@@ -181,6 +184,28 @@
         .dashboard-footer {
             border-top: 1px solid rgba(0,0,0,0.05);
             background-color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Clean table design */
+        .table {
+            border: 1px solid #e0e0e0;
+            margin-bottom: 0;
+        }
+        .table thead th {
+            border-bottom: 2px solid #e0e0e0;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #636e72;
+            background-color: #f8f9fa;
+        }
+        .table td, .table th {
+            border-color: #e0e0e0;
+            vertical-align: middle;
+        }
+        .card-body.p-3 .table {
+            border: 1px solid #e0e0e0;
         }
     </style>
     <?= $this->renderSection('styles') ?>
@@ -273,6 +298,14 @@
                         </button>
                     </div>
 
+                    <!-- Persistent Scan Status Badge (clickable) -->
+                    <button id="scanStatusBadge"
+                            class="btn btn-sm d-flex align-items-center gap-2 fw-semibold rounded-pill px-3 me-3 d-none"
+                            title="Click for details" data-bs-toggle="modal" data-bs-target="#scanProgressModal">
+                        <span id="scanStatusIcon" class="spinner-border spinner-border-sm text-warning" role="status"></span>
+                        <span id="scanStatusText">Scanning...</span>
+                    </button>
+
                     <div class="ms-auto d-flex align-items-center">
                         <div class="dropdown">
                             <a class="nav-link dropdown-toggle text-dark fw-semibold d-flex align-items-center gap-2" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -284,6 +317,140 @@
                             </a>
 
                             <script>
+                            let pollInterval = null;
+                            const scanBadge = document.getElementById('scanStatusBadge');
+                            const scanIcon = document.getElementById('scanStatusIcon');
+                            const scanText = document.getElementById('scanStatusText');
+
+                            function startPolling() {
+                                stopPolling();
+                                scanBadge.classList.remove('d-none');
+                                pollInterval = setInterval(pollProgress, 2000);
+                                pollProgress();
+                            }
+
+                            function stopPolling() {
+                                if (pollInterval) {
+                                    clearInterval(pollInterval);
+                                    pollInterval = null;
+                                }
+                            }
+
+                            function setBadgeState(state, label) {
+                                scanBadge.classList.remove('d-none');
+                                if (state === 'scanning') {
+                                    scanIcon.className = 'spinner-border spinner-border-sm text-warning';
+                                    scanText.textContent = label || 'Scanning...';
+                                    scanBadge.className = 'btn btn-sm d-flex align-items-center gap-2 fw-semibold rounded-pill px-3 me-3 btn-outline-warning';
+                                } else if (state === 'idle') {
+                                    scanIcon.className = 'fa-solid fa-circle text-secondary';
+                                    scanText.textContent = label || 'No scan running';
+                                    scanBadge.className = 'btn btn-sm d-flex align-items-center gap-2 fw-semibold rounded-pill px-3 me-3 btn-outline-secondary';
+                                } else if (state === 'complete') {
+                                    scanIcon.className = 'fa-solid fa-circle-check text-success';
+                                    scanText.textContent = label || 'Scan complete';
+                                    scanBadge.className = 'btn btn-sm d-flex align-items-center gap-2 fw-semibold rounded-pill px-3 me-3 btn-outline-success';
+                                } else if (state === 'failed') {
+                                    scanIcon.className = 'fa-solid fa-circle-exclamation text-danger';
+                                    scanText.textContent = label || 'Scan failed';
+                                    scanBadge.className = 'btn btn-sm d-flex align-items-center gap-2 fw-semibold rounded-pill px-3 me-3 btn-outline-danger';
+                                }
+                            }
+
+                            function populateModal(data) {
+                                const total = data.total || 0;
+                                const processed = data.processed || 0;
+                                const errors = data.errors || 0;
+                                const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+
+                                document.getElementById('modalProgressBar').style.width = pct + '%';
+                                document.getElementById('modalProgressCount').textContent = processed + ' / ' + total;
+                                document.getElementById('modalTotal').textContent = total;
+                                document.getElementById('modalProcessed').textContent = processed;
+                                document.getElementById('modalErrors').textContent = errors;
+
+                                if (data.job) {
+                                    const j = data.job;
+                                    let st = 'Status: <strong>' + j.status + '</strong>';
+                                    if (j.messages_processed) st += ' | ' + j.messages_processed + ' processed';
+                                    if (j.errors > 0) st += ' | ' + j.errors + ' errors';
+                                    if (j.duration_seconds) st += ' | ' + j.duration_seconds + 's elapsed';
+                                    document.getElementById('modalStatusText').innerHTML = st;
+                                } else {
+                                    document.getElementById('modalStatusText').textContent = 'Total SMS: ' + total + ', Completed: ' + processed + ', Errors: ' + errors;
+                                }
+
+                                if (total > 0 && !data.running && (data.job && (data.job.status === 'completed' || data.job.status === 'failed'))) {
+                                    document.getElementById('modalProgressBar').classList.remove('progress-bar-animated');
+                                    if (data.job.status === 'completed') {
+                                        document.getElementById('modalProgressBar').classList.add('bg-success');
+                                    } else {
+                                        document.getElementById('modalProgressBar').classList.add('bg-danger');
+                                    }
+                                } else if (total > 0 && processed >= total) {
+                                    document.getElementById('modalProgressBar').classList.remove('progress-bar-animated');
+                                    document.getElementById('modalProgressBar').classList.add('bg-success');
+                                } else {
+                                    document.getElementById('modalProgressBar').classList.remove('bg-success', 'bg-danger');
+                                }
+                            }
+
+                            function pollProgress() {
+                                fetch('<?= $baseUrl ?>dashboard/rescan/progress')
+                                    .then(r => r.json())
+                                    .then(data => {
+                                        const total = data.total || 0;
+                                        const processed = data.processed || 0;
+                                        const errors = data.errors || 0;
+
+                                        if (data.job && (data.job.status === 'completed' || data.job.status === 'failed')) {
+                                            stopPolling();
+                                            if (data.job.status === 'completed') {
+                                                setBadgeState('complete', data.job.messages_processed + ' processed');
+                                                showAlert('Scan Complete', data.job.messages_processed + ' messages processed' + (errors ? ', ' + errors + ' errors' : '') + '.', 'success');
+                                            } else {
+                                                setBadgeState('failed', 'Scan failed');
+                                                showAlert('Scan Failed', 'LLM analysis encountered errors.', 'danger');
+                                            }
+                                            populateModal(data);
+                                            setTimeout(() => window.location.reload(), 3000);
+                                        } else if (!data.running && processed >= total && total > 0) {
+                                            stopPolling();
+                                            setBadgeState('complete', processed + ' processed');
+                                            showAlert('Scan Complete', processed + ' messages processed.', 'success');
+                                            populateModal(data);
+                                            setTimeout(() => window.location.reload(), 3000);
+                                        } else if (data.running || (total > 0 && processed < total)) {
+                                            const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+                                            setBadgeState('scanning', pct + '% - ' + processed + '/' + total);
+                                            populateModal(data);
+                                        } else {
+                                            setBadgeState('idle', 'No scan running');
+                                            document.getElementById('modalProgressLabel').textContent = 'Idle';
+                                            populateModal(data);
+                                        }
+                                    })
+                                    .catch(() => {});
+                            }
+
+                            // Check status on every page load
+                            document.addEventListener('DOMContentLoaded', function() {
+                                fetch('<?= $baseUrl ?>dashboard/rescan/progress')
+                                    .then(r => r.json())
+                                    .then(data => {
+                                        const total = data.total || 0;
+                                        const processed = data.processed || 0;
+                                        if (data.running || (total > 0 && processed < total && data.job && data.job.status !== 'completed' && data.job.status !== 'failed')) {
+                                            startPolling();
+                                        } else if (data.job && data.job.status === 'completed') {
+                                            setBadgeState('complete', data.job.messages_processed + ' processed');
+                                        } else if (data.job && data.job.status === 'failed') {
+                                            setBadgeState('failed', 'Scan failed');
+                                        }
+                                    })
+                                    .catch(() => {});
+                            });
+
                             document.getElementById('rescanBtn')?.addEventListener('click', function(e) {
                                 e.preventDefault();
                                 if (!confirm('This will re-analyze all unprocessed SMS using the LLM. It may take several minutes depending on the volume. Continue?')) return;
@@ -294,9 +461,11 @@
                                     .then(r => r.json())
                                     .then(data => {
                                         if (data.status === 'started') {
-                                            showAlert('Rescan Started', data.message || 'LLM analysis is running in the background. Check back shortly for updated results.', 'info');
+                                            showAlert('Rescan Started', data.message || 'LLM analysis is running in the background.', 'info');
+                                            startPolling();
                                         } else {
                                             showAlert('Notice', data.message || 'No unprocessed SMS found.', 'warning');
+                                            setBadgeState('idle', 'No unprocessed SMS');
                                         }
                                     })
                                     .catch(err => showAlert('Error', 'Failed to start rescan: ' + err.message, 'danger'))
@@ -316,6 +485,7 @@
                                     .then(r => r.json())
                                     .then(data => {
                                         showAlert(data.status === 'started' ? 'Reprocess Started' : 'Notice', data.message || 'Processing triggered.', data.status === 'started' ? 'info' : 'warning');
+                                        if (data.status === 'started') startPolling();
                                     })
                                     .catch(err => showAlert('Error', 'Failed: ' + err.message, 'danger'))
                                     .finally(() => {
@@ -367,15 +537,11 @@
         </div>
     </div>
 
-    <!-- jQuery (Required for DataTables) -->
+    <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     
     <!-- Bootstrap 5 Bundle JS (Includes Popper) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- DataTables JS & Bootstrap 5 Integration -->
-    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
 
     <!-- SortableJS for Drag-and-Drop Widgets -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
@@ -424,6 +590,56 @@
             });
         });
     </script>
+
+    <!-- Scan Progress Modal -->
+    <div class="modal fade" id="scanProgressModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content glass-card border-0 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">
+                        <i class="fa-solid fa-microchip me-2 text-primary"></i>LLM Scan Progress
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span id="modalProgressLabel">Progress</span>
+                            <span id="modalProgressCount">0 / 0</span>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div id="modalProgressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                                 role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="row g-2 text-center">
+                        <div class="col-4">
+                            <div class="border rounded p-2">
+                                <div class="fw-bold fs-5" id="modalTotal">0</div>
+                                <div class="text-muted small">Total</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border rounded p-2">
+                                <div class="fw-bold fs-5 text-success" id="modalProcessed">0</div>
+                                <div class="text-muted small">Done</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border rounded p-2">
+                                <div class="fw-bold fs-5 text-danger" id="modalErrors">0</div>
+                                <div class="text-muted small">Errors</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3 small text-muted" id="modalStatusText">No scan running.</div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary btn-sm rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Global Toast Container -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 2000;">

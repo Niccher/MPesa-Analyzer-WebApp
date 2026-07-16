@@ -28,7 +28,7 @@
         <!-- Email -->
         <div class="form-group">
             <label for="floatingEmailInput" class="form-label">Email Address</label>
-            <input type="email" class="form-control" id="floatingEmailInput" name="email" inputmode="email" autocomplete="email" placeholder="email@example.com" value="<?= old('email') ?>" required>
+            <input type="email" class="form-control" id="floatingEmailInput" name="email" inputmode="email" autocomplete="email" placeholder="you@domain.com" value="<?= old('email') ?>" required>
         </div>
 
         <!-- Password -->

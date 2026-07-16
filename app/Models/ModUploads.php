@@ -342,23 +342,21 @@ class ModUploads extends Model
             'is_analyzed' => false
         ];
 
-        $smsBuilder = $this->db->table('tbl_Sms');
-        if ($deviceToken) $smsBuilder->where('sms_owner', $deviceToken);
+        $smsBuilder = $this->db->table('tbl_Sms s')
+            ->select('s.*, sc.direction as cl_direction, sc.category as cl_cat')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left');
+        if ($deviceToken) $smsBuilder->where('s.sms_owner', $deviceToken);
         $smsList = $smsBuilder->get()->getResult();
         
         foreach ($smsList as $sms) {
             $body = strtolower(base64_decode($sms->sms_body));
             $amount = $this->extractAmount($body);
-            $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
+            $dir = strtolower($sms->cl_direction ?? '');
             
-            if ($cat === 'received') {
+            if ($dir === 'incoming') {
                 $stats['total_received_30'] += $amount;
-            } elseif (in_array($cat, ['sent', 'sent to lnm'])) {
+            } elseif ($dir === 'outgoing') {
                 $stats['total_sent_30'] += $amount;
-            } elseif ($cat === 'withdraw') {
-                $stats['withdrawn_30'] += $amount;
-            } elseif ($cat === 'fuliza loan taken') {
-                $stats['fuliza_taken_30'] += $amount;
             }
             if (strpos($body, 'new m-pesa balance is ksh') !== false) {
                 $stats['current_balance'] = $this->extractBalance($body);
@@ -420,12 +418,14 @@ class ModUploads extends Model
             'fuliza_deductions' => 0
         ];
 
-        $smsBuilder = $this->db->table('tbl_Sms')
-            ->where('sms_time >=', $thirtyDaysAgo)
-            ->where('sms_time <=', $lastDate);
+        $smsBuilder = $this->db->table('tbl_Sms s')
+            ->select('s.*, sc.direction as cl_direction, sc.category as cl_cat')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
+            ->where('s.sms_time >=', $thirtyDaysAgo)
+            ->where('s.sms_time <=', $lastDate);
             
         if ($deviceToken) {
-            $smsBuilder->where('sms_owner', $deviceToken);
+            $smsBuilder->where('s.sms_owner', $deviceToken);
         }
         
         $smsList = $smsBuilder->get()->getResult();
@@ -434,14 +434,16 @@ class ModUploads extends Model
             $body = strtolower(base64_decode($sms->sms_body));
             $amount = $this->extractAmount($body);
             
-            $catCategory = $sms->sms_category ?? $sms->cl_category ?? '';
-            if ($catCategory === 'Sent To Lnm') {
-                if (strpos($body, 'paybill') !== false) $data['paybill'] += $amount;
-                else $data['till'] += $amount;
-            } elseif ($catCategory === 'Sent') {
+            $dir = strtolower($sms->cl_direction ?? '');
+            if ($dir !== 'outgoing') continue;
+            
+            $cat = strtolower($sms->cl_cat ?? '');
+            if (strpos($cat, 'payment') !== false || strpos($body, 'paybill') !== false) {
+                $data['paybill'] += $amount;
+            } elseif (strpos($body, 'till') !== false) {
+                $data['till'] += $amount;
+            } else {
                 $data['sent_mobile'] += $amount;
-            } elseif ($catCategory === 'Fuliza Loan Paid') {
-                $data['fuliza_deductions'] += $amount;
             }
         }
         return $data;
@@ -491,9 +493,11 @@ class ModUploads extends Model
             'mshwari_kcb' => 0
         ];
 
-        $smsList = $this->db->table('tbl_Sms')
-            ->where('sms_time >=', $thirtyDaysAgo)
-            ->where('sms_time <=', $lastDate)
+        $smsList = $this->db->table('tbl_Sms s')
+            ->select('s.*, sc.direction as cl_direction')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
+            ->where('s.sms_time >=', $thirtyDaysAgo)
+            ->where('s.sms_time <=', $lastDate)
             ->get()
             ->getResult();
 
@@ -501,13 +505,10 @@ class ModUploads extends Model
             $body = strtolower(base64_decode($sms->sms_body));
             $amount = $this->extractAmount($body);
             
-            $catCategory = $sms->sms_category ?? $sms->cl_category ?? '';
-            if ($catCategory === 'Received') {
+            $dir = strtolower($sms->cl_direction ?? '');
+            if ($dir === 'incoming') {
                 $data['total'] += $amount;
                 if (strpos($body, 'bank') !== false) $data['banks'] += $amount;
-            } elseif (in_array($catCategory, ['From Mshwari Account', 'From Kcb'])) {
-                $data['mshwari_kcb'] += $amount;
-                $data['total'] += $amount;
             }
         }
         return $data;
@@ -531,6 +532,66 @@ class ModUploads extends Model
     }
 
     /**
+     * Apply category filter for LLM-based categories (finances, money_in, money_out, notifications)
+     */
+    private function applyCategoryFilter($builder, string $category): void
+    {
+        switch ($category) {
+            case 'finances':
+                $builder->where('sc.is_finance', 1);
+                break;
+            case 'money_in':
+                $builder->where('sc.direction', 'incoming');
+                break;
+            case 'money_out':
+                $builder->where('sc.direction', 'outgoing');
+                break;
+            case 'notifications':
+                $builder->where('sc.is_finance', 0);
+                break;
+            default:
+                if (!empty($category)) {
+                    $builder->where('sc.category', $category);
+                }
+                break;
+        }
+    }
+
+    /**
+     * Count filtered transactions for pagination
+     */
+    public function countFilteredTransactions(array $f): int {
+        $builder = $this->db->table('tbl_Sms s')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
+            ->join('tbl_Analyzed_Transactions a', 'a.orig_sms_id = s.sms__id', 'left');
+
+        if (!empty($f['category'])) {
+            $this->applyCategoryFilter($builder, $f['category']);
+        }
+
+        if (!empty($f['date_from'])) {
+            $builder->where('s.sms_time >=', strtotime($f['date_from'] . ' 00:00:00') * 1000);
+        }
+        if (!empty($f['date_to'])) {
+            $builder->where('s.sms_time <=', strtotime($f['date_to'] . ' 23:59:59') * 1000);
+        }
+
+        if (!empty($f['sender'])) {
+            $builder->where('sc.sender', $f['sender']);
+        }
+
+        if (!empty($f['search'])) {
+            $builder->groupStart()
+                ->like('s.sms_number', $f['search'])
+                ->orLike('a.trans_id', $f['search'])
+                ->orLike('a.counterparty', $f['search'])
+                ->groupEnd();
+        }
+
+        return $builder->countAllResults();
+    }
+
+    /**
      * Advanced Filtering — handles numeric sms_time and base64 bodies
      */
     public function getFilteredTransactions(array $f, int $limit = 500, int $offset = 0): array {
@@ -539,9 +600,14 @@ class ModUploads extends Model
             ->join('tbl_Analyzed_Transactions a', 'a.orig_sms_id = s.sms__id', 'left')
             ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left');
 
-        // Category filter — uses tbl_Sms_Classification
+        // Category filter
         if (!empty($f['category'])) {
-            $builder->where('sc.category', $f['category']);
+            $this->applyCategoryFilter($builder, $f['category']);
+        }
+
+        // Sender filter (exact match on sc.sender)
+        if (!empty($f['sender'])) {
+            $builder->where('sc.sender', $f['sender']);
         }
 
         // Keyword search in number or analyzed fields (body search done in PHP below)
@@ -553,25 +619,22 @@ class ModUploads extends Model
                 ->groupEnd();
         }
 
-        $builder->limit(5000, $offset); // Fetch generous amount for PHP filters
+        $builder->limit($limit, $offset);
         $results = $builder->orderBy('s.sms_time', 'DESC')->get()->getResult();
 
-        // Post-process all filters in PHP (handles numeric timestamps and base64 bodies)
+        // Post-process filters in PHP (handles numeric timestamps and base64 bodies)
         $filtered = [];
         $dateFrom = !empty($f['date_from']) ? strtotime($f['date_from'] . ' 00:00:00') : null;
         $dateTo   = !empty($f['date_to'])   ? strtotime($f['date_to'] . ' 23:59:59')   : null;
 
         foreach ($results as $sms) {
-            // Normalize the timestamp
             $ts = is_numeric($sms->sms_time) && $sms->sms_time > 1000000000000
                 ? (int)($sms->sms_time / 1000)
                 : (is_numeric($sms->sms_time) ? (int)$sms->sms_time : strtotime($sms->sms_time));
 
-            // Date range filter
             if ($dateFrom !== null && $ts < $dateFrom) continue;
             if ($dateTo   !== null && $ts > $dateTo)   continue;
 
-            // Body keyword search (decoded)
             if (!empty($f['search'])) {
                 $body = strtolower(base64_decode($sms->sms_body));
                 $needle = strtolower($f['search']);
@@ -583,7 +646,6 @@ class ModUploads extends Model
                 }
             }
 
-            // Amount filter
             if (!empty($f['min_amount']) || !empty($f['max_amount'])) {
                 $amt = (float)($sms->analyzed_amount ?? $this->extractAmount(base64_decode($sms->sms_body)));
                 if (!empty($f['min_amount']) && $amt < (float)$f['min_amount']) continue;
@@ -601,20 +663,36 @@ class ModUploads extends Model
      * Get data for charts (30 day window, with graceful fallback to all-time)
      */
     public function getAnalyticsData30Days(string $lastDate, ?string $deviceToken = null): array {
-        // Step 1: Try to build data from tbl_Analyzed_Transactions within window
         $thirtyDaysAgo = date('Y-m-d', strtotime($lastDate . ' -29 days'));
 
-        // Check if there is any analyzed data at all
-        $hasAnalyzed = false;
-        if ($this->db->tableExists('tbl_Analyzed_Transactions')) {
-            $count = $this->db->table('tbl_Analyzed_Transactions')->countAllResults();
-            $hasAnalyzed = $count > 0;
-        }
-
-        // If we have analyzed data, use it. Otherwise fall back to raw SMS.
         $labels    = [];
         $spending  = [];
         $receiving = [];
+
+        // Preload all SMS with classification in the 30-day window
+        // Use LIKE for string-based dates (works for both string and numeric timestamps)
+        $smsBuilder = $this->db->table('tbl_Sms s')
+            ->select('s.*, sc.direction as cl_direction, sc.category as cl_cat, a.amount as analyzed_amount, a.description')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
+            ->join('tbl_Analyzed_Transactions a', 'a.orig_sms_id = s.sms__id', 'left')
+            ->groupStart()
+                ->where('s.sms_time >=', $thirtyDaysAgo)
+                ->where('s.sms_time <=', $lastDate)
+            ->groupEnd()
+            ->orderBy('s.sms_time', 'ASC');
+
+        if ($deviceToken) $smsBuilder->where('s.sms_owner', $deviceToken);
+        $windowSms = $smsBuilder->get()->getResult();
+
+        // Group by date
+        $byDate = [];
+        foreach ($windowSms as $sms) {
+            $ts = is_numeric($sms->sms_time) && $sms->sms_time > 1000000000000
+                ? (int)($sms->sms_time / 1000)
+                : (is_numeric($sms->sms_time) ? (int)$sms->sms_time : strtotime($sms->sms_time));
+            $dateKey = date('Y-m-d', $ts);
+            $byDate[$dateKey][] = $sms;
+        }
 
         for ($i = 29; $i >= 0; $i--) {
             $date = date('Y-m-d', strtotime($lastDate . " -$i days"));
@@ -623,64 +701,43 @@ class ModUploads extends Model
             $daySpending  = 0;
             $dayReceiving = 0;
 
-            if ($hasAnalyzed) {
-                $builder = $this->db->table('tbl_Analyzed_Transactions a')
-                    ->selectSum('a.amount', 'total_amount')
-                    ->select('a.description')
-                    ->where("DATE(a.trans_date)", $date);
-                    
-                if ($deviceToken) {
-                    $builder->join('tbl_Sms s', 's.sms__id = a.orig_sms_id', 'left')
-                            ->where('s.sms_owner', $deviceToken);
-                }
-                    
-                $daily = $builder->groupBy('a.description')->get()->getResult();
-
-                foreach ($daily as $row) {
-                    $desc = strtolower($row->description);
-                    if ($desc === 'received') $dayReceiving += (float)$row->total_amount;
-                    elseif (in_array($desc, ['sent', 'sent to lnm'])) $daySpending += (float)$row->total_amount;
-                }
-            } else {
-                $smsBuilder = $this->db->table('tbl_Sms')->like('sms_time', $date);
-                if ($deviceToken) $smsBuilder->where('sms_owner', $deviceToken);
-                $smsList = $smsBuilder->get()->getResult();
-
-                foreach ($smsList as $sms) {
-                    $amount = $this->extractAmount(base64_decode($sms->sms_body));
-                    $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
-                    if ($cat === 'received') $dayReceiving += $amount;
-                    elseif (in_array($cat, ['sent', 'sent to lnm'])) $daySpending += $amount;
-                }
+            foreach ($byDate[$date] ?? [] as $sms) {
+                $amt = $sms->analyzed_amount > 0
+                    ? (float)$sms->analyzed_amount
+                    : $this->extractAmount(base64_decode($sms->sms_body));
+                $dir = strtolower($sms->cl_direction ?? '');
+                if ($dir === 'incoming') $dayReceiving += $amt;
+                elseif ($dir === 'outgoing') $daySpending += $amt;
             }
 
             $spending[]  = $daySpending;
             $receiving[] = $dayReceiving;
         }
 
-        // If the 30-day window is completely empty, try to find oldest/newest dates from SMS
+        // If the 30-day window is completely empty, try to get all data
         $allEmpty = (array_sum($spending) + array_sum($receiving)) === 0;
         if ($allEmpty) {
-            // Rebuild using all SMS data regardless of date
             $labels   = [];
             $spending = $receiving = [];
-            
-            $allBuilder = $this->db->table('tbl_Sms')
-                ->select('sms_time, sms_body')
-                ->orderBy('sms_time', 'ASC');
-                
-            if ($deviceToken) $allBuilder->where('sms_owner', $deviceToken);
+
+            $allBuilder = $this->db->table('tbl_Sms s')
+                ->select('s.*, sc.direction as cl_direction, sc.category as cl_cat, a.amount as analyzed_amount')
+                ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
+                ->join('tbl_Analyzed_Transactions a', 'a.orig_sms_id = s.sms__id', 'left')
+                ->orderBy('s.sms_time', 'ASC');
+
+            if ($deviceToken) $allBuilder->where('s.sms_owner', $deviceToken);
             $allSms = $allBuilder->get()->getResult();
 
-            // Group by date
             $byDate = [];
             foreach ($allSms as $sms) {
-                $d = $this->normalizeDate($sms->sms_time);
-                $dateKey = substr($d, 0, 10);
+                $ts = is_numeric($sms->sms_time) && $sms->sms_time > 1000000000000
+                    ? (int)($sms->sms_time / 1000)
+                    : (is_numeric($sms->sms_time) ? (int)$sms->sms_time : strtotime($sms->sms_time));
+                $dateKey = date('Y-m-d', $ts);
                 $byDate[$dateKey][] = $sms;
             }
 
-            // Take last 30 date keys
             $dateKeys = array_keys($byDate);
             $slice = array_slice($dateKeys, -30);
 
@@ -688,76 +745,34 @@ class ModUploads extends Model
                 $labels[] = date('d M', strtotime($dateKey));
                 $daySpending = 0; $dayReceiving = 0;
                 foreach ($byDate[$dateKey] as $sms) {
-                    $amount = $this->extractAmount(base64_decode($sms->sms_body));
-                    $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
-                    if ($cat === 'received') $dayReceiving += $amount;
-                    elseif (in_array($cat, ['sent', 'sent to lnm'])) $daySpending += $amount;
+                    $amt = $sms->analyzed_amount > 0
+                        ? (float)$sms->analyzed_amount
+                        : $this->extractAmount(base64_decode($sms->sms_body));
+                    $dir = strtolower($sms->cl_direction ?? '');
+                    if ($dir === 'incoming') $dayReceiving += $amt;
+                    elseif ($dir === 'outgoing') $daySpending += $amt;
                 }
                 $spending[]  = $daySpending;
                 $receiving[] = $dayReceiving;
             }
         }
 
-        $categories = ['Paybill' => 0, 'Till' => 0, 'Sent to Mobile' => 0, 'Withdrawal' => 0];
-
-        if ($hasAnalyzed) {
-            $catBuilder = $this->db->table('tbl_Analyzed_Transactions a')
-                ->select('a.amount, a.description, s.sms_body')
-                ->join('tbl_Sms s', 's.sms__id = a.orig_sms_id', 'left');
-                
-            if ($deviceToken) $catBuilder->where('s.sms_owner', $deviceToken);
-            $catData = $catBuilder->get()->getResult();
-
-            foreach ($catData as $row) {
-                $body = strtolower(base64_decode($row->sms_body ?? ''));
-                $amt  = (float)$row->amount;
-                $desc = strtolower($row->description);
-                if ($desc === 'sent to lnm') {
-                    if (strpos($body, 'paybill') !== false) $categories['Paybill'] += $amt;
-                    else $categories['Till'] += $amt;
-                } elseif ($desc === 'sent') {
-                    $categories['Sent to Mobile'] += $amt;
-                } elseif ($desc === 'withdraw') {
-                    $categories['Withdrawal'] += $amt;
-                }
-            }
-        } else {
-            $smsListBuilder = $this->db->table('tbl_Sms');
-            if ($deviceToken) $smsListBuilder->where('sms_owner', $deviceToken);
-            $smsList = $smsListBuilder->get()->getResult();
-            foreach ($smsList as $sms) {
-                $body = strtolower(base64_decode($sms->sms_body));
-                $amt  = $this->extractAmount($body);
-                $cat  = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
-                if ($cat === 'sent to lnm') {
-                    if (strpos($body, 'paybill') !== false) $categories['Paybill'] += $amt;
-                    else $categories['Till'] += $amt;
-                } elseif ($cat === 'sent') {
-                    $categories['Sent to Mobile'] += $amt;
-                } elseif ($cat === 'withdraw') {
-                    $categories['Withdrawal'] += $amt;
-                }
-            }
+        // Category breakdown using cl_category from classification
+        $categories = [];
+        foreach ($windowSms ?: $allSms ?? [] as $sms) {
+            $amt = $sms->analyzed_amount > 0
+                ? (float)$sms->analyzed_amount
+                : $this->extractAmount(base64_decode($sms->sms_body));
+            $dir = strtolower($sms->cl_direction ?? '');
+            $cat = $sms->cl_cat ?? 'Unclassified';
+            $key = $dir === 'incoming' ? 'Inflow: ' . $cat : ($dir === 'outgoing' ? 'Outflow: ' . $cat : $cat);
+            if (!isset($categories[$key])) $categories[$key] = 0;
+            $categories[$key] += $amt;
         }
+        arsort($categories);
 
-        // Fuliza (from raw SMS, since it's a category not usually in analyzed)
         $fulizaTaken = array_fill(0, count($labels), 0);
         $fulizaPaid  = array_fill(0, count($labels), 0);
-        
-        $fulizaBuilder = $this->db->table('tbl_Sms');
-        if ($deviceToken) $fulizaBuilder->where('sms_owner', $deviceToken);
-        $allFulizaSms = $fulizaBuilder->get()->getResult();
-
-        foreach ($allFulizaSms as $sms) {
-            $d = substr($this->normalizeDate($sms->sms_time), 0, 10);
-            $idx = array_search(date('d M', strtotime($d)), $labels);
-            if ($idx !== false) {
-                $amount = $this->extractAmount(base64_decode($sms->sms_body));
-                $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
-                if ($cat === 'fuliza loan taken') $fulizaTaken[$idx] += $amount;
-                elseif ($cat === 'fuliza loan paid') $fulizaPaid[$idx] += $amount;
-            }
-        }
 
         return [
             'labels'       => $labels,
@@ -1030,7 +1045,10 @@ class ModUploads extends Model
         $outflow  = [];
 
         // Build daily data
-        $allSms = $this->db->table('tbl_Sms')->get()->getResult();
+        $allSms = $this->db->table('tbl_Sms s')
+            ->select('s.*, sc.direction as cl_direction')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
+            ->get()->getResult();
 
         // Index SMS by date
         $byDate = [];
@@ -1050,9 +1068,9 @@ class ModUploads extends Model
             foreach ($byDate[$dateKey] ?? [] as $sms) {
                 $body   = strtolower(base64_decode($sms->sms_body));
                 $amount = $this->extractAmount($body);
-                $cat    = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
-                if ($cat === 'received') $dayIn += $amount;
-                elseif (in_array($cat, ['sent', 'sent to lnm', 'withdraw'])) $dayOut += $amount;
+                $dir    = strtolower($sms->cl_direction ?? '');
+                if ($dir === 'incoming') $dayIn += $amount;
+                elseif ($dir === 'outgoing') $dayOut += $amount;
             }
 
             $inflow[]  = $dayIn;
@@ -1070,12 +1088,14 @@ class ModUploads extends Model
             foreach ($rows as $sms) {
                 $body   = strtolower(base64_decode($sms->sms_body));
                 $amount = $this->extractAmount($body);
-                $cat    = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
-                if ($cat === 'received') $categories['Received'] += $amount;
-                elseif (in_array($cat, ['sent', 'sent to lnm'])) $categories['Sent'] += $amount;
-                elseif ($cat === 'withdraw') $categories['Withdraw'] += $amount;
-                elseif (strpos($cat, 'fuliza') !== false) $categories['Fuliza'] += $amount;
+                $dir    = strtolower($sms->cl_direction ?? '');
+                if ($dir === 'incoming') $categories['Received'] += $amount;
+                elseif ($dir === 'outgoing') $categories['Sent'] += $amount;
                 else $categories['Other'] += $amount;
+
+                if (strpos($body, 'fuliza') !== false && strpos($body, 'taken') !== false) {
+                    $categories['Fuliza'] += $amount;
+                }
             }
         }
 

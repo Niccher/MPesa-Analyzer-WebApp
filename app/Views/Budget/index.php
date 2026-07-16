@@ -3,7 +3,7 @@
 
 <?= $this->section('styles') ?>
 <style>
-    .budget-card { border-radius: 20px; border: none; background: rgba(255,255,255,0.85); backdrop-filter: blur(10px); box-shadow: 0 6px 24px rgba(31,38,135,0.06); transition: transform .2s; padding: 24px; }
+    .budget-card { border-radius: 4px; border: none; background: rgba(255,255,255,0.85); backdrop-filter: blur(10px); box-shadow: 0 6px 24px rgba(31,38,135,0.06); transition: transform .2s; padding: 24px; }
     .budget-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(31,38,135,0.1); }
     .ring-wrap { position: relative; width: 110px; height: 110px; }
     .ring-wrap canvas { position: absolute; top: 0; left: 0; }
@@ -74,7 +74,7 @@
 
 <!-- Form Modal -->
 <div class="modal fade" id="budgetModal">
-    <div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0" style="border-radius:20px;">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0" style="border-radius:4px;">
         <form method="POST" action="<?= base_url('dashboard/budget/save') ?>">
             <div class="modal-header border-0 pb-0"><h5 class="fw-bold">New Budget</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body p-4">
@@ -82,7 +82,7 @@
                 <select name="category" class="form-select mb-3" required><?php foreach($categories as $c): ?><option value="<?= $c ?>"><?= $c ?></option><?php endforeach; ?></select>
                 
                 <label class="form-label small fw-bold text-uppercase text-secondary">Display Name</label>
-                <input type="text" name="label" class="form-control mb-3" placeholder="e.g. My Food Bound">
+                <input type="text" name="label" class="form-control mb-3" placeholder="e.g. Monthly Groceries">
                 
                 <label class="form-label small fw-bold text-uppercase text-secondary">Limit (Ksh)</label>
                 <input type="number" name="amount_limit" class="form-control mb-3" required>

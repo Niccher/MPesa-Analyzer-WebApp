@@ -10,11 +10,11 @@
         body { font-family: 'Outfit', sans-serif; background: #fff; color: #1a1a2e; padding: 40px; font-size: 14px; }
         .header { border-bottom: 3px solid #5D5FEF; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
         .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 30px; }
-        .card { border: 1px solid #eee; border-radius: 12px; padding: 18px; }
+        .card { border: 1px solid #e0e0e0; border-radius: 4px; padding: 18px; }
         .inflow { color: #2ED573; } .outflow { color: #FF4757; } .net { color: #5D5FEF; }
         .chart-wrap { height: 240px; margin-bottom: 30px; }
         .cat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f5f5f5; }
-        .print-btn { position: fixed; top: 20px; right: 20px; background: #5D5FEF; color: #fff; border: none; padding: 10px 24px; border-radius: 10px; cursor: pointer; font-weight: 600; }
+        .print-btn { position: fixed; top: 20px; right: 20px; background: #5D5FEF; color: #fff; border: none; padding: 10px 24px; border-radius: 4px; cursor: pointer; font-weight: 600; }
         @media print { .print-btn { display: none; } }
     </style>
 </head>

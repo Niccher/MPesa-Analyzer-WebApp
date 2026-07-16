@@ -50,7 +50,7 @@
             border-color: var(--primary);
             padding: 0.8rem 2rem;
             font-weight: 600;
-            border-radius: 12px;
+            border-radius: 4px;
             transition: all 0.3s;
         }
 
@@ -88,14 +88,14 @@
         .hero-img {
             max-width: 100%;
             height: auto;
-            border-radius: 20px;
+            border-radius: 4px;
             box-shadow: 0 20px 50px rgba(0,0,0,0.1);
         }
 
         .feature-card {
             background: #fff;
             padding: 2.5rem;
-            border-radius: 24px;
+            border-radius: 4px;
             border: none;
             box-shadow: 0 10px 30px rgba(0,0,0,0.03);
             transition: all 0.3s;
@@ -115,7 +115,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 16px;
+            border-radius: 4px;
             font-size: 1.5rem;
             margin-bottom: 1.5rem;
         }
@@ -135,6 +135,9 @@
         .app-badge:hover {
             transform: scale(1.05);
         }
+
+        .rounded-4 { border-radius: 4px !important; }
+        .rounded-3 { border-radius: 4px !important; }
     </style>
 </head>
 <body>

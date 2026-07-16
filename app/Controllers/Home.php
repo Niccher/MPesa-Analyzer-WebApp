@@ -46,6 +46,74 @@ class Home extends BaseController
         }
     }
 
+    public function progress()
+    {
+        $userId = auth()->user()->id;
+        $db = \Config\Database::connect();
+        $tokenType = \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN;
+
+        $rawTokens = [];
+        $tokenRows = $db->query("
+            SELECT DISTINCT s.sms_owner AS tk FROM tbl_Sms s
+            INNER JOIN auth_identities i ON i.secret = SHA2(s.sms_owner, 256)
+            WHERE i.user_id = ? AND i.type = ?
+            UNION
+            SELECT DISTINCT l.loot_Owner AS tk FROM tbl_Loot l
+            INNER JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256)
+            WHERE i.user_id = ? AND i.type = ?
+        ", [$userId, $tokenType, $userId, $tokenType])->getResult();
+
+        foreach ($tokenRows as $r) {
+            if (!empty($r->tk)) $rawTokens[] = $r->tk;
+        }
+
+        $total = 0;
+        $statuses = [];
+        $job = null;
+
+        if (!empty($rawTokens)) {
+            $total = $db->table('tbl_Sms')
+                ->whereIn('sms_owner', $rawTokens)
+                ->countAllResults();
+
+            if ($db->tableExists('tbl_Sms_Processing')) {
+                $statusRows = $db->table('tbl_Sms_Processing sp')
+                    ->select('sp.status, COUNT(*) as cnt')
+                    ->join('tbl_Sms s', 's.id = sp.sms_id')
+                    ->whereIn('s.sms_owner', $rawTokens)
+                    ->groupBy('sp.status')
+                    ->get()
+                    ->getResult();
+                foreach ($statusRows as $r) {
+                    $statuses[$r->status] = (int)$r->cnt;
+                }
+            }
+        }
+
+        if ($db->tableExists('tbl_Processing_Jobs')) {
+            $job = $db->table('tbl_Processing_Jobs')
+                ->where('user_id', (string)$userId)
+                ->orderBy('id', 'DESC')
+                ->limit(1)
+                ->get()
+                ->getRowArray();
+        }
+
+        $processed = ($statuses['completed'] ?? 0) + ($statuses['error'] ?? 0);
+        $running = ($statuses['processing'] ?? 0) > 0 || ($job && $job['status'] === 'processing' && $job['status'] !== 'completed' && $job['status'] !== 'failed');
+
+        return $this->response->setJSON([
+            'status'     => $job['status'] ?? 'idle',
+            'total'      => $total,
+            'processed'  => $processed,
+            'completed'  => (int)($statuses['completed'] ?? 0),
+            'errors'     => (int)($statuses['error'] ?? 0) + (int)($job['errors'] ?? 0),
+            'pending'    => (int)($statuses['pending'] ?? 0),
+            'running'    => $running,
+            'job'        => $job,
+        ]);
+    }
+
     /**
      * Full reprocess: resets all processing flags and re-triggers LLM.
      * This clears tbl_Sms_Processing, tbl_Analyzed_Transactions,

@@ -20,3 +20,34 @@ if (!function_exists('format_mpesa_date')) {
         return date('Y, F, l h:i A', $timestamp);
     }
 }
+
+if (!function_exists('time_elapsed_string')) {
+    function time_elapsed_string($datetime, $full = false): string {
+        if (empty($datetime)) return 'N/A';
+        $timestamp = is_numeric($datetime) ? (int)$datetime : strtotime($datetime);
+        if (!$timestamp) return 'N/A';
+
+        $now = time();
+        $diff = $now - $timestamp;
+
+        if ($diff < 60) return 'just now';
+
+        $units = [
+            31536000 => 'year',
+            2592000  => 'month',
+            604800   => 'week',
+            86400    => 'day',
+            3600     => 'hour',
+            60       => 'minute',
+        ];
+
+        foreach ($units as $secs => $unit) {
+            $count = floor($diff / $secs);
+            if ($count >= 1) {
+                $suffix = $count > 1 ? 's' : '';
+                return $full ? "$count $unit$suffix ago" : "$count $unit$suffix ago";
+            }
+        }
+        return 'just now';
+    }
+}

@@ -24,13 +24,13 @@
         <!-- Email -->
         <div class="form-group">
             <label for="floatingEmailInput" class="form-label">Email Address</label>
-            <input type="email" class="form-control" id="floatingEmailInput" name="email" inputmode="email" autocomplete="email" placeholder="email@example.com" value="<?= old('email') ?>" required>
+            <input type="email" class="form-control" id="floatingEmailInput" name="email" inputmode="email" autocomplete="email" placeholder="you@domain.com" value="<?= old('email') ?>" required>
         </div>
 
         <!-- Username -->
         <div class="form-group">
             <label for="floatingUsernameInput" class="form-label">Username</label>
-            <input type="text" class="form-control" id="floatingUsernameInput" name="username" inputmode="text" autocomplete="username" placeholder="johndoe" value="<?= old('username') ?>" required>
+            <input type="text" class="form-control" id="floatingUsernameInput" name="username" inputmode="text" autocomplete="username" placeholder="your_username" value="<?= old('username') ?>" required>
         </div>
 
         <!-- Password -->

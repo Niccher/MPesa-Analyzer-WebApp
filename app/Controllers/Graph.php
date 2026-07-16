@@ -17,9 +17,21 @@ class Graph extends BaseController
         $analytics     = $mod_uploads->getAnalyticsData30Days($lastDate);
         $ai_observations = $mod_insights->getAIObservations();
 
+        // Fetch latest 20 transactions for the table below the graph
+        $recent = $mod_uploads->getFilteredTransactions([], 20, 0);
+
+        // Dashboard metrics
+        $metrics = $mod_uploads->getDashboardMetrics30Days($lastDate);
+        $sent    = $mod_uploads->getSentSummary30Days($lastDate);
+        $received = $mod_uploads->getReceivedSummary30Days($lastDate);
+
         $data = [
             'analytics'        => $analytics,
             'ai_observations'  => $ai_observations,
+            'recent'           => $recent,
+            'metrics'          => $metrics,
+            'sent'             => $sent,
+            'received'         => $received,
             'bg_color'         => '#B1B8ED',
         ];
 

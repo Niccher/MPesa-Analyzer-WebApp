@@ -6,7 +6,7 @@
 <style>
     .summary-card {
         border: none;
-        border-radius: 16px;
+        border-radius: 4px;
         color: white;
         transition: transform 0.3s ease;
         overflow: hidden;
@@ -21,12 +21,12 @@
     .metric-box {
         background: rgba(255, 255, 255, 0.15);
         backdrop-filter: blur(5px);
-        border-radius: 12px;
+        border-radius: 4px;
         padding: 1rem 0.5rem;
     }
     
     .metric-icon { font-size: 2rem; }
-    .recent-activity-badge { background: rgba(0,0,0,0.1); border-radius: 8px; }
+    .recent-activity-badge { background: rgba(0,0,0,0.1); border-radius: 4px; }
 </style>
 <?= $this->endSection() ?>
 
@@ -80,12 +80,12 @@
                     
                     <div class="mb-3">
                         <label class="text-secondary small fw-bold text-uppercase">Device Token / SMS Owner</label>
-                        <input type="text" class="form-control form-control-lg border-0 font-monospace" style="background: var(--bg-color); color: var(--text-main);" name="device_token" placeholder="e.g. uuid-1234..." required>
+                        <input type="text" class="form-control form-control-lg border-0 font-monospace" style="background: var(--bg-color); color: var(--text-main);" name="device_token" placeholder="Paste device token here" required>
                     </div>
 
                     <div class="mb-2">
                         <label class="text-secondary small fw-bold text-uppercase">Device Name (Optional)</label>
-                        <input type="text" class="form-control border-0" style="background: var(--bg-color); color: var(--text-main);" name="device_name" placeholder="e.g. My Pixel 7">
+                        <input type="text" class="form-control border-0" style="background: var(--bg-color); color: var(--text-main);" name="device_name" placeholder="e.g. Galaxy S23">
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0 rounded-bottom-4" style="background: var(--card-bg);">

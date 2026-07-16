@@ -14,7 +14,7 @@
             --text-primary: #1A1A1A;
             --text-secondary: #666666;
             --input-bg: #F3F4F6;
-            --radius: 20px;
+            --radius: 4px;
         }
 
         * {
@@ -80,7 +80,7 @@
         .form-control {
             width: 100%;
             padding: 14px 18px;
-            border-radius: 12px;
+            border-radius: 4px;
             border: 2px solid transparent;
             background: var(--input-bg);
             font-size: 1rem;
@@ -97,7 +97,7 @@
         .btn-primary {
             width: 100%;
             padding: 14px;
-            border-radius: 12px;
+            border-radius: 4px;
             border: none;
             background: var(--primary);
             color: white;
@@ -136,7 +136,7 @@
 
         .alert {
             padding: 12px;
-            border-radius: 8px;
+            border-radius: 4px;
             margin-bottom: 20px;
             font-size: 0.9rem;
         }

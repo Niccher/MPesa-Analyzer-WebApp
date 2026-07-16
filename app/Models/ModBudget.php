@@ -58,7 +58,10 @@ class ModBudget extends Model
     {
         $results = [];
         $now     = time();
-        $allSms  = $this->db->table('tbl_Sms')->get()->getResult();
+        $allSms  = $this->db->table('tbl_Sms s')
+            ->select('s.*, sc.direction as cl_direction')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
+            ->get()->getResult();
 
         foreach ($budgets as $budget) {
             if ($budget['period'] === 'weekly') {
@@ -78,26 +81,26 @@ class ModBudget extends Model
 
                 if ($ts < $windowStart) continue;
 
-                $smsCat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
-                $body   = strtolower(base64_decode($sms->sms_body));
+                $dir  = strtolower($sms->cl_direction ?? '');
+                $body = strtolower(base64_decode($sms->sms_body));
 
                 $matches = false;
                 if ($catLower === 'total outflow') {
-                    $matches = in_array($smsCat, ['sent', 'sent to lnm', 'withdraw']);
+                    $matches = $dir === 'outgoing';
                 } elseif ($catLower === 'received') {
-                    $matches = $smsCat === 'received';
+                    $matches = $dir === 'incoming';
                 } elseif ($catLower === 'paybill') {
-                    $matches = $smsCat === 'sent to lnm' && strpos($body, 'paybill') !== false;
+                    $matches = $dir === 'outgoing' && strpos($body, 'paybill') !== false;
                 } elseif ($catLower === 'till') {
-                    $matches = $smsCat === 'sent to lnm' && strpos($body, 'paybill') === false;
+                    $matches = $dir === 'outgoing' && strpos($body, 'till') !== false;
                 } elseif ($catLower === 'sent to mobile') {
-                    $matches = $smsCat === 'sent';
+                    $matches = $dir === 'outgoing';
                 } elseif ($catLower === 'withdrawal') {
-                    $matches = $smsCat === 'withdraw';
+                    $matches = $dir === 'outgoing';
                 } elseif ($catLower === 'fuliza') {
-                    $matches = strpos($smsCat, 'fuliza') !== false;
+                    $matches = strpos($body, 'fuliza') !== false && strpos($body, 'taken') !== false;
                 } else {
-                    $matches = strpos($smsCat, $catLower) !== false;
+                    $matches = $dir === 'outgoing' || $dir === 'incoming';
                 }
 
                 if ($matches) {

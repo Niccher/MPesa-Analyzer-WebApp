@@ -6,7 +6,7 @@
 <style>
     .info-card {
         border: none;
-        border-radius: 16px;
+        border-radius: 4px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.03);
     }
     
@@ -21,7 +21,7 @@
     .token-box {
         background: var(--bg-color);
         border: 1px solid var(--card-border);
-        border-radius: 8px;
+        border-radius: 4px;
         padding: 15px;
         font-family: monospace;
         word-break: break-all;
@@ -85,14 +85,14 @@
                 <div class="setting-item d-flex justify-content-between align-items-center">
                     <div>
                         <div class="fw-bold text-dark">Username</div>
-                        <small class="text-muted"><?= auth()->user()->username ?? 'N/A' ?></small>
+                        <small class="text-muted"><?= auth()->user()->username ?? '—' ?></small>
                     </div>
                 </div>
                 
                 <div class="setting-item d-flex justify-content-between align-items-center">
                     <div>
                         <div class="fw-bold text-dark">Email Address</div>
-                        <small class="text-muted"><?= auth()->user()->email ?? 'N/A' ?></small>
+                        <small class="text-muted"><?= auth()->user()->email ?? '—' ?></small>
                     </div>
                 </div>
                 
