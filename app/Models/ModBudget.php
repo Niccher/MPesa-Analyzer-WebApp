@@ -78,7 +78,7 @@ class ModBudget extends Model
 
                 if ($ts < $windowStart) continue;
 
-                $smsCat = strtolower($sms->sms_category);
+                $smsCat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
                 $body   = strtolower(base64_decode($sms->sms_body));
 
                 $matches = false;

@@ -250,10 +250,7 @@
         <!-- Page Content -->
         <div id="page-content-wrapper">
             
-            <?php
-                $smsView = session()->get('sms_view') ?? 'mpesa';
-                $baseUrl = base_url();
-            ?>
+            <?php $baseUrl = base_url(); ?>
 
             <!-- Top Navigation -->
             <nav class="navbar navbar-expand-lg navbar-light py-3">
@@ -264,32 +261,17 @@
                     
                     <h5 class="mb-0 fw-bold text-dark d-none d-sm-block me-3">Dashboard</h5>
 
-                    <!-- View Toggle -->
-                    <div class="btn-group btn-group-sm me-2" role="group" id="viewToggle">
-                        <a href="#" data-view="mpesa"
-                           class="btn btn-sm px-3 fw-semibold d-flex align-items-center gap-1
-                                  <?= $smsView === 'mpesa' ? 'active' : 'btn-outline-secondary' ?>">
-                            <i class="fa-solid fa-phone"></i> All MPESA
-                        </a>
-                        <a href="#" data-view="finance"
-                           class="btn btn-sm px-3 fw-semibold d-flex align-items-center gap-1
-                                  <?= $smsView === 'finance' ? 'active' : 'btn-outline-secondary' ?>">
-                            <i class="fa-solid fa-building-columns"></i> All Transactions
-                        </a>
-                        <button class="btn btn-sm btn-outline-secondary border-start-0"
-                                type="button" data-bs-toggle="popover"
-                                data-bs-trigger="focus" data-bs-placement="bottom"
-                                title="Data Scope"
-                                data-bs-content="All MPESA: shows messages from MPESA number only. All Transactions: shows messages from ALL classified financial senders (banks, SACCOS, fintechs) once processed by the LLM analyzer.">
-                            <i class="fa-regular fa-circle-question"></i>
+                    <!-- Rescan Buttons -->
+                    <div class="btn-group btn-group-sm me-3" role="group">
+                        <button class="btn btn-outline-warning fw-semibold d-flex align-items-center gap-1"
+                                id="rescanBtn" title="Process only new/unprocessed SMS">
+                            <i class="fa-solid fa-arrows-rotate"></i> Rescan
+                        </button>
+                        <button class="btn btn-outline-danger fw-semibold d-flex align-items-center gap-1"
+                                id="rescanAllBtn" title="Reprocess ALL SMS from scratch (clears existing analysis)">
+                            <i class="fa-solid fa-rotate"></i> Full
                         </button>
                     </div>
-
-                    <!-- Rescan Button -->
-                    <button class="btn btn-sm btn-outline-warning fw-semibold d-flex align-items-center gap-1 me-3"
-                            id="rescanBtn" title="Re-analyze all uploaded SMS via LLM">
-                        <i class="fa-solid fa-arrows-rotate"></i> Rescan
-                    </button>
 
                     <div class="ms-auto d-flex align-items-center">
                         <div class="dropdown">
@@ -302,15 +284,6 @@
                             </a>
 
                             <script>
-                            document.getElementById('viewToggle')?.addEventListener('click', function(e) {
-                                const btn = e.target.closest('[data-view]');
-                                if (!btn) return;
-                                e.preventDefault();
-                                const view = btn.dataset.view;
-                                fetch('<?= $baseUrl ?>set-view/' + view, { method: 'POST' })
-                                    .then(() => location.reload());
-                            });
-
                             document.getElementById('rescanBtn')?.addEventListener('click', function(e) {
                                 e.preventDefault();
                                 if (!confirm('This will re-analyze all unprocessed SMS using the LLM. It may take several minutes depending on the volume. Continue?')) return;
@@ -330,6 +303,24 @@
                                     .finally(() => {
                                         btn.disabled = false;
                                         btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Rescan';
+                                    });
+                            });
+
+                            document.getElementById('rescanAllBtn')?.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                if (!confirm('WARNING: This will DELETE all existing LLM analysis and re-process every single SMS from scratch. This may take many minutes. Continue?')) return;
+                                const btn = this;
+                                btn.disabled = true;
+                                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Resetting...';
+                                fetch('<?= $baseUrl ?>dashboard/rescan/all', { method: 'POST' })
+                                    .then(r => r.json())
+                                    .then(data => {
+                                        showAlert(data.status === 'started' ? 'Reprocess Started' : 'Notice', data.message || 'Processing triggered.', data.status === 'started' ? 'info' : 'warning');
+                                    })
+                                    .catch(err => showAlert('Error', 'Failed: ' + err.message, 'danger'))
+                                    .finally(() => {
+                                        btn.disabled = false;
+                                        btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Full';
                                     });
                             });
                             </script>

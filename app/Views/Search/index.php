@@ -92,18 +92,19 @@
                     <?php foreach ($transactions as $tx): ?>
                         <?php 
                             $bodyStr = base64_decode($tx->sms_body);
-                            $catLower = strtolower($tx->sms_category);
+                            $catLower = strtolower($tx->cl_category ?? '');
                             $badgeClass = 'bg-secondary';
                             if (strpos($catLower, 'received') !== false) $badgeClass = 'bg-success';
                             elseif (strpos($catLower, 'sent') !== false) $badgeClass = 'bg-primary';
                             elseif (strpos($catLower, 'error') !== false) $badgeClass = 'bg-danger';
                             elseif (strpos($catLower, 'withdraw') !== false) $badgeClass = 'bg-warning text-dark';
+                            elseif ($catLower === 'unclassified') $badgeClass = 'bg-light text-muted border';
                         ?>
                         <tr>
                             <td class="ps-4">
                                 <div class="fw-bold fs-7"><?= format_mpesa_date($tx->sms_time) ?></div>
                             </td>
-                            <td><span class="badge rounded-pill <?= $badgeClass ?>"><?= $tx->sms_category ?></span></td>
+                            <td><span class="badge rounded-pill <?= $badgeClass ?>"><?= $tx->cl_category ?? '' ?></span></td>
                             <td class="fw-semibold"><?= $tx->sms_number ?></td>
                             <td>
                                 <span class="d-inline-block text-truncate text-muted small" style="max-width: 300px;">

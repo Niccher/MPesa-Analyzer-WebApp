@@ -27,38 +27,7 @@ class ModUploads extends Model
         return date('Y-m-d H:i:s', $timestamp ?: time());
     }
 
-    // SMS pattern configuration with 'sms_' prefix
-    protected $smsPatterns = [
-        'sms_received' => "confirmed.you have received ksh",
-        'sms_from_mshwari_account' => "transferred from m-shwari account on",
-        'sms_from_ncba' => "from ncba bank on",
-        'sms_from_kcb' => "from kcb",
-        'sms_from_im_bank' => "from im bank limited- app on",
-        'sms_balance_mpesa' => "confirmed. your account balance was",
-        'sms_balance_kcb' => "confirmed. your kcb m-pesa",
-        'sms_balance_mshwari' => "confirmed . your m-shwari deposit account",
-        'sms_reversal' => "confirmed. reversal of transaction",
-        'sms_loan_limit' => "confirmed. your loan limit is",
-        'sms_sent' => "sent to",
-        'sms_sent_to_lnm' => "paid to",
-        'sms_sent_mini' => "confirmed. you have transfered ksh",
-        'sms_sent_to_mshwari' => "transferred to m-shwari account on",
-        'sms_sent_cancel' => "you have cancelled the transaction",
-        'sms_error_failed' => "failed.",
-        'sms_error_pin' => "you have entered the wrong pin",
-        'sms_error_insufficient' => "insufficient funds in your",
-        'sms_error_receiver' => "the number you are trying to pay has not joined the service",
-        'sms_error_receiver_org' => "transaction failed, m-pesa cannot complete payment of",
-        'sms_withdraw' => "confirmed.on",
-        'sms_fuliza_opt_out' => "you have successfully opted out of fuliza m-pesa service.",
-        'sms_fuliza_opt_in' => "you have successfully opted into fuliza m-pesa.",
-        'sms_fuliza_limit' => "your fuliza m-pesa limit is ksh",
-        'sms_fuliza_loan_paid' => "from your m-pesa has been used to partially pay your outstanding fuliza m-pesa",
-        'sms_fuliza_mini_statement' => "your fuliza m-pesa mini statement is as follows",
-        'sms_fuliza_loan_taken' => "confirmed. fuliza m-pesa amount is",
-        'sms_similar_transaction' => "m-pesa is unable to process your request because a similar transaction is currently underway",
-        'sms_unknown' => "" // Default catch-all
-    ];
+    // (No more MPESA-specific pattern categories — all SMS processed equally)
 
     // ============ PUBLIC METHODS ============ //
 
@@ -380,7 +349,7 @@ class ModUploads extends Model
         foreach ($smsList as $sms) {
             $body = strtolower(base64_decode($sms->sms_body));
             $amount = $this->extractAmount($body);
-            $cat = strtolower($sms->sms_category);
+            $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
             
             if ($cat === 'received') {
                 $stats['total_received_30'] += $amount;
@@ -465,12 +434,13 @@ class ModUploads extends Model
             $body = strtolower(base64_decode($sms->sms_body));
             $amount = $this->extractAmount($body);
             
-            if ($sms->sms_category === 'Sent To Lnm') {
+            $catCategory = $sms->sms_category ?? $sms->cl_category ?? '';
+            if ($catCategory === 'Sent To Lnm') {
                 if (strpos($body, 'paybill') !== false) $data['paybill'] += $amount;
                 else $data['till'] += $amount;
-            } elseif ($sms->sms_category === 'Sent') {
+            } elseif ($catCategory === 'Sent') {
                 $data['sent_mobile'] += $amount;
-            } elseif ($sms->sms_category === 'Fuliza Loan Paid') {
+            } elseif ($catCategory === 'Fuliza Loan Paid') {
                 $data['fuliza_deductions'] += $amount;
             }
         }
@@ -531,10 +501,11 @@ class ModUploads extends Model
             $body = strtolower(base64_decode($sms->sms_body));
             $amount = $this->extractAmount($body);
             
-            if ($sms->sms_category === 'Received') {
+            $catCategory = $sms->sms_category ?? $sms->cl_category ?? '';
+            if ($catCategory === 'Received') {
                 $data['total'] += $amount;
                 if (strpos($body, 'bank') !== false) $data['banks'] += $amount;
-            } elseif (in_array($sms->sms_category, ['From Mshwari Account', 'From Kcb'])) {
+            } elseif (in_array($catCategory, ['From Mshwari Account', 'From Kcb'])) {
                 $data['mshwari_kcb'] += $amount;
                 $data['total'] += $amount;
             }
@@ -564,12 +535,13 @@ class ModUploads extends Model
      */
     public function getFilteredTransactions(array $f, int $limit = 500, int $offset = 0): array {
         $builder = $this->db->table('tbl_Sms s')
-            ->select('s.*, a.trans_id as analyzed_id, a.counterparty as analyzed_counterparty, a.amount as analyzed_amount')
-            ->join('tbl_Analyzed_Transactions a', 'a.orig_sms_id = s.sms__id', 'left');
+            ->select('s.*, a.trans_id as analyzed_id, a.counterparty as analyzed_counterparty, a.amount as analyzed_amount, sc.category as cl_category, sc.direction as cl_direction')
+            ->join('tbl_Analyzed_Transactions a', 'a.orig_sms_id = s.sms__id', 'left')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left');
 
-        // Category filter — safe SQL filter
+        // Category filter — uses tbl_Sms_Classification
         if (!empty($f['category'])) {
-            $builder->where('s.sms_category', $f['category']);
+            $builder->where('sc.category', $f['category']);
         }
 
         // Keyword search in number or analyzed fields (body search done in PHP below)
@@ -676,7 +648,7 @@ class ModUploads extends Model
 
                 foreach ($smsList as $sms) {
                     $amount = $this->extractAmount(base64_decode($sms->sms_body));
-                    $cat = strtolower($sms->sms_category);
+                    $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
                     if ($cat === 'received') $dayReceiving += $amount;
                     elseif (in_array($cat, ['sent', 'sent to lnm'])) $daySpending += $amount;
                 }
@@ -694,7 +666,7 @@ class ModUploads extends Model
             $spending = $receiving = [];
             
             $allBuilder = $this->db->table('tbl_Sms')
-                ->select('sms_time, sms_category, sms_body')
+                ->select('sms_time, sms_body')
                 ->orderBy('sms_time', 'ASC');
                 
             if ($deviceToken) $allBuilder->where('sms_owner', $deviceToken);
@@ -717,7 +689,7 @@ class ModUploads extends Model
                 $daySpending = 0; $dayReceiving = 0;
                 foreach ($byDate[$dateKey] as $sms) {
                     $amount = $this->extractAmount(base64_decode($sms->sms_body));
-                    $cat = strtolower($sms->sms_category);
+                    $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
                     if ($cat === 'received') $dayReceiving += $amount;
                     elseif (in_array($cat, ['sent', 'sent to lnm'])) $daySpending += $amount;
                 }
@@ -756,7 +728,7 @@ class ModUploads extends Model
             foreach ($smsList as $sms) {
                 $body = strtolower(base64_decode($sms->sms_body));
                 $amt  = $this->extractAmount($body);
-                $cat  = strtolower($sms->sms_category);
+                $cat  = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
                 if ($cat === 'sent to lnm') {
                     if (strpos($body, 'paybill') !== false) $categories['Paybill'] += $amt;
                     else $categories['Till'] += $amt;
@@ -772,8 +744,7 @@ class ModUploads extends Model
         $fulizaTaken = array_fill(0, count($labels), 0);
         $fulizaPaid  = array_fill(0, count($labels), 0);
         
-        $fulizaBuilder = $this->db->table('tbl_Sms')
-            ->whereIn('sms_category', ['Fuliza Loan Taken', 'Fuliza Loan Paid']);
+        $fulizaBuilder = $this->db->table('tbl_Sms');
         if ($deviceToken) $fulizaBuilder->where('sms_owner', $deviceToken);
         $allFulizaSms = $fulizaBuilder->get()->getResult();
 
@@ -782,7 +753,7 @@ class ModUploads extends Model
             $idx = array_search(date('d M', strtotime($d)), $labels);
             if ($idx !== false) {
                 $amount = $this->extractAmount(base64_decode($sms->sms_body));
-                $cat = strtolower($sms->sms_category);
+                $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
                 if ($cat === 'fuliza loan taken') $fulizaTaken[$idx] += $amount;
                 elseif ($cat === 'fuliza loan paid') $fulizaPaid[$idx] += $amount;
             }
@@ -821,62 +792,12 @@ class ModUploads extends Model
 
     // ============ PROTECTED METHODS ============ //
 
-    protected function clean_sms_by_trimming_messages(array $smsMessages): array {
-        $cleanedMessages = [];
-        $transactionTerm = "transaction cost";
-
-        foreach ($smsMessages as $sms) {
-            $number = isset($sms->Number) ? strtoupper(trim((string) $sms->Number)) : '';
-            if ($number !== 'MPESA' && !str_contains($number, 'MPESA')) {
-                continue;
-            }
-
-            $message = strtolower(base64_decode((string) ($sms->Body ?? '')));
-            $position = strpos($message, $transactionTerm);
-
-            $cleanedMessages[] = base64_encode(
-                $position !== false
-                    ? substr($message, 0, $position)
-                    : $message
-            );
-        }
-
-        return $cleanedMessages;
-    }
-
-    protected function clean_sms_by_categorizing(array $smsMessages): array {
-        $categories = [];
-        $counters = array_fill_keys(array_keys($this->smsPatterns), 0);
-
-        foreach ($smsMessages as $message) {
-            $decoded = base64_decode($message);
-            $category = 'sms_unknown';
-
-            foreach ($this->smsPatterns as $name => $pattern) {
-                if (!empty($pattern) && strpos($decoded, $pattern) !== false) {
-                    $category = $name;
-                    break;
-                }
-            }
-
-            $counters[$category]++;
-            $categories[] = ucwords(str_replace(['sms_', '_'], ['', ' '], $category));
-        }
-
-        return [
-            'categories' => $categories,
-            'counters' => $counters
-        ];
-    }
-
     protected function clean_sms_by_returning_column(array $smsMessages, string $columnName): array {
         $columnData = [];
         $property = $columnName === 'Thread Id' ? 'Thread Id' : $columnName;
 
         foreach ($smsMessages as $sms) {
-            if ($sms->Number === "MPESA") {
-                $columnData[] = $sms->$property;
-            }
+            $columnData[] = $sms->$property ?? '';
         }
 
         return $columnData;
@@ -971,66 +892,58 @@ class ModUploads extends Model
         string $owner,
         string $device
     ): array {
-        // Build MPESA-only list so body/category indexes stay aligned
-        $mpesaMessages = [];
-        foreach ($smsData as $sms) {
-            $number = isset($sms->Number) ? strtoupper(trim((string) $sms->Number)) : '';
-            if ($number === 'MPESA' || str_contains($number, 'MPESA')) {
-                $mpesaMessages[] = $sms;
-            }
-        }
-
-        $cleaned = $this->clean_sms_by_trimming_messages($mpesaMessages);
-        $categorized = $this->clean_sms_by_categorizing($cleaned);
-
-        $batch = [];
-        foreach ($mpesaMessages as $index => $sms) {
-            $batch[] = [
-                'sms_type' => $sms->Type ?? '',
-                'sms_number' => $sms->Number ?? 'MPESA',
-                'sms_thread_id' => $sms->{'Thread Id'} ?? '',
-                'sms_time' => $sms->Date ?? '',
-                'sms_category' => $categorized['categories'][$index] ?? 'Unknown',
-                'sms_seen' => $sms->Seen ?? '',
-                'sms__id' => $sms->ID ?? '',
-                'sms_body' => $cleaned[$index] ?? '',
-                'sms_loot_source' => $uuid,
-                'sms_owner' => $owner,
-                'sms_device' => $device
-            ];
-        }
-
+        // Process ALL SMS equally — no MPESA-specific filter or pattern matching
         $inserted = 0;
         $smsIds = [];
-        foreach (array_chunk($batch, 100) as $chunk) {
-            $this->db->table('tbl_Sms')->ignore(true)->insertBatch($chunk);
+        $total = count($smsData);
+
+        foreach (array_chunk($smsData, 100) as $chunk) {
+            $batch = [];
+            foreach ($chunk as $sms) {
+                $number = isset($sms->Number) ? strtoupper(trim((string) $sms->Number)) : '';
+                $smsBody = isset($sms->Body) ? trim((string) $sms->Body) : '';
+
+                $batch[] = [
+                    'sms_type' => $sms->Type ?? '',
+                    'sms_number' => $number,
+                    'sms_thread_id' => $sms->{'Thread Id'} ?? '',
+                    'sms_time' => $sms->Date ?? '',
+                    'sms_seen' => $sms->Seen ?? '',
+                    'sms__id' => $sms->ID ?? '',
+                    'sms_body' => $smsBody,
+                    'sms_loot_source' => $uuid,
+                    'sms_owner' => $owner,
+                    'sms_device' => $device
+                ];
+            }
+
+            $this->db->table('tbl_Sms')->ignore(true)->insertBatch($batch);
             $inserted += count($chunk);
-            // Collect IDs of inserted rows; lastInsertID gives the first ID of this chunk
+
             $firstId = $this->db->insertID();
             for ($i = 0; $i < count($chunk); $i++) {
                 $smsIds[] = $firstId + $i;
             }
         }
 
-        // Build classification rows aligned 1:1 with $mpesaMessages
-        // and the same ordering as the batch insert
+        // Write a default classification for each inserted SMS (pending LLM analysis)
         $classBatch = [];
-        $flatIndex = 0;
-        foreach ($mpesaMessages as $index => $sms) {
-            if ($flatIndex >= count($smsIds)) break;
-            $category = $categorized['categories'][$index] ?? 'Unknown';
-            $direction = $this->infer_direction($category);
+        $idx = 0;
+        foreach ($smsIds as $smsId) {
+            if ($idx >= count($smsData)) break;
+            $sms = $smsData[$idx];
+            $number = isset($sms->Number) ? strtoupper(trim((string) $sms->Number)) : '';
             $classBatch[] = [
-                'sms_id'    => $smsIds[$flatIndex],
-                'sender'    => 'MPESA',
-                'category'  => $category,
-                'direction' => $direction,
-                'is_finance' => 1,
-                'method'    => 'pattern',
-                'confidence' => 1.0000,
+                'sms_id'     => $smsId,
+                'sender'     => $number,
+                'category'   => 'Unclassified',
+                'direction'  => 'none',
+                'is_finance' => 0,
+                'method'     => 'upload',
+                'confidence' => 0.5000,
                 'created_at' => date('Y-m-d H:i:s'),
             ];
-            $flatIndex++;
+            $idx++;
         }
 
         if (!empty($classBatch)) {
@@ -1041,7 +954,7 @@ class ModUploads extends Model
 
         return [
             'inserted_count' => $inserted,
-            'counters' => $categorized['counters']
+            'counters' => ['info_All' => $total],
         ];
     }
 
@@ -1064,61 +977,14 @@ class ModUploads extends Model
     }
 
     /**
-     * Map pattern keys from $smsPatterns → DB summary columns.
-     * Keys must match $this->smsPatterns exactly.
+     * Save upload summary — total SMS count only (no MPESA-specific breakdown).
      */
     protected function save_summary_data(array $counters, string $uuid, int|string $date): bool {
-        $mapping = [
-            'sms_received'              => 'info_Get_from_MPESA',
-            'sms_from_mshwari_account'  => 'info_Get_from_Mshwari',
-            'sms_from_ncba'             => 'info_Get_from_NCBA',
-            'sms_from_kcb'              => 'info_Get_from_KCB',
-            'sms_from_im_bank'          => 'info_Get_from_IM',
-            'sms_reversal'              => 'info_Get_from_Reversal',
-            'sms_balance_mpesa'         => 'info_Get_Bal_MPESA',
-            'sms_balance_kcb'           => 'info_Get_Bal_KCB',
-            'sms_balance_mshwari'       => 'info_Get_Bal_Mshwari',
-            'sms_loan_limit'            => 'info_Loan_Limit',
-            'sms_sent'                  => 'info_Sent_to_MPESA',
-            'sms_sent_to_lnm'           => 'info_Sent_to_LNM',
-            'sms_sent_mini'             => 'info_Sent_Mini',
-            'sms_sent_to_mshwari'       => 'info_Sent_to_Mshwari',
-            'sms_sent_cancel'           => 'info_Sent_Cancel',
-            'sms_error_failed'          => 'info_Error_Failed',
-            'sms_error_pin'             => 'info_Error_Pin',
-            'sms_error_insufficient'    => 'info_Error_Less',
-            'sms_error_receiver'        => 'info_Error_Receiver',
-            'sms_error_receiver_org'    => 'info_Error_Receiver_Org',
-            'sms_withdraw'              => 'info_Withdraw',
-            'sms_fuliza_opt_out'        => 'info_Fuliza_Opt_Out',
-            'sms_fuliza_opt_in'         => 'info_Fuliza_Opt_In',
-            'sms_fuliza_limit'          => 'info_Fuliza_Limit',
-            'sms_fuliza_loan_paid'      => 'info_Fuliza_Loan_Paid',
-            'sms_fuliza_mini_statement' => 'info_Fuliza_Mini_Statement',
-            'sms_fuliza_loan_taken'     => 'info_Fuliza_Loan_Taken',
-            'sms_similar_transaction'   => 'info_Similar_Transaction',
-            'sms_unknown'               => 'info_Unknown',
+        $summary = [
+            'info_All'  => (int) ($counters['info_All'] ?? 0),
+            'loot_Uuid' => $uuid,
+            'loot_Created' => is_numeric($date) ? date('Y-m-d H:i:s', (int)$date) : $date,
         ];
-
-        $summary = [];
-        $total = 0;
-        foreach ($mapping as $patternKey => $summaryField) {
-            $count = (int) ($counters[$patternKey] ?? 0);
-            $summary[$summaryField] = $count;
-            $total += $count;
-        }
-
-        $summary['info_All'] = $total;
-        $summary['loot_Uuid'] = $uuid;
-        
-        // Convert Unix timestamp to formatted date string for DATETIME column
-        $summary['loot_Created'] = is_numeric($date) ? date('Y-m-d H:i:s', (int)$date) : $date;
-
-        // Also write legacy column if it still exists
-        $fields = $this->db->getFieldNames('tbl_Loot_Summary');
-        if (in_array('info_Get_Received', $fields, true)) {
-            $summary['info_Get_Received'] = $summary['info_Get_from_MPESA'] ?? 0;
-        }
 
         $ok = $this->db->table('tbl_Loot_Summary')->insert($summary);
         if (!$ok) {
@@ -1184,7 +1050,7 @@ class ModUploads extends Model
             foreach ($byDate[$dateKey] ?? [] as $sms) {
                 $body   = strtolower(base64_decode($sms->sms_body));
                 $amount = $this->extractAmount($body);
-                $cat    = strtolower($sms->sms_category);
+                $cat    = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
                 if ($cat === 'received') $dayIn += $amount;
                 elseif (in_array($cat, ['sent', 'sent to lnm', 'withdraw'])) $dayOut += $amount;
             }
@@ -1204,7 +1070,7 @@ class ModUploads extends Model
             foreach ($rows as $sms) {
                 $body   = strtolower(base64_decode($sms->sms_body));
                 $amount = $this->extractAmount($body);
-                $cat    = strtolower($sms->sms_category);
+                $cat    = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
                 if ($cat === 'received') $categories['Received'] += $amount;
                 elseif (in_array($cat, ['sent', 'sent to lnm'])) $categories['Sent'] += $amount;
                 elseif ($cat === 'withdraw') $categories['Withdraw'] += $amount;

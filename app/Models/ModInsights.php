@@ -44,7 +44,7 @@ class ModInsights extends Model
         $allSms = $builder->get()->getResult();
         
         foreach ($allSms as $sms) {
-            $cat = strtolower($sms->sms_category);
+            $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
             if (!in_array($cat, ['sent', 'sent to lnm', 'withdraw'])) continue;
             
             $ts = $this->normalizeTimestamp($sms->sms_time);
@@ -149,7 +149,7 @@ class ModInsights extends Model
             $ts = $this->normalizeTimestamp($sms->sms_time);
             if ($ts < $sixtyDaysAgo) continue;
             
-            $cat = strtolower($sms->sms_category);
+            $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
             $amount = $this->extractAmount(strtolower(base64_decode($sms->sms_body)));
             
             if (in_array($cat, ['sent', 'sent to lnm', 'withdraw'])) {
@@ -223,7 +223,7 @@ class ModInsights extends Model
         foreach ($allSms as $sms) {
             $ts = $this->normalizeTimestamp($sms->sms_time);
             if ($ts < $sixtyDaysAgo) continue;
-            $cat = strtolower($sms->sms_category);
+            $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
             if (!in_array($cat, ['sent', 'sent to lnm', 'withdraw'])) continue;
             $amount = $this->extractAmount(strtolower(base64_decode($sms->sms_body)));
             $dow = (int) date('w', $ts); // 0 = Sunday
@@ -282,7 +282,7 @@ class ModInsights extends Model
         foreach ($allSms as $sms) {
             $ts = $this->normalizeTimestamp($sms->sms_time);
             if ($ts < $sixtyDaysAgo) continue;
-            $cat    = strtolower($sms->sms_category);
+            $cat    = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
             $amount = $this->extractAmount(strtolower(base64_decode($sms->sms_body)));
             if (in_array($cat, ['sent', 'sent to lnm', 'withdraw'])) $totalOutflow += $amount;
             if ($cat === 'fuliza loan taken') $fulizaTaken += $amount;
@@ -334,7 +334,7 @@ class ModInsights extends Model
             $ts = $this->normalizeTimestamp($sms->sms_time);
             if ($ts < $sixtyDaysAgo) continue;
 
-            $cat = strtolower($sms->sms_category);
+            $cat = strtolower($sms->sms_category ?? $sms->cl_category ?? '');
             $amount = $this->extractAmount(strtolower(base64_decode($sms->sms_body)));
 
             if (in_array($cat, ['sent', 'withdraw', 'paybill', 'till', 'sent to lnm', 'sent to mobile'])) {

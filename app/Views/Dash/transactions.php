@@ -66,7 +66,7 @@
                     <?php if (!empty($transactions)): ?>
                         <?php foreach ($transactions as $tx): ?>
                             <?php
-                                $catLower = strtolower($tx->cl_category ?? $tx->sms_category);
+                                $catLower = strtolower($tx->cl_category ?? '');
                                 $badgeClass = 'bg-secondary';
                                 if (strpos($catLower, 'received') !== false) $badgeClass = 'bg-success';
                                 elseif (strpos($catLower, 'sent') !== false) $badgeClass = 'bg-primary';
@@ -75,8 +75,9 @@
                                 elseif (strpos($catLower, 'fuliza') !== false) $badgeClass = 'bg-danger';
                                 elseif (strpos($catLower, 'error') !== false) $badgeClass = 'bg-danger';
                                 elseif (strpos($catLower, 'balance') !== false) $badgeClass = 'bg-info text-dark';
+                                elseif ($catLower === 'unclassified') $badgeClass = 'bg-light text-muted border';
 
-                                $displayCategory = $tx->cl_category ?? $tx->sms_category;
+                                $displayCategory = $tx->cl_category ?? '';
                                 $body = base64_decode($tx->sms_body);
                                 $bodyStr = mb_check_encoding($body, 'UTF-8') ? $body : "Unable to decode";
                             ?>

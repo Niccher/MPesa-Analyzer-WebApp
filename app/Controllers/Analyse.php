@@ -43,7 +43,7 @@ class Analyse extends BaseController
                 $body = base64_decode($sms->sms_body);
                 if ($body === false) continue;
 
-                $parsed = $this->deepParse($body, $sms->sms_category, $categoryRules);
+                $parsed = $this->deepParse($body, $sms->sms_category ?? $sms->cl_category ?? '', $categoryRules);
                 
                 // Normalize the date: handle numeric timestamps
                 $transDate = $this->normalizeDate($sms->sms_time);

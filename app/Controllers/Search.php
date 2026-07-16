@@ -22,16 +22,11 @@ class Search extends BaseController
 
         // Fetch categories for the filter dropdown
         $db = \Config\Database::connect();
-        $view = $this->getSmsView();
-        $catBuilder = $db->table('tbl_Sms s')
-            ->select('sc.category')
-            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'inner');
-        if ($view === 'mpesa') {
-            $catBuilder->where('s.sms_number', 'MPESA');
-        } else {
-            $catBuilder->where('sc.is_finance', 1);
-        }
-        $categories = $catBuilder->distinct()->get()->getResultArray();
+        $categories = $db->table('tbl_Sms_Classification')
+            ->select('category')
+            ->distinct()
+            ->get()
+            ->getResultArray();
         $categories = array_unique(array_column($categories, 'category'));
 
         $transactions = $mod_uploads->getFilteredTransactions($filters, 500);

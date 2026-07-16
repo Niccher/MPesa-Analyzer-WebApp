@@ -144,9 +144,45 @@ class UserAuth extends BaseController{
                 return redirect()->to('login');
             }
             $user_id = auth()->id();
+
+            // Find all raw tokens belonging to this user by matching SHA-256(sms_owner)
+            // against the stored hashed tokens in auth_identities
+            if ($db->tableExists('tbl_Sms') && $db->tableExists('auth_identities')) {
+                $ownerRows = $db->query("
+                    SELECT DISTINCT s.sms_owner
+                    FROM tbl_Sms s
+                    WHERE SHA2(s.sms_owner, 256) IN (
+                        SELECT secret FROM auth_identities
+                        WHERE user_id = ? AND type = ?
+                    )
+                ", [$user_id, \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN])->getResult();
+                foreach ($ownerRows as $row) {
+                    if (!empty($row->sms_owner)) {
+                        $rawTokens[] = $row->sms_owner;
+                    }
+                }
+            }
+
+            // Also read from tbl_Loot as a fallback
+            if ($db->tableExists('tbl_Loot') && $db->tableExists('auth_identities')) {
+                $lootOwnerRows = $db->query("
+                    SELECT DISTINCT l.loot_Owner
+                    FROM tbl_Loot l
+                    WHERE SHA2(l.loot_Owner, 256) IN (
+                        SELECT secret FROM auth_identities
+                        WHERE user_id = ? AND type = ?
+                    )
+                ", [$user_id, \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN])->getResult();
+                foreach ($lootOwnerRows as $row) {
+                    if (!empty($row->loot_Owner)) {
+                        $rawTokens[] = $row->loot_Owner;
+                    }
+                }
+            }
         }
 
-        if ($db->tableExists('tbl_User_Devices')) {
+        // Also pick up any manually-linked device tokens from tbl_User_Devices
+        if ($db->tableExists('tbl_User_Devices') && $user_id) {
             $userDevices = $db->table('tbl_User_Devices')->where('user_id', $user_id)->get()->getResult();
             $dbTokens = array_column($userDevices, 'device_token');
             if (!empty($dbTokens)) {
@@ -154,9 +190,35 @@ class UserAuth extends BaseController{
             }
         }
 
+        $rawTokens = array_unique(array_filter($rawTokens));
+
         $db->transStart();
 
         if (!empty($rawTokens)) {
+            // Also delete classifications, processing, and jobs tables
+            if ($db->tableExists('tbl_Sms_Classification') && $db->tableExists('tbl_Sms')) {
+                $db->table('tbl_Sms_Classification')
+                   ->whereIn('sms_id', function(\CodeIgniter\Database\BaseBuilder $builder) use ($rawTokens) {
+                       return $builder->select('id')->from('tbl_Sms')->whereIn('sms_owner', $rawTokens);
+                   })->delete();
+            }
+            if ($db->tableExists('tbl_Sms_Processing') && $db->tableExists('tbl_Sms')) {
+                $db->table('tbl_Sms_Processing')
+                   ->whereIn('sms_id', function(\CodeIgniter\Database\BaseBuilder $builder) use ($rawTokens) {
+                       return $builder->select('id')->from('tbl_Sms')->whereIn('sms_owner', $rawTokens);
+                   })->delete();
+            }
+            if ($db->tableExists('tbl_Processing_Jobs')) {
+                $db->table('tbl_Processing_Jobs')
+                   ->where('user_id', $user_id)
+                   ->delete();
+            }
+            if ($db->tableExists('tbl_Sender_Profiles') && $db->tableExists('tbl_Sms')) {
+                $db->table('tbl_Sender_Profiles')
+                   ->whereIn('sp_owner', $rawTokens)
+                   ->delete();
+            }
+
             // Find all loot entries for these tokens to delete physical files
             if ($db->tableExists('tbl_Loot')) {
                 $loots = $db->table('tbl_Loot')->whereIn('loot_Owner', $rawTokens)->get()->getResult();
@@ -168,12 +230,15 @@ class UserAuth extends BaseController{
                 }
             }
 
-            // Delete analyzed transactions
-            if ($db->tableExists('tbl_Analyzed_Transactions') && $db->tableExists('tbl_Sms')) {
-                $db->table('tbl_Analyzed_Transactions')
-                   ->whereIn('orig_sms_id', function(\CodeIgniter\Database\BaseBuilder $builder) use ($rawTokens) {
-                       return $builder->select('sms__id')->from('tbl_Sms')->whereIn('sms_owner', $rawTokens);
-                   })->delete();
+            // Delete analyzed transactions — JOIN through tbl_Sms → auth_identities
+            if ($db->tableExists('tbl_Analyzed_Transactions') && $db->tableExists('tbl_Sms') && $db->tableExists('auth_identities')) {
+                $tokenType = \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN;
+                $db->query("
+                    DELETE a FROM tbl_Analyzed_Transactions a
+                    INNER JOIN tbl_Sms s ON s.id = a.orig_sms_int_id OR s.sms__id = a.orig_sms_id
+                    INNER JOIN auth_identities i ON i.secret = SHA2(s.sms_owner, 256)
+                    WHERE i.user_id = ? AND i.type = ?
+                ", [$user_id, $tokenType]);
             }
 
             // Delete raw SMS
