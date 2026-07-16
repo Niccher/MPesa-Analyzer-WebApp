@@ -70,12 +70,26 @@ class Home extends BaseController
         $total = 0;
         $statuses = [];
         $job = null;
+        $llmClassified = 0;
 
         if (!empty($rawTokens)) {
             $total = $db->table('tbl_Sms')
                 ->whereIn('sms_owner', $rawTokens)
                 ->countAllResults();
 
+            // Count SMS classified by the LLM (method = 'llm')
+            if ($db->tableExists('tbl_Sms_Classification')) {
+                $llmRow = $db->table('tbl_Sms_Classification sc')
+                    ->select('COUNT(*) as cnt')
+                    ->join('tbl_Sms s', 's.id = sc.sms_id')
+                    ->whereIn('s.sms_owner', $rawTokens)
+                    ->where('sc.method', 'llm')
+                    ->get()
+                    ->getRow();
+                $llmClassified = (int)($llmRow->cnt ?? 0);
+            }
+
+            // Count per-SMS processing status (populated by FastAPI on some setups)
             if ($db->tableExists('tbl_Sms_Processing')) {
                 $statusRows = $db->table('tbl_Sms_Processing sp')
                     ->select('sp.status, COUNT(*) as cnt')
@@ -99,18 +113,28 @@ class Home extends BaseController
                 ->getRowArray();
         }
 
-        $processed = ($statuses['completed'] ?? 0) + ($statuses['error'] ?? 0);
-        $running = ($statuses['processing'] ?? 0) > 0 || ($job && $job['status'] === 'processing' && $job['status'] !== 'completed' && $job['status'] !== 'failed');
+        // Use the better of the two progress signals
+        $processingDone = ($statuses['completed'] ?? 0) + ($statuses['error'] ?? 0);
+        $processed = max($processingDone, $llmClassified);
+
+        // Determine if a scan is actively running
+        $hasProcessingRows = ($statuses['processing'] ?? 0) > 0;
+        $jobActive = $job && in_array($job['status'], ['queued', 'processing'], true);
+        $jobJustCompleted = $job && in_array($job['status'], ['completed', 'failed'], true);
+        $hasPendingWork = $processed > 0 && $processed < $total && $total > 0;
+
+        $running = $hasProcessingRows || $jobActive || ($hasPendingWork && !$jobJustCompleted);
 
         return $this->response->setJSON([
-            'status'     => $job['status'] ?? 'idle',
-            'total'      => $total,
-            'processed'  => $processed,
-            'completed'  => (int)($statuses['completed'] ?? 0),
-            'errors'     => (int)($statuses['error'] ?? 0) + (int)($job['errors'] ?? 0),
-            'pending'    => (int)($statuses['pending'] ?? 0),
-            'running'    => $running,
-            'job'        => $job,
+            'status'          => $job['status'] ?? 'idle',
+            'total'           => $total,
+            'processed'       => $processed,
+            'llm_classified'  => $llmClassified,
+            'completed'       => (int)($statuses['completed'] ?? 0),
+            'errors'          => (int)($statuses['error'] ?? 0) + (int)($job['errors'] ?? 0),
+            'pending'         => (int)($statuses['pending'] ?? 0),
+            'running'         => $running,
+            'job'             => $job,
         ]);
     }
 

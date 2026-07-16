@@ -1,128 +1,58 @@
 <?= $this->extend('Layouts/admin') ?>
 
-<?= $this->section('title') ?> Sync Activity - Mpesa Analyzer <?= $this->endSection() ?>
+<?= $this->section('title') ?> Upload History - Mpesa Analyzer <?= $this->endSection() ?>
 
 <?= $this->section('styles') ?>
 <style>
-    .activity-feed {
-        position: relative;
-        padding: 1rem 0;
-    }
-
-    .activity-item {
-        position: relative;
-        padding-left: 100px;
-        margin-bottom: 2.5rem;
-    }
-
-    .activity-date {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 80px;
-        text-align: right;
-    }
-
-    .activity-date .day {
-        font-size: 1.5rem;
-        font-weight: 700;
-        line-height: 1;
-        color: var(--primary);
-    }
-
-    .activity-date .month {
-        font-size: 0.75rem;
-        text-transform: uppercase;
+    .cat-badge {
+        font-size: 0.65rem;
         font-weight: 600;
-        letter-spacing: 1px;
-        color: var(--text-muted);
-    }
-
-    .activity-line {
-        position: absolute;
-        left: 88px;
-        top: 0;
-        bottom: -2.5rem;
-        width: 2px;
-        background: var(--card-border);
-    }
-
-    .activity-item:last-child .activity-line {
-        display: none;
-    }
-
-    .activity-marker {
-        position: absolute;
-        left: 82px;
-        top: 8px;
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        background: var(--primary);
-        border: 3px solid var(--bg-color);
-        box-shadow: 0 0 0 4px rgba(93, 95, 239, 0.15);
-        z-index: 2;
-    }
-
-    .sync-card {
-        background: var(--card-bg);
-        border: 1px solid var(--card-border);
-        border-radius: 4px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.02);
-    }
-
-    .sync-card:hover {
-        transform: translateX(8px);
-        box-shadow: 0 10px 30px rgba(93, 95, 239, 0.08);
-        border-color: var(--primary);
-    }
-
-    .stat-pill {
-        padding: 8px 16px;
-        border-radius: 4px;
-        background: var(--bg-color);
-        border: 1px solid var(--card-border);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        transition: all 0.2s;
-    }
-
-    .sync-card:hover .stat-pill {
-        border-color: var(--primary-subtle);
-    }
-
-    .stat-pill-lg {
-        padding: 16px 24px;
-        border: 2px solid var(--primary);
-        background: rgba(93, 95, 239, 0.04);
-    }
-
-    .icon-box {
-        width: 32px;
-        height: 32px;
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.9rem;
-        flex-shrink: 0;
-    }
-
-    .icon-box-lg {
-        width: 48px;
-        height: 48px;
-        font-size: 1.4rem;
-    }
-
-    .uuid-tag {
-        font-family: 'JetBrains Mono', 'Courier New', monospace;
-        font-size: 0.7rem;
-        background: rgba(93, 95, 239, 0.05);
-        color: var(--primary);
         padding: 2px 8px;
         border-radius: 4px;
+        white-space: nowrap;
+        display: inline-block;
+    }
+    .classify-bar {
+        height: 6px;
+        border-radius: 3px;
+        background: #e9ecef;
+        overflow: hidden;
+        min-width: 80px;
+    }
+    .classify-bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.5s ease;
+    }
+    .summary-stat {
+        padding: 16px 20px;
+        border-radius: 4px;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+    }
+    .history-table th {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        font-weight: 600;
+        border-bottom: 2px solid var(--card-border);
+        padding: 12px 8px;
+        white-space: nowrap;
+    }
+    .history-table td {
+        padding: 14px 8px;
+        vertical-align: middle;
+        border-bottom: 1px solid var(--card-border);
+        font-size: 0.9rem;
+    }
+    .history-table tr:hover td {
+        background: rgba(93, 95, 239, 0.02);
+    }
+    .batch-uuid {
+        font-family: 'JetBrains Mono', 'Courier New', monospace;
+        font-size: 0.65rem;
+        color: var(--text-muted);
     }
 </style>
 <?= $this->endSection() ?>
@@ -130,13 +60,13 @@
 <?= $this->section('page_header') ?>
 <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4">
     <div>
-        <h2 class="fw-bold mb-1" style="color: var(--primary);">Sync Activity</h2>
-        <p class="text-secondary mb-0">Detailed log of data imports from linked devices.</p>
+        <h2 class="fw-bold mb-1" style="color: var(--primary);">Upload History</h2>
+        <p class="text-secondary mb-0">All data imports from your linked devices, with LLM classification status.</p>
     </div>
     <div>
         <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">
-            <i class="fa-solid fa-clock-rotate-left me-1"></i>
-            <?= count($history) ?> Sync Events
+            <i class="fa-solid fa-layer-group me-1"></i>
+            <?= count($batches) ?> Batches
         </span>
     </div>
 </div>
@@ -144,178 +74,162 @@
 
 <?= $this->section('content') ?>
 
-<?php if (!empty($history)) : ?>
-    <div class="activity-feed">
-        <?php foreach ($history as $log) :
-            $timestamp = strtotime($log->loot_Created);
-            $day = date('d', $timestamp);
-            $month = date('M', $timestamp);
-            $time = date('h:i A', $timestamp);
+<?php if (!empty($batches)) : ?>
 
-            $catColors = [
-                'Unclassified'    => ['bg' => 'bg-secondary-subtle', 'text' => 'text-secondary', 'icon' => 'fa-circle-question'],
-                'Mobile Money'    => ['bg' => 'bg-success-subtle', 'text' => 'text-success', 'icon' => 'fa-mobile-screen'],
-                'Payments/Govt'   => ['bg' => 'bg-primary-subtle', 'text' => 'text-primary', 'icon' => 'fa-building-columns'],
-                'Bank Transfer'   => ['bg' => 'bg-info-subtle', 'text' => 'text-info', 'icon' => 'fa-university'],
-                'Fintech'         => ['bg' => 'bg-warning-subtle', 'text' => 'text-warning', 'icon' => 'fa-bolt'],
-                'Airtime'         => ['bg' => 'bg-danger-subtle', 'text' => 'text-danger', 'icon' => 'fa-phone'],
-                'Notification'    => ['bg' => 'bg-dark-subtle', 'text' => 'text-dark', 'icon' => 'fa-bell'],
-            ];
-        ?>
-            <div class="activity-item">
-                <div class="activity-date">
-                    <div class="day"><?= $day ?></div>
-                    <div class="month"><?= $month ?></div>
-                    <div class="small text-muted mt-1"><?= $time ?></div>
-                </div>
-
-                <div class="activity-line"></div>
-                <div class="activity-marker"></div>
-
-                <div class="card sync-card">
-                    <div class="card-body p-4">
-                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-                            <div class="d-flex align-items-center gap-3">
-                                <div class="icon-box bg-primary-subtle text-primary">
-                                    <i class="fa-solid fa-cloud-arrow-up"></i>
-                                </div>
-                                <div>
-                                    <h6 class="fw-bold mb-0 text-dark">Data Import Completed</h6>
-                                    <span class="uuid-tag">UUID: <?= htmlspecialchars($log->loot_Uuid) ?></span>
-                                </div>
-                            </div>
-                            <div class="text-end d-none d-md-block">
-                                <span class="small text-muted me-2"><i class="fa-regular fa-clock me-1"></i><?= time_elapsed_string($log->loot_Created) ?></span>
-                                <span class="badge bg-success-subtle text-success rounded-pill px-3">
-                                    <i class="fa-solid fa-check-circle me-1"></i> Success
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Summary Stats -->
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-4">
-                                <div class="stat-pill">
-                                    <div class="icon-box icon-box-lg bg-dark text-white">
-                                        <i class="fa-solid fa-message"></i>
-                                    </div>
-                                    <div>
-                                        <div class="fw-bold" style="font-size: 1.4rem;"><?= number_format($log->total) ?></div>
-                                        <div class="text-muted" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase;">Total SMS</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="stat-pill">
-                                    <div class="icon-box icon-box-lg bg-success-subtle text-success">
-                                        <i class="fa-solid fa-coins"></i>
-                                    </div>
-                                    <div>
-                                        <div class="fw-bold" style="font-size: 1.4rem;">Ksh <?= number_format($log->total_amount, 2) ?></div>
-                                        <div class="text-muted" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase;">Total Amount</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="stat-pill">
-                                    <div class="icon-box icon-box-lg bg-info-subtle text-info">
-                                        <i class="fa-solid fa-users"></i>
-                                    </div>
-                                    <div>
-                                        <div class="fw-bold" style="font-size: 1.4rem;"><?= number_format($log->counterparties) ?></div>
-                                        <div class="text-muted" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase;">Counterparties</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">
-                                <div class="d-flex align-items-center gap-2 text-muted small">
-                                    <i class="fa-solid fa-microchip"></i>
-                                    <span>LLM Classification: <strong><?= $log->classified ?>/<?= $log->total ?></strong> classified</span>
-                                    <span class="badge bg-<?= $log->classified === $log->total ? 'success' : ($log->classified > 0 ? 'warning' : 'secondary') ?>-subtle text-<?= $log->classified === $log->total ? 'success' : ($log->classified > 0 ? 'warning' : 'secondary') ?> rounded-pill">
-                                        <?= $log->classified === $log->total ? 'Complete' : ($log->classified > 0 ? 'Partial' : 'Pending') ?>
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="d-flex align-items-center gap-2 text-muted small">
-                                    <i class="fa-solid fa-chart-simple"></i>
-                                    <span>Transactions Analyzed: <strong><?= $log->analyzed_count ?></strong></span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- LLM Category Breakdown -->
-                        <?php $catList = $log->categories; ?>
-                        <?php if (!empty($catList)) : ?>
-                        <div class="row g-3">
-                            <?php 
-                            $sorted = $catList;
-                            arsort($sorted);
-                            // Show Unclassified last
-                            $unclassifiedCount = 0;
-                            if (isset($sorted['Unclassified'])) {
-                                $unclassifiedCount = $sorted['Unclassified'];
-                                unset($sorted['Unclassified']);
-                            }
-                            ?>
-                            <?php foreach ($sorted as $catName => $catCount): 
-                                $palette = $catColors[$catName] ?? ['bg' => 'bg-light', 'text' => 'text-dark', 'icon' => 'fa-tag'];
-                            ?>
-                            <div class="col-sm-6 col-md-4 col-lg-3">
-                                <div class="stat-pill">
-                                    <div class="icon-box <?= $palette['bg'] ?> <?= $palette['text'] ?>">
-                                        <i class="fa-solid <?= $palette['icon'] ?>"></i>
-                                    </div>
-                                    <div>
-                                        <div class="fw-bold mb-0" style="font-size: 1.1rem;"><?= number_format($catCount) ?></div>
-                                        <div class="text-muted" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase;"><?= htmlspecialchars($catName) ?></div>
-                                    </div>
-                                </div>
-                            </div>
-                            <?php endforeach; ?>
-
-                            <?php if ($unclassifiedCount > 0): 
-                                $palette = $catColors['Unclassified'];
-                            ?>
-                            <div class="col-sm-6 col-md-4 col-lg-3">
-                                <div class="stat-pill">
-                                    <div class="icon-box <?= $palette['bg'] ?> <?= $palette['text'] ?>">
-                                        <i class="fa-solid <?= $palette['icon'] ?>"></i>
-                                    </div>
-                                    <div>
-                                        <div class="fw-bold mb-0" style="font-size: 1.1rem;"><?= number_format($unclassifiedCount) ?></div>
-                                        <div class="text-muted" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase;">Unclassified</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <?php endif; ?>
-                        </div>
-                        <?php else: ?>
-                        <div class="text-center text-muted small py-3">
-                            <i class="fa-solid fa-microchip me-1"></i> Pending LLM classification...
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    </div>
-<?php else : ?>
-    <div class="card sync-card text-center p-5 border-0 shadow-sm">
-        <div class="card-body">
-            <div class="icon-box bg-light text-muted mx-auto mb-4" style="width: 80px; height: 80px; font-size: 2.5rem;">
-                <i class="fa-solid fa-timeline"></i>
-            </div>
-            <h5 class="fw-bold">No sync history found</h5>
-            <p class="text-secondary">Your device hasn't uploaded any data yet. Make sure your Android app is configured correctly.</p>
-            <a href="<?= url_to('Info::index') ?>" class="btn btn-primary rounded-pill px-4 mt-2">
-                <i class="fa-solid fa-gear me-2"></i> Configure App
-            </a>
+<!-- Summary Row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3 col-6">
+        <div class="summary-stat text-center">
+            <div class="fw-bold fs-4"><?= number_format($total_sms_all) ?></div>
+            <div class="text-muted small text-uppercase" style="font-weight: 600; letter-spacing: 0.5px;">Total SMS</div>
         </div>
     </div>
+    <div class="col-md-3 col-6">
+        <div class="summary-stat text-center">
+            <div class="fw-bold fs-4 text-success"><?= number_format($total_classified_all) ?></div>
+            <div class="text-muted small text-uppercase" style="font-weight: 600; letter-spacing: 0.5px;">Classified</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="summary-stat text-center">
+            <div class="fw-bold fs-4 text-primary">Ksh <?= number_format($total_amount_all, 0) ?></div>
+            <div class="text-muted small text-uppercase" style="font-weight: 600; letter-spacing: 0.5px;">Total Value</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="summary-stat text-center">
+            <div class="fw-bold fs-4"><?= $total_sms_all > 0 ? round(($total_classified_all / $total_sms_all) * 100) : 0 ?>%</div>
+            <div class="text-muted small text-uppercase" style="font-weight: 600; letter-spacing: 0.5px;">LLM Coverage</div>
+        </div>
+    </div>
+</div>
+
+<!-- Batches Table -->
+<div class="card glass-card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table history-table mb-0">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th style="min-width: 100px;">SMS</th>
+                        <th style="min-width: 120px;">Classification</th>
+                        <th>Categories</th>
+                        <th>Amount</th>
+                        <th>Parties</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $catPalette = [
+                        'Unclassified'    => ['bg' => '#e9ecef', 'text' => '#6c757d'],
+                        'Mobile Money'    => ['bg' => '#d1e7dd', 'text' => '#0f5132'],
+                        'Payments/Govt'   => ['bg' => '#cfe2ff', 'text' => '#084298'],
+                        'Bank Transfer'   => ['bg' => '#cff4fc', 'text' => '#055160'],
+                        'Fintech'         => ['bg' => '#fff3cd', 'text' => '#664d03'],
+                        'Airtime'         => ['bg' => '#f8d7da', 'text' => '#842029'],
+                        'Notification'    => ['bg' => '#e2e3e5', 'text' => '#41464b'],
+                        'Salary'          => ['bg' => '#d1e7dd', 'text' => '#0f5132'],
+                        'Shopping'        => ['bg' => '#f8d7da', 'text' => '#842029'],
+                        'Food & Drink'    => ['bg' => '#fff3cd', 'text' => '#664d03'],
+                        'Transport'         => ['bg' => '#cff4fc', 'text' => '#055160'],
+                        'Utilities'       => ['bg' => '#e2e3e5', 'text' => '#41464b'],
+                        'Entertainment'   => ['bg' => '#f0d6ff', 'text' => '#5a189a'],
+                    ];
+                    ?>
+                    <?php foreach ($batches as $b) : 
+                        $ts = strtotime($b->created_at);
+                        $dateStr = $ts ? date('M j, Y', $ts) : 'N/A';
+                        $timeStr = $ts ? date('h:i A', $ts) : '';
+                        $classifyPct = $b->total > 0 ? round(($b->classified / $b->total) * 100) : 0;
+                        $barColor = $classifyPct >= 100 ? '#198754' : ($classifyPct > 0 ? '#ffc107' : '#e9ecef');
+                    ?>
+                    <tr>
+                        <td class="text-nowrap">
+                            <div class="fw-semibold"><?= $dateStr ?></div>
+                            <div class="text-muted small"><?= $timeStr ?></div>
+                        </td>
+                        <td>
+                            <div class="fw-semibold"><?= number_format($b->total) ?></div>
+                            <div class="batch-uuid"><?= htmlspecialchars(substr($b->uuid, 0, 12)) ?>…</div>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="classify-bar flex-grow-1">
+                                    <div class="classify-bar-fill" style="width: <?= $classifyPct ?>%; background: <?= $barColor ?>;"></div>
+                                </div>
+                                <span class="small fw-semibold text-nowrap" style="font-size: 0.75rem;">
+                                    <?= $b->classified ?>/<?= $b->total ?>
+                                </span>
+                            </div>
+                            <?php if ($classifyPct > 0 && $classifyPct < 100) : ?>
+                                <div class="small text-warning mt-1" style="font-size: 0.65rem;">
+                                    <i class="fa-solid fa-microchip me-1"></i>LLM running…
+                                </div>
+                            <?php elseif ($classifyPct >= 100) : ?>
+                                <div class="small text-success mt-1" style="font-size: 0.65rem;">
+                                    <i class="fa-solid fa-check-circle me-1"></i>Complete
+                                </div>
+                            <?php else : ?>
+                                <div class="small text-muted mt-1" style="font-size: 0.65rem;">
+                                    <i class="fa-solid fa-clock me-1"></i>Pending
+                                </div>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php 
+                            $cats = $b->categories;
+                            arsort($cats);
+                            $shown = 0;
+                            foreach ($cats as $name => $count) : 
+                                if ($shown >= 3) break;
+                                $pal = $catPalette[$name] ?? ['bg' => '#f8f9fa', 'text' => '#212529'];
+                                $shown++;
+                            ?>
+                                <span class="cat-badge me-1 mb-1" style="background: <?= $pal['bg'] ?>; color: <?= $pal['text'] ?>;">
+                                    <?= $name ?> <?= $count ?>
+                                </span>
+                            <?php endforeach; ?>
+                            <?php if (count($cats) > 3) : ?>
+                                <span class="cat-badge" style="background: #e9ecef; color: #6c757d;">+<?= count($cats) - 3 ?> more</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="fw-semibold text-nowrap">
+                            Ksh <?= number_format($b->total_amount, 2) ?>
+                        </td>
+                        <td class="text-nowrap">
+                            <?= number_format($b->counterparties) ?>
+                        </td>
+                        <td>
+                            <a href="<?= base_url('dashboard/transactions') ?>"
+                               class="btn btn-sm btn-outline-primary rounded-pill px-3"
+                               title="View all transactions">
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<?php else : ?>
+<div class="card glass-card text-center p-5 border-0 shadow-sm">
+    <div class="card-body">
+        <div class="d-flex align-items-center justify-content-center mx-auto mb-4"
+             style="width: 80px; height: 80px; border-radius: 4px; background: var(--bg-color);">
+            <i class="fa-solid fa-timeline fs-1 text-muted"></i>
+        </div>
+        <h5 class="fw-bold">No upload history yet</h5>
+        <p class="text-secondary">Your device hasn't uploaded any data. Make sure your Android app is configured and linked.</p>
+        <a href="<?= url_to('Info::index') ?>" class="btn btn-primary rounded-pill px-4 mt-2">
+            <i class="fa-solid fa-gear me-2"></i> Configure App
+        </a>
+    </div>
+</div>
 <?php endif; ?>
 
 <?= $this->endSection() ?>
