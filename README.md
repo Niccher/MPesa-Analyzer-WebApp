@@ -1,178 +1,306 @@
-# 🚀 M-Pesa Analyzer
+# M-Pesa Analyzer WebApp
 
-> A professional, highly-scalable CodeIgniter 4 web application built for modern workflows.
+**Cloud backend and analytics dashboard for the M-Pesa Analyzer ecosystem.** Receives encrypted transaction data from the Android app, stores it in MySQL, triggers LLM-powered classification, and serves a rich web dashboard for visualising spending, setting budgets, generating reports, and managing accounts.
 
-A cloud backend and analytics dashboard that receives transaction data synced from the Android app, providing a full-featured dashboard to visualize spending habits, search history, set budgets, and generate reports.
-
-[![PHP](https://img.shields.io/badge/PHP-8.3-777BB4?style=for-the-badge&logo=php&logoColor=white)](#)
-[![CodeIgniter 4](https://img.shields.io/badge/CodeIgniter-4.x-EF4223?style=for-the-badge&logo=codeigniter&logoColor=white)](#)
-[![MySQL](https://img.shields.io/badge/MySQL-8.4-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](#)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](#)
+[![PHP](https://img.shields.io/badge/PHP-8.3-777BB4?style=for-the-badge&logo=php&logoColor=white)]()
+[![CodeIgniter 4](https://img.shields.io/badge/CodeIgniter-4.x-EF4223?style=for-the-badge&logo=codeigniter&logoColor=white)]()
+[![MySQL 8.4](https://img.shields.io/badge/MySQL-8.4-4479A1?style=for-the-badge&logo=mysql&logoColor=white)]()
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 ---
 
-## 📖 1. About the Project
+## The Three-Repos Ecosystem
 
-**M-Pesa Analyzer** is a robust and flexible web application designed to solve complex developer workflows with ease. Built on the lightning-fast CodeIgniter 4 framework, this project acts as a complete, out-of-the-box solution for extracting financial insights and visualizing mobile money transactions. 
+This web app is the **storage and presentation layer** of a three-part stack:
 
-Our target users are developers, power users, and teams looking for an open-source solution that emphasizes performance, security, and developer experience (DX). 
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    M-Pesa Analyzer Ecosystem                         │
+│                                                                      │
+│  ┌──────────────────────┐                                            │
+│  │  Android App          │                                            │
+│  │  (Mpesa_Analyzer_App) │                                            │
+│  │                       │                                            │
+│  │  Reads MPESA SMS      │                                            │
+│  │  AES-128 encrypts     │                                            │
+│  │  Uploads to backend   │                                            │
+│  └──────────┬───────────┘                                            │
+│             │ POST /process/upload                                    │
+│             ▼                                                        │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │  ┌─────────────────────────────────────┐                      │   │
+│  │  │  CI4 Web Backend                    │                      │   │
+│  │  │  (This repo — YOU ARE HERE)         │                      │   │
+│  │  │                                     │                      │   │
+│  │  │  Decrypts AES payload               │     ┌──────────────────┐│
+│  │  │  Inserts SMS into tbl_Sms           │     │  Docker LLM      ││
+│  │  │  Creates processing job             │────▶│  Service         ││
+│  │  │  Serves web dashboard              │     │                  ││
+│  │  │  Manages budgets, reports, users   │     │  Classifies      ││
+│  │  │  [PHP / CodeIgniter 4 / Shield]    │     │  Extracts        ││
+│  │  └──────────────┬──────────────────────┘     │  Writes to DB   ││
+│  │                 │                            │  [FastAPI /      ││
+│  │                 ▼                            │   llama.cpp /    ││
+│  │  ┌──────────────────────────────────────┐    │   Qwen2.5 1.5B]  ││
+│  │  │  Shared MySQL 8.4 Database           │    └──────────────────┘│
+│  │  │  db_mpesa_analyzer                   │          │             │
+│  │  │  tbl_Sms, tbl_Loot, tbl_Devices,    │◄─────────┘             │
+│  │  │  tbl_Analyzed_Transactions,          │                         │
+│  │  │  tbl_Sender_Profiles, ...           │                         │
+│  │  └──────────────────────────────────────┘                         │
+│  └───────────────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────────────────────┘
+```
 
-**What makes this project unique?**
-Every component of this application is fully containerized. From the zero-configuration automated database migrations on boot, to the host-mapped persistent storage volumes—this project guarantees a frictionless setup experience whether you are running it on a local machine or deploying it to a cloud server.
+### How they depend on each other
+
+| Step | Android App | This Web App | Docker LLM |
+|------|------------|-------------|------------|
+| **1. Capture** | Reads SMS, encrypts with AES-128-CBC | — | — |
+| **2. Upload** | Sends encrypted file via `POST /process/upload` | Decrypts payload, parses JSON, inserts SMS into `tbl_Sms`, updates `tbl_Loot_Summary` | — |
+| **3. Trigger** | — | Inserts job in `tbl_Processing_Jobs`, calls `POST /process/for-user/{id}` on LLM service | Polls `tbl_Sms` (background) or receives trigger from web app |
+| **4. Classify & Extract** | — | — | Classifies senders (known-dict or LLM), extracts amounts/counterparties/directions, writes to `tbl_Sms`, `tbl_Analyzed_Transactions`, `tbl_Sender_Profiles` |
+| **5. Visualise** | Fetches summaries via `get/my_uploads`, `get/my_summary_calculations` | Dashboard shows classified transactions, budgets, reports, analytics | — |
 
 ---
 
-## ✨ 2. Features
+## Hardcoded Regex vs Machine Learning: Why Both Matter
 
-- 🐳 **Instant Setup**: 100% Dockerized architecture. Go from zero to running in under 60 seconds.
-- 🔄 **Automated Migrations**: Database tables and schemas are built automatically when the container boots.
-- 💾 **Smart Persistence**: Database records and uploaded media safely persist on your local filesystem, completely isolated from container lifecycle events.
-- 🛡️ **Hardened Security**: Features built-in CSRF protection, strictly configured session handling, and environment-driven configurations.
-- 📊 **Integrated Database Management**: Comes bundled with a dedicated `phpMyAdmin` container for real-time database visualization.
+This ecosystem uses a **hybrid approach**:
+
+**On-device (Android app):** Fast, private regex scanning parses SMS at capture time. This gives instant feedback and works offline.
+
+**Server-side (Docker LLM):** A 1.5B-parameter LLM (Qwen2.5) reclassifies and enriches all SMS with contextual understanding that regex cannot achieve:
+
+| Capability | Regex Scanner | LLM (Qwen2.5 1.5B) |
+|------------|--------------|---------------------|
+| Speed | Instant, no network | ~1-3s per SMS batch |
+| Format changes | Breaks — requires app update | Adapts automatically |
+| Unknown senders | Cannot handle | Classifies by content alone |
+| Sender name resolution | Regex can't resolve "MPE802" | Identifies as "KCB MPESA" |
+| Contextual direction | "Sent" / "Received" keyword match | Understands "You have received KSH500 from" vs "500 bob withdrawn" |
+| Partial extraction | All-or-nothing | Returns what it can, nulls the rest |
+| Confidence scoring | No | 0.0–1.0 confidence per extraction |
+| Maintenance | Code change + app store deployment | No changes needed |
+| Cost | Free | ~2 GB RAM, CPU-only, zero API fees |
 
 ---
 
-## 🛠️ 3. Tech Stack
+## About the Project
+
+**M-Pesa Analyzer WebApp** is the server-side component of a full-stack financial tracking solution. Built on CodeIgniter 4, it provides:
+
+- A secure **REST API** for the Android app to upload encrypted SMS data
+- A full **web dashboard** with transaction search, analytics, budgets, and reports
+- **CodeIgniter Shield** authentication (session + access tokens) for both web and mobile
+- **Trigger mechanism** for the Docker LLM service to classify and enrich transactions
+- Fully **Dockerized** deployment with MySQL 8.4 and phpMyAdmin
+
+---
+
+## Features
+
+### Mobile Data Ingestion API
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/process/upload` | POST | Receive encrypted `.txt` loot file from Android, decrypt (AES-128-CBC), parse JSON, insert SMS + classifications |
+| `/process/device` | POST | Register or identify an Android device by 15-field hardware fingerprint |
+| `/process/get/my_uploads` | POST | List all upload batches for a user/device with per-batch counts and formatted dates |
+| `/process/get/my_summary_calculations` | POST | Detailed summary stats for a single upload UUID (sent/received/balance/fuliza/errors breakdown) |
+| `/process/get/my_uploads_count` | POST | Total upload count for a user/device |
+| `/process/get/my_uploads_category_count` | POST | Aggregated category counts across all uploads |
+| `/process/get/my_uploads_graph` | POST | Last 3 uploads' summary data for chart rendering |
+| `/process/get/user_info` | POST | User name and email by ID |
+| `/process/get/list_all_sms_in_category` | POST | All SMS messages matching a category filter |
+| `/process/set/delete_loot_by_uuid` | POST | Delete a specific upload UUID |
+| `/process/verify_token` | POST | Validate a raw access token (SHA-256 match) |
+| `/process/delete_data` | POST | Delete all user data but preserve the account |
+| `/process/delete_account` | POST | Delete account and all associated data |
+
+### Web Dashboard
+
+| Page | Features |
+|---|---|
+| **Dashboard** | Financial metrics, sent/received summaries, recent transactions, top counterparties, budget alerts, smart financial alerts, spending trends, financial health score |
+| **Analytics (Graph)** | 30-day chart data with toggleable views, AI-generated observations, recent transaction list |
+| **Transactions** | Paginated list with category filters (finances/money_in/money_out/notifications), CSV export |
+| **Search** | Full-text search with date range, category, sender, keyword, and amount range filters |
+| **History** | Per-batch upload history with totals, LLM-classified counts, category breakdowns |
+| **Reports** | Monthly reports with daily inflow/outflow, category breakdown, top counterparties, trends, recurring payments; print-friendly view |
+| **Budget** | Create/edit/delete budgets per category with spend-vs-limit progress tracking (monthly/weekly periods) |
+| **Analyse** | Regex-based SMS parsing interface, keyword-to-category rule management with retroactive application |
+| **Info** | Account details, active device tokens, generate/revoke access tokens |
+
+### LLM / AI Integration
+
+| Feature | Detail |
+|---|---|
+| **LLM microservice** | FastAPI container at `http://mpesa-analyser-docker:9050/process/for-user/{id}` |
+| **Rescan** | Triggers AI re-analysis of all transactions for a user (`/dashboard/rescan`) |
+| **Full rescan** | Clears all processing flags, classifications, transactions, and sender profiles then re-runs LLM (`/dashboard/rescan/all`) |
+| **Progress tracking** | Real-time job progress via `/dashboard/rescan/progress` (total/processed/classified counts) |
+| **Classification rules** | Custom keyword-to-category mappings via Analyse page; retroactively applied |
+
+### Authentication
+
+Two parallel auth systems:
+
+| System | Users | Auth Method |
+|---|---|---|
+| **CodeIgniter Shield** | Modern web + mobile API | Session (web), SHA-256 AccessTokens (API), Magic Link (passwordless email) |
+| **Legacy Auths** | Older mobile clients | `tbl_users` table with `password_hash()`, session-based |
+
+**RBAC Groups**: superadmin, admin, developer, user, beta (each with granular permissions)
+
+### Security
+
+| Feature | Detail |
+|---|---|
+| **AES-128-CBC decryption** | Hardcoded key/IV (matching Android) — `openssl_decrypt()` on received loot files |
+| **CSRF protection** | Enabled globally; token auto-refresh |
+| **Session driver** | File-based (writable/session/), 30-day cookie expiry |
+| **Password rules** | Min 8 chars, composition + dictionary checks |
+| **CSP headers** | Configured Content-Security-Policy |
+| **Honeypot** | Available but disabled |
+
+---
+
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| **Backend Framework** | [CodeIgniter 4](https://codeigniter.com/) |
+| **Framework** | CodeIgniter 4 |
 | **Language** | PHP 8.3 |
-| **Database** | MySQL 8.4 |
-| **Database Manager** | phpMyAdmin |
-| **Containerization** | Docker & Docker Compose |
+| **Database** | MySQL 8.4 (primary) / SQLite3 (testing) |
+| **Auth Library** | CodeIgniter Shield |
+| **DB Manager** | phpMyAdmin |
+| **Containerisation** | Docker & Docker Compose |
 | **Dependency Manager** | Composer |
+| **LLM Microservice** | Python FastAPI + llama.cpp + Qwen2.5 1.5B (external container) |
 
 ---
 
-## 📋 4. Prerequisites
+## Quick Start (Full Stack)
 
-Before you begin, ensure you have the following installed on your machine:
-- [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/install/)
-- [Git](https://git-scm.com/)
-
-*(If you choose to run without Docker, you will need PHP 8.3+, Composer, and a local MySQL server).*
-
----
-
-## 🚀 5. Installation & Setup (Detailed)
-
-### Option 1: Using Docker (Preferred & Easiest)
-
-This repository includes a pre-configured `docker-compose.yml` file. It completely eliminates the need to manually install PHP, web servers, or databases on your local machine.
-
-#### 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/mpesa-analyzer-webapp.git
+# 1. Clone all three repos
+git clone https://github.com/YourOrg/Mpesa_Analyzer_WebApp.git
+git clone https://github.com/YourOrg/Mpesa_Analyser_Docker.git
+git clone https://github.com/YourOrg/Mpesa_Analyzer_App.git
+
+# 2. Start Web + Database
 cd "Mpesa Analyzer WebApp"
-```
-
-#### 2. Configure Environment Variables
-Copy the provided environment template:
-```bash
 cp .env.example .env
-```
-*(Note: The defaults in `.env.example` are specifically pre-configured to work perfectly with the Docker environment out of the box).*
+docker compose up --build -d
 
-#### 3. Build and Run
-Spin up the application, MySQL database, and phpMyAdmin in detached mode:
-```bash
+# 3. Start LLM Service
+cd "Mpesa Analyser Docker"
+cp .env.example .env
+# Download the GGUF model
+wget -P models/ https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf
 docker compose up --build -d
 ```
 
-#### 4. Access the Application
-Once the containers finish booting, database migrations run automatically. You can access your services at:
-- **Application**: [http://localhost:9002](http://localhost:9002)
-- **phpMyAdmin**: [http://localhost:9000](http://localhost:9000)
+**Services:**
+| Service | URL |
+|---|---|
+| Web Application | `http://localhost:9002` |
+| phpMyAdmin | `http://localhost:9000` |
+| LLM Service Health | `http://localhost:9050/health` |
 
-**Useful Docker Commands:**
-- Stop the application: `docker compose down`
-- View live application logs: `docker compose logs -f mpesa-analyzer`
-- Restart the application: `docker compose restart mpesa-analyzer`
-
-### Option 2: Local Development (Without Docker)
-
-If you prefer a traditional local setup (e.g., XAMPP, Laragon, or Laravel Valet):
-
-1. **Clone the repo** and run `composer install` in the root directory.
-2. **Copy `.env.example`** to `.env`.
-3. **Configure the Database**: Update the `database.default.*` variables inside your `.env` to match your local MySQL credentials.
-4. **Run Migrations**: Build the necessary database tables by executing:
-   ```bash
-   php spark migrate --all
-   ```
-5. **Serve the Application**:
-   ```bash
-   php spark serve
-   ```
+**Default DB credentials:**
+- Host: `mysql`
+- Database: `db_mpesa_analyzer`
+- Username: `root`
+- Password: `root_password`
 
 ---
 
-## 🗄️ 6. Database Configuration
+## Local Development (without Docker)
 
-If you are using the Docker setup, the database configuration is completely automated.
-
-**Development Credentials:**
-- **Host:** `mysql`
-- **Database Name:** `db_mpesa_analyzer`
-- **Username:** `root`
-- **Password:** `root_password`
-
-You can visually manage this database by navigating to [http://localhost:9000](http://localhost:9000) and logging into phpMyAdmin with the credentials above.
-
----
-
-## 📖 7. Usage
-
-1. **Sign Up / Login**: Navigate to the homepage to create your first administrative account.
-2. **Dashboard**: Access the main dashboard to view analytics and metrics.
-3. **File Management**: Any artifacts or files you upload within the application will be securely persisted inside the `/writable/uploads` directory on your local machine.
-
----
-
-## 📁 8. Project Structure
-
-```text
-.
-├── app/            # Core application logic (Controllers, Models, Views)
-├── public/         # Document root (accessible to the web)
-├── writable/       # Cache, logs, sessions, and persisted uploads
-├── system/         # CodeIgniter 4 framework files
-├── docker-compose.yml # Standalone Docker orchestration
-├── entrypoint.sh   # Automated migration startup script
-└── Dockerfile      # PHP-Apache container build instructions
+```bash
+composer install
+cp .env.example .env
+# Configure database.* in .env
+php spark migrate --all
+php spark serve
 ```
 
 ---
 
-## 🤝 9. Contributing
+## Project Structure
 
-We welcome contributions from the community! To contribute:
-
-1. **Fork** the repository.
-2. **Create a new branch**: `git checkout -b feature/your-feature-name`
-3. **Commit your changes**: `git commit -m 'Add some feature'`
-4. **Push to the branch**: `git push origin feature/your-feature-name`
-5. **Open a Pull Request**.
-
-Please ensure you run tests and verify your changes inside the Docker environment before submitting.
-
----
-
-## 📄 10. License
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
----
-
-## 📸 11. Screenshots & Demo
-
-*(Screenshots coming soon)*
+```
+.
+├── app/
+│   ├── Config/          # Routes, Database, Auth, Filters, Logger, Encryption, etc.
+│   ├── Controllers/     # Home, Dash, Graph, Search, Transactions, History, Info,
+│   │                    # Reports, Budget, Analyse, Upload, UserAuth, Auths, Testar, Debug
+│   ├── Database/        # Migrations (created by php spark migrate)
+│   ├── Helpers/         # Custom helpers (mpesa_date_helper)
+│   ├── Models/          # ModUploads, ModUser, ModBudget, ModCryption, ModInsights
+│   └── Views/           # landing, Dash/*, Search/*, Reports/*, Budget/*, Layouts/*
+├── public/              # Document root (index.php, assets)
+├── writable/            # Cache, logs, sessions, uploads
+├── docker-compose.yml   # 3-service orchestration (web + mysql + phpmyadmin)
+├── Dockerfile           # php:8.3-apache build
+└── entrypoint.sh        # Wait for MySQL → run migrations → start Apache
+```
 
 ---
 
-## 💬 12. Support & Acknowledgments
+## Database Tables
 
-- Built with ❤️ using [CodeIgniter 4](https://codeigniter.com/).
-- UI components powered by modern web standards.
+| Table | Purpose |
+|---|---|
+| `tbl_Loot` | Uploaded file records (per-batch) |
+| `tbl_Sms` | All parsed individual SMS messages |
+| `tbl_Loot_Summary` | Per-upload summary stats |
+| `tbl_Devices` | Registered Android device fingerprints |
+| `tbl_Analyzed_Transactions` | Parsed financial transactions (LLM + regex) |
+| `tbl_Sms_Classification` | AI/human classifications per SMS |
+| `tbl_Sms_Processing` | LLM processing status per SMS |
+| `tbl_Processing_Jobs` | Job-level processing tracking |
+| `tbl_Sender_Profiles` | Counterparty sender profiles (built by LLM) |
+| `tbl_Category_Rules` | Keyword-to-category mapping rules |
+| `tbl_User_Devices` | User-device linking |
+| `tbl_Budgets` | Spending budgets (monthly/weekly) |
+| `tbl_users` | Legacy user accounts |
+| `users`, `auth_*` | Shield-managed auth tables (identities, logins, tokens, permissions) |
+
+---
+
+## Integration Summary
+
+| Repository | Role | Key Tech | Depends On |
+|-----------|------|----------|------------|
+| [Mpesa_Analyzer_App](https://github.com/YourOrg/Mpesa_Analyzer_App) | Data capture & upload | Kotlin, Retrofit, AES-128 | This web app's API |
+| **This repo** | Storage, dashboard, API | PHP 8.3, CI4, Shield, MySQL | MySQL database |
+| [Mpesa Analyser Docker](https://github.com/YourOrg/Mpesa_Analyser_Docker) | LLM-powered classification | Python, FastAPI, llama.cpp, Qwen2.5 | MySQL database |
+
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Commit changes: `git commit -m 'Add my feature'`
+4. Push: `git push origin feature/my-feature`
+5. Open a Pull Request
+
+Please test inside the Docker environment before submitting.
+
+---
+
+## License
+
+MIT License
+
+---
+
+## Support
+
+- **Email**: [info@chegecache.co.ke](mailto:info@chegecache.co.ke)
+- **Website**: [chegecache.co.ke](https://chegecache.co.ke)
