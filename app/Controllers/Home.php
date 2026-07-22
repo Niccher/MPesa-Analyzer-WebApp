@@ -12,6 +12,26 @@ class Home extends BaseController
         return view('landing');
     }
 
+    public function androidApp()
+    {
+        return view('android_app');
+    }
+
+    public function mlBackend()
+    {
+        return view('ml_backend');
+    }
+
+    public function setup()
+    {
+        return view('setup');
+    }
+
+    public function faq()
+    {
+        return view('faq');
+    }
+
     public function rescan()
     {
         $userId = auth()->user()->id;

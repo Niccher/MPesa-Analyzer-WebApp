@@ -522,13 +522,13 @@
                 <footer class="dashboard-footer py-3 px-2 mt-4">
                     <div class="d-flex flex-md-row flex-column justify-content-between align-items-center opacity-75 small">
                         <div class="mb-2 mb-md-0">
-                            &copy; <?= date('Y') ?> <span class="fw-bold text-primary">M-Pesa Analyzer</span>. 
+                            &copy; <?= date('Y') ?> <span class="fw-bold text-primary">Mpesa Analyzer</span>. 
                             <span class="d-none d-sm-inline">All rights reserved.</span>
                         </div>
                         <div class="d-flex gap-3">
                             <span><i class="fa-solid fa-code-branch me-1"></i> v2.1.0</span>
-                            <a href="#" class="text-dark text-decoration-none"><i class="fa-solid fa-book-open me-1"></i> Docs</a>
-                            <a href="#" class="text-dark text-decoration-none"><i class="fa-solid fa-download me-1"></i> App</a>
+                            <a href="<?= base_url('setup') ?>" class="text-dark text-decoration-none"><i class="fa-solid fa-book-open me-1"></i> Docs</a>
+                            <a href="<?= base_url('android-app') ?>" class="text-dark text-decoration-none"><i class="fa-solid fa-download me-1"></i> App</a>
                         </div>
                     </div>
                 </footer>

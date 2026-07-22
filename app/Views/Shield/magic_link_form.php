@@ -1,9 +1,10 @@
 <?= $this->extend(config('Auth')->views['layout']) ?>
 
-<?= $this->section('title') ?><?= lang('Auth.useMagicLink') ?> <?= $this->endSection() ?>
+<?= $this->section('title') ?>Forgot Password <?= $this->endSection() ?>
 
 <?= $this->section('main') ?>
     <div class="auth-header">
+        <div class="brand-icon"><i class="fa-solid fa-key"></i></div>
         <h1>Forgot Password</h1>
         <p>Enter your email to receive a login link</p>
     </div>
@@ -21,16 +22,17 @@
     <form action="<?= url_to('magic-link') ?>" method="post">
         <?= csrf_field() ?>
 
-        <!-- Email -->
         <div class="form-group">
             <label for="floatingEmailInput" class="form-label">Email Address</label>
             <input type="email" class="form-control" id="floatingEmailInput" name="email" autocomplete="email" placeholder="you@domain.com" value="<?= old('email', auth()->user()->email ?? '') ?>" required>
         </div>
 
-        <button type="submit" class="btn-primary">Send Magic Link</button>
+        <button type="submit" class="btn-primary">
+            <i class="fa-solid fa-paper-plane me-2"></i>Send Magic Link
+        </button>
     </form>
 
     <div class="auth-footer">
-        <p>Remember your password? <a href="<?= url_to('login') ?>">Sign In</a></p>
+        <p class="mb-1">Remember your password? <a href="<?= url_to('login') ?>">Sign In</a></p>
     </div>
 <?= $this->endSection() ?>

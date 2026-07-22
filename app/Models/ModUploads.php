@@ -992,13 +992,19 @@ class ModUploads extends Model
     }
 
     /**
-     * Save upload summary — total SMS count only (no MPESA-specific breakdown).
+     * Save upload summary — total SMS count + LLM direction/transaction_type breakdowns.
      */
     protected function save_summary_data(array $counters, string $uuid, int|string $date): bool {
+        // Compute direction breakdown from classified SMS for this loot
+        $directionBreakdown = $this->get_direction_breakdown_for_loot($uuid);
+        $transactionTypeBreakdown = $this->get_transaction_type_breakdown_for_loot($uuid);
+
         $summary = [
-            'info_All'  => (int) ($counters['info_All'] ?? 0),
-            'loot_Uuid' => $uuid,
-            'loot_Created' => is_numeric($date) ? date('Y-m-d H:i:s', (int)$date) : $date,
+            'info_All'                => (int) ($counters['info_All'] ?? 0),
+            'loot_Uuid'               => $uuid,
+            'loot_Created'            => is_numeric($date) ? date('Y-m-d H:i:s', (int)$date) : $date,
+            'direction_breakdown'     => json_encode($directionBreakdown),
+            'transaction_type_breakdown' => json_encode($transactionTypeBreakdown),
         ];
 
         $ok = $this->db->table('tbl_Loot_Summary')->insert($summary);
@@ -1010,6 +1016,239 @@ class ModUploads extends Model
         }
 
         return true;
+    }
+
+    /**
+     * Get direction breakdown for a specific loot (incoming/outgoing/none)
+     */
+    protected function get_direction_breakdown_for_loot(string $lootUuid): array {
+        $rows = $this->db->table('tbl_Sms s')
+            ->select('sc.direction')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
+            ->where('s.sms_loot_source', $lootUuid)
+            ->get()
+            ->getResult();
+
+        $breakdown = ['Money In' => 0, 'Money Out' => 0, 'Unknown' => 0, 'Balance Inquiry' => 0];
+        foreach ($rows as $row) {
+            $dir = strtolower($row->direction ?? 'none');
+            if ($dir === 'incoming' || $dir === 'received') {
+                $breakdown['Money In']++;
+            } elseif ($dir === 'outgoing' || $dir === 'sent') {
+                $breakdown['Money Out']++;
+            } elseif ($dir === 'balance' || $dir === 'balance_inquiry') {
+                $breakdown['Balance Inquiry']++;
+            } else {
+                $breakdown['Unknown']++;
+            }
+        }
+        return $breakdown;
+    }
+
+    /**
+     * Get transaction type breakdown for a specific loot
+     */
+    protected function get_transaction_type_breakdown_for_loot(string $lootUuid): array {
+        $rows = $this->db->table('tbl_Sms s')
+            ->select('a.description as transaction_type')
+            ->join('tbl_Analyzed_Transactions a', 'a.orig_sms_id = s.id', 'left')
+            ->where('s.sms_loot_source', $lootUuid)
+            ->get()
+            ->getResult();
+
+        $breakdown = [];
+        foreach ($rows as $row) {
+            $type = strtolower($row->transaction_type ?? 'unknown');
+            if (!isset($breakdown[$type])) $breakdown[$type] = 0;
+            $breakdown[$type]++;
+        }
+        return $breakdown;
+    }
+
+    /**
+     * Get aggregated financial overview for a user/device
+     */
+    public function get_financial_overview(string $ownerUuid, string $deviceId): array {
+        $default = [
+            'total_transactions' => 0,
+            'total_senders' => 0,
+            'finance_senders' => 0,
+            'category_breakdown' => [],
+            'total_amount_sent' => 0.0,
+            'total_amount_received' => 0.0,
+            'period_start' => date('Y-m-d', strtotime('-30 days')),
+            'period_end' => date('Y-m-d'),
+        ];
+
+        // Get all SMS with classifications for this user
+        $smsBuilder = $this->db->table('tbl_Sms s')
+            ->select('s.id, sc.category, sc.direction, sc.is_finance, a.amount')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
+            ->join('tbl_Analyzed_Transactions a', 'a.orig_sms_id = s.id', 'left')
+            ->where('s.sms_owner', $ownerUuid);
+
+        $rows = $smsBuilder->get()->getResult();
+        if (empty($rows)) return $default;
+
+        $total = count($rows);
+        $senders = [];
+        $financeSenders = [];
+        $categoryBreakdown = [];
+        $totalSent = 0.0;
+        $totalReceived = 0.0;
+
+        foreach ($rows as $row) {
+            $cat = $row->category ?? 'Unclassified';
+            if (!isset($categoryBreakdown[$cat])) $categoryBreakdown[$cat] = 0;
+            $categoryBreakdown[$cat]++;
+
+            if (!in_array($row->category, $senders)) {
+                $senders[] = $row->category;
+            }
+
+            $dir = strtolower($row->direction ?? 'none');
+            $amt = (float)($row->amount ?? 0);
+            if ($dir === 'incoming' || $dir === 'received') {
+                $totalReceived += $amt;
+            } elseif ($dir === 'outgoing' || $dir === 'sent') {
+                $totalSent += $amt;
+            }
+
+            if (!empty($row->is_finance)) {
+                $financeSenders[] = $row->category;
+            }
+        }
+
+        // Find earliest and latest SMS time
+        $timeBuilder = $this->db->table('tbl_Sms s')
+            ->select('MIN(s.sms_time) as first, MAX(s.sms_time) as last')
+            ->where('s.sms_owner', $ownerUuid);
+        $timeRow = $timeBuilder->get()->getRow();
+
+        $periodStart = $timeRow->first ? $this->normalizeDate($timeRow->first) : $default['period_start'];
+        $periodEnd = $timeRow->last ? $this->normalizeDate($timeRow->last) : $default['period_end'];
+
+        return [
+            'total_transactions' => $total,
+            'total_senders' => count(array_unique($senders)),
+            'finance_senders' => count(array_unique($financeSenders)),
+            'category_breakdown' => $categoryBreakdown,
+            'total_amount_sent' => round($totalSent, 2),
+            'total_amount_received' => round($totalReceived, 2),
+            'period_start' => substr($periodStart, 0, 10),
+            'period_end' => substr($periodEnd, 0, 10),
+        ];
+    }
+
+    /**
+     * Get paginated transactions by financial category
+     */
+    public function get_transactions_by_category(
+        string $ownerUuid,
+        string $deviceId,
+        string $category = '',
+        int $page = 1,
+        int $perPage = 50
+    ): array {
+        $builder = $this->db->table('tbl_Sms s')
+            ->select('
+                s.id, s.sms_body, s.sms_number, s.sms_time,
+                a.amount, a.counterparty, a.description as transaction_type,
+                a.trans_date, a.orig_sms_int_id,
+                sc.category, sc.direction, sc.sender as sender_number,
+                sp.sp_name as sender_name, sp.sp_confidence
+            ')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
+            ->join('tbl_Analyzed_Transactions a', 'a.orig_sms_id = s.id', 'left')
+            ->join('tbl_Sender_Profiles sp', 'sp.sp_number = sc.sender AND sp.sp_owner = s.sms_owner', 'left')
+            ->where('s.sms_owner', $ownerUuid);
+
+        if (!empty($category) && $category !== 'all') {
+            $builder->where('sc.category', $category);
+        }
+
+        // Get total count
+        $countBuilder = clone $builder;
+        $total = $countBuilder->countAllResults();
+
+        // Get paginated results
+        $offset = ($page - 1) * $perPage;
+        $rows = $builder->orderBy('s.sms_time', 'DESC')
+            ->limit($perPage, $offset)
+            ->get()
+            ->getResult();
+
+        $transactions = [];
+        foreach ($rows as $row) {
+            $body = '';
+            try {
+                $body = base64_decode($row->sms_body);
+                if (mb_detect_encoding($body, 'UTF-8', true) === false) {
+                    $body = $row->sms_body;
+                }
+            } catch (\Exception $e) {
+                $body = $row->sms_body ?? '';
+            }
+
+            $transactions[] = [
+                'id' => (int)$row->id,
+                'sms_body' => mb_substr($body, 0, 500),
+                'amount' => $row->amount ? (float)$row->amount : null,
+                'direction' => $row->direction ?? 'none',
+                'counterparty' => $row->counterparty,
+                'category' => $row->category ?? 'Unclassified',
+                'sender_name' => $row->sender_name ?? $row->sender_number ?? 'Unknown',
+                'sender_number' => $row->sender_number ?? '',
+                'transaction_type' => $row->transaction_type ?? 'unknown',
+                'trans_date' => $row->trans_date,
+                'balance' => null,
+            ];
+        }
+
+        return [
+            'transactions' => $transactions,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+        ];
+    }
+
+    /**
+     * Get sender profiles with transaction counts
+     */
+    public function get_sender_profiles(string $ownerUuid, string $deviceId): array {
+        $builder = $this->db->table('tbl_Sender_Profiles sp')
+            ->select('
+                sp.sp_number as number,
+                sp.sp_name as name,
+                sp.sp_category as category,
+                sp.sp_is_finance as is_finance,
+                sp.sp_confidence as confidence,
+                COUNT(s.id) as transaction_count,
+                SUM(a.amount) as total_amount
+            ')
+            ->join('tbl_Sms s', 's.sms_number = sp.sp_number AND s.sms_owner = sp.sp_owner', 'left')
+            ->join('tbl_Analyzed_Transactions a', 'a.orig_sms_id = s.id', 'left')
+            ->where('sp.sp_owner', $ownerUuid)
+            ->groupBy('sp.sp_number')
+            ->orderBy('transaction_count', 'DESC');
+
+        $rows = $builder->get()->getResult();
+        $profiles = [];
+
+        foreach ($rows as $row) {
+            $profiles[] = [
+                'number' => $row->number,
+                'name' => $row->name,
+                'category' => $row->category ?? 'Unclassified',
+                'is_finance' => (bool)$row->is_finance,
+                'confidence' => (float)($row->confidence ?? 0),
+                'transaction_count' => (int)($row->transaction_count ?? 0),
+                'total_amount' => round((float)($row->total_amount ?? 0), 2),
+            ];
+        }
+
+        return $profiles;
     }
 
     /**
@@ -1131,5 +1370,112 @@ class ModUploads extends Model
             'top_counterparties'=> $topCounterparties,
             'tx_count'          => $txCount,
         ];
+    }
+
+    /**
+     * Get category breakdown for a specific upload batch
+     * Returns counts per financial category from classifications
+     */
+    public function get_upload_category_breakdown(string $lootUuid): array {
+        $rows = $this->db->query("
+            SELECT COALESCE(latest.cat, 'Unclassified') as category, COUNT(*) as count
+            FROM tbl_Sms s
+            LEFT JOIN (
+                SELECT sc1.sms_id, sc1.category as cat
+                FROM tbl_Sms_Classification sc1
+                INNER JOIN (
+                    SELECT sms_id, MAX(created_at) as max_created
+                    FROM tbl_Sms_Classification
+                    GROUP BY sms_id
+                ) sc2 ON sc1.sms_id = sc2.sms_id AND sc1.created_at = sc2.max_created
+            ) latest ON latest.sms_id = s.id
+            WHERE s.sms_loot_source = ?
+            GROUP BY category
+            ORDER BY count DESC
+        ", [$lootUuid])->getResult();
+
+        $breakdown = [];
+        foreach ($rows as $row) {
+            $breakdown[$row->category] = (int)$row->count;
+        }
+        return $breakdown;
+    }
+
+    /**
+     * Get financial summary for a specific upload batch
+     */
+    public function get_upload_financial_summary(string $lootUuid): array {
+        $row = $this->db->query("
+            SELECT
+                COALESCE(SUM(a.amount), 0) as total_amount,
+                COUNT(DISTINCT a.counterparty) as counterparties,
+                COUNT(a.id) as analyzed_count
+            FROM tbl_Analyzed_Transactions a
+            INNER JOIN tbl_Sms s ON s.id = a.orig_sms_int_id OR s.sms__id = a.orig_sms_id
+            WHERE s.sms_loot_source = ?
+        ", [$lootUuid])->getRow();
+
+        return [
+            'total_amount' => (float)($row->total_amount ?? 0),
+            'counterparties' => (int)($row->counterparties ?? 0),
+            'analyzed_count' => (int)($row->analyzed_count ?? 0),
+        ];
+    }
+
+    /**
+     * Get direction breakdown for a specific upload batch
+     * Returns counts by LLM direction: incoming (Money In), outgoing (Money Out), none (Unknown)
+     */
+    public function get_upload_direction_breakdown(string $lootUuid): array {
+        $rows = $this->db->query("
+            SELECT 
+                CASE 
+                    WHEN LOWER(COALESCE(latest.direction, 'none')) IN ('incoming', 'received') THEN 'Money In'
+                    WHEN LOWER(COALESCE(latest.direction, 'none')) IN ('outgoing', 'sent') THEN 'Money Out'
+                    WHEN LOWER(COALESCE(latest.direction, 'none')) IN ('balance', 'balance_inquiry') THEN 'Balance Inquiry'
+                    ELSE 'Unknown'
+                END as direction_label,
+                COUNT(*) as count
+            FROM tbl_Sms s
+            LEFT JOIN (
+                SELECT sc1.sms_id, sc1.direction
+                FROM tbl_Sms_Classification sc1
+                INNER JOIN (
+                    SELECT sms_id, MAX(created_at) as max_created
+                    FROM tbl_Sms_Classification
+                    GROUP BY sms_id
+                ) sc2 ON sc1.sms_id = sc2.sms_id AND sc1.created_at = sc2.max_created
+            ) latest ON latest.sms_id = s.id
+            WHERE s.sms_loot_source = ?
+            GROUP BY direction_label
+            ORDER BY count DESC
+        ", [$lootUuid])->getResult();
+
+        $breakdown = [];
+        foreach ($rows as $row) {
+            $breakdown[$row->direction_label] = (int)$row->count;
+        }
+        return $breakdown;
+    }
+
+    /**
+     * Get transaction type breakdown for a specific upload batch
+     * Returns counts by LLM transaction_type from analyzed transactions
+     */
+    public function get_upload_transaction_type_breakdown(string $lootUuid): array {
+        $rows = $this->db->query("
+            SELECT COALESCE(a.description, 'unknown') as transaction_type, COUNT(*) as count
+            FROM tbl_Analyzed_Transactions a
+            INNER JOIN tbl_Sms s ON s.id = a.orig_sms_int_id OR s.sms__id = a.orig_sms_id
+            WHERE s.sms_loot_source = ?
+            GROUP BY transaction_type
+            ORDER BY count DESC
+        ", [$lootUuid])->getResult();
+
+        $breakdown = [];
+        foreach ($rows as $row) {
+            $breakdown[$row->transaction_type] = (int)$row->count;
+        }
+        return $breakdown;
     }
 }

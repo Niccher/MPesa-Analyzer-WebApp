@@ -265,13 +265,25 @@ class Upload extends BaseController
                     ? date('Y-m-d H:i:s', (int)$createdRaw) 
                     : $createdRaw;
                 
+                $categoryBreakdown = $modUpload->get_upload_category_breakdown($upload->loot_Uuid);
+                $financialSummary = $modUpload->get_upload_financial_summary($upload->loot_Uuid);
+                
+                // Get LLM classification breakdowns
+                $directionBreakdown = $modUpload->get_upload_direction_breakdown($upload->loot_Uuid);
+                $transactionTypeBreakdown = $modUpload->get_upload_transaction_type_breakdown($upload->loot_Uuid);
+                
                 $result[] = [
                     'summary_Loot_Uuid' => $upload->loot_Uuid,
                     'summary_Created' => $summaryCreated,
                     'summary_Count' => $summary[0]->info_All ?? 0,
                     'summary_Received' => $summary[0]->info_Get_from_MPESA ?? 0,
                     'summary_Sent' => $summary[0]->info_Sent_to_MPESA ?? 0,
-                    'summary_Unknown' => $summary[0]->info_Unknown ?? 0
+                    'summary_Unknown' => $summary[0]->info_Unknown ?? 0,
+                    'finance_senders' => $financialSummary['counterparties'],
+                    'total_amount' => $financialSummary['total_amount'],
+                    'category_breakdown' => $categoryBreakdown,
+                    'direction_breakdown' => $directionBreakdown,
+                    'transaction_type_breakdown' => $transactionTypeBreakdown,
                 ];
             }
 
@@ -288,6 +300,108 @@ class Upload extends BaseController
                 'time' => $dated,
                 'message' => 'Failed to retrieve upload list',
                 'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get aggregated financial overview for the Android dashboard
+     */
+    public function financial_overview(): ResponseInterface {
+        $modUpload = new ModUploads();
+        $dated = date('Y-m-d H:i:s');
+
+        if (!$this->request->is('post')) {
+            return $this->fail('Method not allowed', 405);
+        }
+
+        try {
+            $ownerUuid = (string) $this->request->getPost('varUser');
+            $deviceId = (string) $this->request->getPost('varDev');
+
+            $overview = $modUpload->get_financial_overview($ownerUuid, $deviceId);
+
+            return $this->respond([
+                'status' => self::STATUS_SUCCESS,
+                'time' => $dated,
+                'overview' => $overview
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'Financial Overview Error: ' . $e->getMessage());
+            return $this->respond([
+                'status' => self::STATUS_ERROR,
+                'time' => $dated,
+                'message' => 'Failed to retrieve financial overview'
+            ]);
+        }
+    }
+
+    /**
+     * Get paginated transactions by financial category
+     */
+    public function transactions_by_category(): ResponseInterface {
+        $modUpload = new ModUploads();
+        $dated = date('Y-m-d H:i:s');
+
+        if (!$this->request->is('post')) {
+            return $this->fail('Method not allowed', 405);
+        }
+
+        try {
+            $ownerUuid = (string) $this->request->getPost('varUser');
+            $deviceId = (string) $this->request->getPost('varDev');
+            $category = (string) $this->request->getPost('varCategory');
+            $page = (int) ($this->request->getPost('varPage') ?: 1);
+            $perPage = (int) ($this->request->getPost('varPerPage') ?: 50);
+
+            $result = $modUpload->get_transactions_by_category($ownerUuid, $deviceId, $category, $page, $perPage);
+
+            return $this->respond([
+                'status' => self::STATUS_SUCCESS,
+                'time' => $dated,
+                'transactions' => $result['transactions'],
+                'total' => $result['total'],
+                'page' => $result['page'],
+                'per_page' => $result['per_page'],
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'Transactions By Category Error: ' . $e->getMessage());
+            return $this->respond([
+                'status' => self::STATUS_ERROR,
+                'time' => $dated,
+                'message' => 'Failed to retrieve transactions'
+            ]);
+        }
+    }
+
+    /**
+     * Get sender profiles with transaction counts
+     */
+    public function sender_profiles(): ResponseInterface {
+        $modUpload = new ModUploads();
+        $dated = date('Y-m-d H:i:s');
+
+        if (!$this->request->is('post')) {
+            return $this->fail('Method not allowed', 405);
+        }
+
+        try {
+            $ownerUuid = (string) $this->request->getPost('varUser');
+            $deviceId = (string) $this->request->getPost('varDev');
+
+            $profiles = $modUpload->get_sender_profiles($ownerUuid, $deviceId);
+
+            return $this->respond([
+                'status' => self::STATUS_SUCCESS,
+                'time' => $dated,
+                'profiles' => $profiles
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'Sender Profiles Error: ' . $e->getMessage());
+            return $this->respond([
+                'status' => self::STATUS_ERROR,
+                'time' => $dated,
+                'message' => 'Failed to retrieve sender profiles'
             ]);
         }
     }
@@ -476,6 +590,44 @@ class Upload extends BaseController
     }
 
     /**
+     * List all SMS in a given category
+     */
+    public function list_all_sms_in_category(): ResponseInterface {
+        $modUpload = new ModUploads();
+        $dated = date('Y-m-d H:i:s');
+
+        if (!$this->request->is('post')) {
+            return $this->fail('Method not allowed', 405);
+        }
+
+        try {
+            $ownerUuid = (string) $this->request->getPost('varUser');
+            $deviceId = (string) $this->request->getPost('varDev');
+            $category = (string) $this->request->getPost('varCategory');
+            $page = (int) ($this->request->getPost('varPage') ?: 1);
+            $perPage = (int) ($this->request->getPost('varPerPage') ?: 100);
+
+            $result = $modUpload->get_transactions_by_category($ownerUuid, $deviceId, $category, $page, $perPage);
+
+            return $this->respond([
+                'status' => self::STATUS_SUCCESS,
+                'time' => $dated,
+                'transactions' => $result['transactions'],
+                'total' => $result['total'],
+                'page' => $result['page'],
+                'per_page' => $result['per_page'],
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'List SMS By Category Error: ' . $e->getMessage());
+            return $this->respond([
+                'status' => self::STATUS_ERROR,
+                'time' => $dated,
+                'message' => 'Failed to list SMS in category'
+            ]);
+        }
+    }
+
+    /**
      * Delete upload by UUID
      */
     public function loot_delete_by_uuid(): ResponseInterface {
@@ -509,43 +661,17 @@ class Upload extends BaseController
     }
 
     /**
-     * Format summary data consistently
+     * Format summary data consistently — LLM-based breakdowns only
      */
     private function formatSummaryData(object $summary): array {
         return [
             'status' => 1,
-            'count_Get_from_MPESA' => $summary->info_Get_from_MPESA,
-            'count_Get_from_KCB' => $summary->info_Get_from_KCB,
-            'count_Get_from_Mshwari' => $summary->info_Get_from_Mshwari,
-            'count_Get_from_NCBA' => $summary->info_Get_from_NCBA,
-            'count_Get_from_IM' => $summary->info_Get_from_IM,
-            'count_Get_from_Reversal' => $summary->info_Get_from_Reversal,
-            'count_Get_Bal_MPESA' => $summary->info_Get_Bal_MPESA,
-            'count_Get_Bal_KCB' => $summary->info_Get_Bal_KCB,
-            'count_Get_Bal_Mshwari' => $summary->info_Get_Bal_Mshwari,
-            'count_Loan_Limit' => $summary->info_Loan_Limit,
-            'count_Sent_to_MPESA' => $summary->info_Sent_to_MPESA,
-            'count_Sent_to_Mshwari' => $summary->info_Sent_to_Mshwari,
-            'count_Sent_to_LNM' => $summary->info_Sent_to_LNM,
-            'count_Sent_Mini' => $summary->info_Sent_Mini,
-            'count_Sent_Cancel' => $summary->info_Sent_Cancel,
-            'count_Error_Failed' => $summary->info_Error_Failed,
-            'count_Error_Pin' => $summary->info_Error_Pin,
-            'count_Error_Less' => $summary->info_Error_Less,
-            'count_Error_Receiver' => $summary->info_Error_Receiver,
-            'count_Error_Receiver_Org' => $summary->info_Error_Receiver_Org,
-            'count_Withdraw' => $summary->info_Withdraw,
-            'count_Fuliza_Opt_Out' => $summary->info_Fuliza_Opt_Out,
-            'count_Fuliza_Opt_In' => $summary->info_Fuliza_Opt_In,
-            'count_Fuliza_Limit' => $summary->info_Fuliza_Limit,
-            'count_Fuliza_Loan_Paid' => $summary->info_Fuliza_Loan_Paid,
-            'count_Fuliza_Mini_Statement' => $summary->info_Fuliza_Mini_Statement,
-            'count_Fuliza_Loan_Taken' => $summary->info_Fuliza_Loan_Taken,
-            'count_Similar_Transaction' => $summary->info_Similar_Transaction,
             'count_All' => $summary->info_All,
             'count_Unknown' => $summary->info_Unknown,
             'loot_Created' => $summary->loot_Created,
-            'loot_Uuid' => $summary->loot_Uuid,//
+            'loot_Uuid' => $summary->loot_Uuid,
+            'direction_breakdown' => json_decode($summary->direction_breakdown ?? '{}', true) ?? [],
+            'transaction_type_breakdown' => json_decode($summary->transaction_type_breakdown ?? '{}', true) ?? [],
         ];
     }
 

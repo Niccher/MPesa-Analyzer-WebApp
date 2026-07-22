@@ -1,9 +1,10 @@
 <?= $this->extend(config('Auth')->views['layout']) ?>
 
-<?= $this->section('title') ?><?= lang('Auth.register') ?> <?= $this->endSection() ?>
+<?= $this->section('title') ?>Register <?= $this->endSection() ?>
 
 <?= $this->section('main') ?>
     <div class="auth-header">
+        <div class="brand-icon"><i class="fa-solid fa-wallet"></i></div>
         <h1>Create Account</h1>
         <p>Join the financial analysis community</p>
     </div>
@@ -21,34 +22,37 @@
     <form action="<?= url_to('register') ?>" method="post">
         <?= csrf_field() ?>
 
-        <!-- Email -->
         <div class="form-group">
             <label for="floatingEmailInput" class="form-label">Email Address</label>
             <input type="email" class="form-control" id="floatingEmailInput" name="email" inputmode="email" autocomplete="email" placeholder="you@domain.com" value="<?= old('email') ?>" required>
         </div>
 
-        <!-- Username -->
         <div class="form-group">
             <label for="floatingUsernameInput" class="form-label">Username</label>
-            <input type="text" class="form-control" id="floatingUsernameInput" name="username" inputmode="text" autocomplete="username" placeholder="your_username" value="<?= old('username') ?>" required>
+            <input type="text" class="form-control" id="floatingUsernameInput" name="username" inputmode="text" autocomplete="username" placeholder="Choose a username" value="<?= old('username') ?>" required>
         </div>
 
-        <!-- Password -->
-        <div class="form-group">
-            <label for="floatingPasswordInput" class="form-label">Password</label>
-            <input type="password" class="form-control" id="floatingPasswordInput" name="password" inputmode="text" autocomplete="new-password" placeholder="••••••••" required>
+        <div class="row g-2">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="floatingPasswordInput" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="floatingPasswordInput" name="password" inputmode="text" autocomplete="new-password" placeholder="Min 8 characters" required>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="floatingPasswordConfirmInput" class="form-label">Confirm</label>
+                    <input type="password" class="form-control" id="floatingPasswordConfirmInput" name="password_confirm" inputmode="text" autocomplete="new-password" placeholder="Repeat password" required>
+                </div>
+            </div>
         </div>
 
-        <!-- Password (Again) -->
-        <div class="form-group">
-            <label for="floatingPasswordConfirmInput" class="form-label">Confirm Password</label>
-            <input type="password" class="form-control" id="floatingPasswordConfirmInput" name="password_confirm" inputmode="text" autocomplete="new-password" placeholder="••••••••" required>
-        </div>
-
-        <button type="submit" class="btn-primary">Sign Up</button>
+        <button type="submit" class="btn-primary">
+            <i class="fa-solid fa-user-plus me-2"></i>Sign Up
+        </button>
     </form>
 
     <div class="auth-footer">
-        <p>Already have an account? <a href="<?= url_to('login') ?>">Sign In</a></p>
+        <p class="mb-1">Already have an account? <a href="<?= url_to('login') ?>">Sign In</a></p>
     </div>
 <?= $this->endSection() ?>

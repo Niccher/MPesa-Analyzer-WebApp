@@ -1,11 +1,12 @@
 <?= $this->extend(config('Auth')->views['layout']) ?>
 
-<?= $this->section('title') ?><?= lang('Auth.login') ?> <?= $this->endSection() ?>
+<?= $this->section('title') ?>Sign In <?= $this->endSection() ?>
 
 <?= $this->section('main') ?>
     <div class="auth-header">
-        <h1>Sign In</h1>
-        <p>Access your analytics dashboard</p>
+        <div class="brand-icon"><i class="fa-solid fa-wallet"></i></div>
+        <h1>Welcome Back</h1>
+        <p>Sign in to your analytics dashboard</p>
     </div>
 
     <?php if (session('error')) : ?>
@@ -25,33 +26,36 @@
     <form action="<?= url_to('login') ?>" method="post">
         <?= csrf_field() ?>
 
-        <!-- Email -->
         <div class="form-group">
             <label for="floatingEmailInput" class="form-label">Email Address</label>
             <input type="email" class="form-control" id="floatingEmailInput" name="email" inputmode="email" autocomplete="email" placeholder="you@domain.com" value="<?= old('email') ?>" required>
         </div>
 
-        <!-- Password -->
         <div class="form-group">
-            <label for="floatingPasswordInput" class="form-label">Password</label>
-            <input type="password" class="form-control" id="floatingPasswordInput" name="password" inputmode="text" autocomplete="current-password" placeholder="••••••••" required>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <label for="floatingPasswordInput" class="form-label mb-0">Password</label>
+                <?php if (setting('Auth.allowMagicLinkLogins')) : ?>
+                    <a href="<?= url_to('magic-link') ?>" class="small text-decoration-none" style="color: var(--primary); font-weight: 500;">Forgot?</a>
+                <?php endif ?>
+            </div>
+            <input type="password" class="form-control" id="floatingPasswordInput" name="password" inputmode="text" autocomplete="current-password" placeholder="Enter your password" required>
         </div>
 
-        <!-- Remember me -->
         <?php if (setting('Auth.sessionConfig')['allowRemembering']): ?>
-            <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
-                <input type="checkbox" name="remember" class="form-check-input" <?php if (old('remember')): ?> checked <?php endif ?>>
-                <label class="form-label" style="margin-bottom: 0;">Remember me</label>
+            <div class="form-group">
+                <div class="form-check">
+                    <input type="checkbox" name="remember" class="form-check-input" id="rememberCheck" <?php if (old('remember')): ?> checked <?php endif ?>>
+                    <label class="form-check-label small" for="rememberCheck" style="color: var(--text-muted);">Keep me signed in</label>
+                </div>
             </div>
         <?php endif; ?>
 
-        <button type="submit" class="btn-primary">Sign In</button>
+        <button type="submit" class="btn-primary">
+            <i class="fa-solid fa-arrow-right-to-bracket me-2"></i>Sign In
+        </button>
     </form>
 
     <div class="auth-footer">
-        <p>Don't have an account? <a href="<?= url_to('register') ?>">Sign Up</a></p>
-        <?php if (setting('Auth.allowMagicLinkLogins')) : ?>
-            <p><a href="<?= url_to('magic-link') ?>">Forgot password?</a></p>
-        <?php endif ?>
+        <p class="mb-1">Don't have an account? <a href="<?= url_to('register') ?>">Create one</a></p>
     </div>
 <?= $this->endSection() ?>

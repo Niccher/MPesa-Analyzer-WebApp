@@ -56,6 +56,10 @@ $routes->match(['get', 'post'], '/dashboard/budget/save', 'Budget::save', ['filt
 $routes->match(['get', 'post'], '/dashboard/budget/delete', 'Budget::delete', ['filter' => 'session']);
 
 $routes->get('/home', 'Home::index');
+$routes->get('/android-app', 'Home::androidApp');
+$routes->get('/ml-backend', 'Home::mlBackend');
+$routes->get('/setup', 'Home::setup');
+$routes->get('/faq', 'Home::faq');
 
 $routes->group('auth', function ($routes) {
     $routes->add('login', 'Auths::login');
@@ -81,7 +85,10 @@ $routes->add('/process/get/my_uploads_category_count', 'Upload::loot_uploaded_ca
 
     $routes->add('/process/get/my_summary', 'Upload::upload_summary');
 $routes->add('/process/get/my_summary_calculations', 'Upload::upload_summary_calculation');
-$routes->add('/process/get/list_all_sms_in_category', 'Upload::list_all_sms_in_category');
+    $routes->add('/process/get/list_all_sms_in_category', 'Upload::list_all_sms_in_category');
+    $routes->add('/process/get/my_financial_overview', 'Upload::financial_overview');
+    $routes->add('/process/get/my_transactions_by_category', 'Upload::transactions_by_category');
+    $routes->add('/process/get/my_sender_profiles', 'Upload::sender_profiles');
 
 $routes->add('/process/test', 'Testar::random');
 $routes->add('/process/test_data', 'Upload::prepare_dataset');
