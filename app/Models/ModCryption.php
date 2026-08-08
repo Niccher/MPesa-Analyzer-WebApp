@@ -8,20 +8,25 @@ use CodeIgniter\Model;
 
 class ModCryption extends Model
 {
-    public function decode_content($value){
+    private string $cipherAlgo = "AES-128-CBC";
+    private string $cryptKey;
+    private string $cryptIv;
 
-        $cipher_algo = "AES-128-CBC";
+    public function __construct()
+    {
+        parent::__construct();
+        $this->cryptKey = (string) env('MPESA_CRYPT_KEY', 'a:r2yt>N3_\\Py,f=');
+        $this->cryptIv  = (string) env('MPESA_CRYPT_IV', '[M[@_w[F4a>yQsJW');
+    }
 
+    public function decode_content($value)
+    {
         $options = OPENSSL_RAW_DATA;
-
-        $crypt_iv = '[M[@_w[F4a>yQsJW';
-
-        $crypt_key = "a:r2yt>N3_\\Py,f=";
 
         log_message('debug', 'Decrypt input length: ' . strlen($value));
         log_message('debug', 'Decrypt input first 32 bytes: ' . bin2hex(substr($value, 0, 32)));
 
-        $dec_val = openssl_decrypt($value, $cipher_algo, $crypt_key, $options, $crypt_iv);
+        $dec_val = openssl_decrypt($value, $this->cipherAlgo, $this->cryptKey, $options, $this->cryptIv);
 
         if ($dec_val === false) {
             $error = openssl_error_string();
@@ -35,19 +40,11 @@ class ModCryption extends Model
         return $dec_val;
     }
 
-    public function encode_content($value){
-
-        $cipher_algo = "AES-128-CBC";
-
-        $options = OPENSSL_RAW_DATA;
-
-        $crypt_iv = '[M[@_w[F4a>yQsJW';
-
-        $crypt_key = "a:r2yt>N3_\\Py,f=";
-
+    public function encode_content($value)
+    {
         $options = 0;
 
-        $enc_val = openssl_encrypt($value, $cipher_algo, $crypt_key, $options, $crypt_iv);
+        $enc_val = openssl_encrypt($value, $this->cipherAlgo, $this->cryptKey, $options, $this->cryptIv);
 
         return ($enc_val);
     }

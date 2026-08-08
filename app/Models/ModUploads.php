@@ -1478,4 +1478,44 @@ class ModUploads extends Model
         }
         return $breakdown;
     }
+
+    public function getAllTransactionsForUser(int $userId): array
+    {
+        $tokenType = \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN;
+
+        $rawTokens = [];
+        $tokenRows = $this->db->query("
+            SELECT DISTINCT s.sms_owner AS tk FROM tbl_Sms s
+            INNER JOIN auth_identities i ON i.secret = SHA2(s.sms_owner, 256)
+            WHERE i.user_id = ? AND i.type = ?
+            UNION
+            SELECT DISTINCT l.loot_Owner AS tk FROM tbl_Loot l
+            INNER JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256)
+            WHERE i.user_id = ? AND i.type = ?
+        ", [$userId, $tokenType, $userId, $tokenType])->getResult();
+
+        foreach ($tokenRows as $r) {
+            if (!empty($r->tk)) $rawTokens[] = $r->tk;
+        }
+
+        if (empty($rawTokens)) return [];
+
+        $rows = $this->db->table('tbl_Sms s')
+            ->select('
+                s.sms_time, s.sms_body, s.sms_number,
+                s.sms_amount, s.sms_balance, s.sms_counterparty,
+                s.sms_direction, s.sms_transaction_type,
+                sc.category, sc.direction as classified_direction,
+                a.amount, a.counterparty as analyzed_counterparty,
+                a.description, a.trans_date
+            ')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
+            ->join('tbl_Analyzed_Transactions a', 'a.orig_sms_id = s.id', 'left')
+            ->whereIn('s.sms_owner', $rawTokens)
+            ->orderBy('s.sms_time', 'DESC')
+            ->get()
+            ->getResultArray();
+
+        return $rows;
+    }
 }

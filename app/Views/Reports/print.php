@@ -21,6 +21,8 @@
 <body>
 <button class="print-btn" onclick="window.print()">Print / Save PDF</button>
 
+<?php $cs = currency_symbol(); ?>
+
 <div class="header">
     <div>
         <h1 style="color:#5D5FEF">M-Pesa Monthly Report</h1>
@@ -29,9 +31,9 @@
 </div>
 
 <div class="grid-4">
-    <div class="card"><label>Total Inflow</label><div class="inflow" style="font-size:1.4rem;font-weight:700">Ksh <?= number_format($report['total_in'], 2) ?></div></div>
-    <div class="card"><label>Total Outflow</label><div class="outflow" style="font-size:1.4rem;font-weight:700">Ksh <?= number_format($report['total_out'], 2) ?></div></div>
-    <div class="card"><label>Net Balance</label><div class="net" style="font-size:1.4rem;font-weight:700"><?= $report['net'] >= 0 ? '+' : '' ?>Ksh <?= number_format($report['net'], 2) ?></div></div>
+    <div class="card"><label>Total Inflow</label><div class="inflow" style="font-size:1.4rem;font-weight:700"><?= $cs ?> <?= number_format($report['total_in'], 2) ?></div></div>
+    <div class="card"><label>Total Outflow</label><div class="outflow" style="font-size:1.4rem;font-weight:700"><?= $cs ?> <?= number_format($report['total_out'], 2) ?></div></div>
+    <div class="card"><label>Net Balance</label><div class="net" style="font-size:1.4rem;font-weight:700"><?= $report['net'] >= 0 ? '+' : '' ?><?= $cs ?> <?= number_format($report['net'], 2) ?></div></div>
     <div class="card"><label>Transactions</label><div style="font-size:1.4rem;font-weight:700"><?= number_format($report['tx_count']) ?></div></div>
 </div>
 
@@ -40,13 +42,13 @@
 
 <h4 style="margin-bottom:10px">Category Breakdown</h4>
 <?php foreach ($report['categories'] as $name => $val): if ($val > 0): ?>
-    <div class="cat-row"><span><?= $name ?></span><strong>Ksh <?= number_format($val, 2) ?></strong></div>
+    <div class="cat-row"><span><?= $name ?></span><strong><?= $cs ?> <?= number_format($val, 2) ?></strong></div>
 <?php endif; endforeach; ?>
 
 <?php if (!empty($report['top_counterparties'])): ?>
 <br><h4 style="margin-bottom:10px">Top Counterparties</h4>
 <?php foreach ($report['top_counterparties'] as $cp): ?>
-<div class="cat-row"><span><?= htmlspecialchars($cp->counterparty) ?></span><strong>Ksh <?= number_format($cp->total_amount, 2) ?></strong></div>
+<div class="cat-row"><span><?= htmlspecialchars($cp->counterparty) ?></span><strong><?= $cs ?> <?= number_format($cp->total_amount, 2) ?></strong></div>
 <?php endforeach; endif; ?>
 
 <script>

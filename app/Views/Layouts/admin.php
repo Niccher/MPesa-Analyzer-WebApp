@@ -259,6 +259,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link <?= strpos($currentURL, 'dashboard/settings') !== false ? 'active' : '' ?>" href="<?= base_url('dashboard/settings') ?>">
+                        <i class="fa-solid fa-gear"></i> Settings
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link <?= ($currentURL == 'dashboard/info') ? 'active' : '' ?>" href="<?= url_to('Info::index') ?>">
                         <i class="fa-solid fa-circle-info"></i> Info & Auth
                     </a>
@@ -501,6 +506,7 @@
                                     </button>
                                 </li>
                                 <li><a class="dropdown-item" href="<?= url_to('Info::index') ?>"><i class="fa-solid fa-user me-2"></i> Profile</a></li>
+                                <li><a class="dropdown-item" href="<?= base_url('dashboard/settings') ?>"><i class="fa-solid fa-gear me-2"></i> Settings</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item text-danger" href="<?= url_to('logout') ?>"><i class="fa-solid fa-right-from-bracket me-2"></i> Logout</a></li>
                             </ul>

@@ -8,8 +8,9 @@ class Budget extends BaseController
 {
     public function index()
     {
+        $userId  = auth()->user()->id;
         $mod     = new ModBudget();
-        $budgets = $mod->getBudgets();
+        $budgets = $mod->getBudgets($userId);
         $progress = $mod->getBudgetProgress($budgets);
 
         $categories = [
@@ -28,8 +29,9 @@ class Budget extends BaseController
 
     public function save()
     {
-        $mod  = new ModBudget();
-        $post = $this->request->getPost();
+        $userId = auth()->user()->id;
+        $mod    = new ModBudget();
+        $post   = $this->request->getPost();
 
         if (empty($post['category']) || empty($post['amount_limit'])) {
             return redirect()->to('/dashboard/budget')->with('error', 'Category and limit are required.');
@@ -37,10 +39,12 @@ class Budget extends BaseController
 
         $data = [
             'id'           => $post['id'] ?? null,
+            'user_id'      => $userId,
             'category'     => $post['category'],
             'label'        => $post['label'] ?? $post['category'],
             'amount_limit' => (float)$post['amount_limit'],
             'period'       => $post['period'] ?? 'monthly',
+            'rollover'     => !empty($post['rollover']) ? 1 : 0,
         ];
 
         $mod->saveBudget($data);

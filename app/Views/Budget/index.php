@@ -54,9 +54,13 @@
                 </div>
                 <div>
                     <div class="small text-muted mb-1">Spent</div>
-                    <div class="fw-bold" style="color:<?= $color ?>">Ksh <?= number_format($b['spent'], 0) ?></div>
+                    <div class="fw-bold" style="color:<?= $color ?>"><?= currency_symbol() ?> <?= number_format($b['spent'], 0) ?></div>
+                    <?php if (!empty($b['carry_over'])): ?>
+                    <div class="small text-muted mt-1">Carry-over</div>
+                    <div class="small fw-bold text-info">+<?= currency_symbol() ?> <?= number_format($b['carry_over'], 0) ?></div>
+                    <?php endif; ?>
                     <div class="small text-muted mt-2 mb-1">Limit</div>
-                    <div class="fw-bold text-dark">Ksh <?= number_format($b['amount_limit'], 0) ?></div>
+                    <div class="fw-bold text-dark"><?= currency_symbol() ?> <?= number_format($b['amount_limit'], 0) ?></div>
                 </div>
             </div>
 
@@ -88,10 +92,14 @@
                 <input type="number" name="amount_limit" class="form-control mb-3" required>
                 
                 <label class="form-label small fw-bold text-uppercase text-secondary">Period</label>
-                <div class="d-flex gap-3">
-                    <div class="form-check"><input class="form-check-input" type="radio" name="period" value="monthly" checked id="pM"><label for="pM">Monthly</label></div>
-                    <div class="form-check"><input class="form-check-input" type="radio" name="period" value="weekly" id="pW"><label for="pW">Weekly</label></div>
-                </div>
+                    <div class="d-flex gap-3">
+                        <div class="form-check"><input class="form-check-input" type="radio" name="period" value="monthly" checked id="pM"><label for="pM">Monthly</label></div>
+                        <div class="form-check"><input class="form-check-input" type="radio" name="period" value="weekly" id="pW"><label for="pW">Weekly</label></div>
+                    </div>
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" name="rollover" value="1" id="budgetRollover">
+                        <label class="form-check-label" for="budgetRollover">Roll over unused amount to next month</label>
+                    </div>
             </div>
             <div class="modal-footer border-0 pt-0">
                 <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">Save Budget</button>

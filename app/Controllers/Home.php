@@ -32,10 +32,33 @@ class Home extends BaseController
         return view('faq');
     }
 
+    public function health()
+    {
+        $db = \Config\Database::connect();
+        $dbStatus = 'ok';
+        try {
+            $db->initialize();
+            $db->simpleQuery('SELECT 1');
+        } catch (\Throwable $e) {
+            $dbStatus = 'error: ' . $e->getMessage();
+        }
+
+        $data = [
+            'status'    => $dbStatus === 'ok' ? 'ok' : 'degraded',
+            'database'  => $dbStatus,
+            'timestamp' => date('c'),
+            'app'       => 'Mpesa Analyzer',
+            'version'   => '2.1.0',
+        ];
+
+        return $this->response->setJSON($data);
+    }
+
     public function rescan()
     {
         $userId = auth()->user()->id;
-        $fastApiUrl = 'http://mpesa-analyser-docker:9050/process/for-user/' . $userId;
+        $mlBase = (string) config('MlBackend')->baseUrl;
+        $fastApiUrl = $mlBase . '/process/for-user/' . $userId;
 
         $client = \Config\Services::curlrequest();
         try {
@@ -230,7 +253,8 @@ class Home extends BaseController
         $db->transComplete();
 
         // Now trigger the LLM pipeline
-        $fastApiUrl = 'http://mpesa-analyser-docker:9050/process/for-user/' . $userId;
+        $mlBase = (string) config('MlBackend')->baseUrl;
+        $fastApiUrl = $mlBase . '/process/for-user/' . $userId;
         $client = \Config\Services::curlrequest();
         try {
             $resp = $client->post($fastApiUrl, ['timeout' => 10]);

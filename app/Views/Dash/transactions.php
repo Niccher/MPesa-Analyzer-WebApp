@@ -50,6 +50,7 @@
 <?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
+<?php $cs = currency_symbol(); ?>
 <div class="card trx-card mb-4">
     <div class="card-body p-3">
         <div class="table-responsive">
@@ -109,7 +110,7 @@
                                     <span class="fw-bold small <?= $dir === 'incoming' ? 'text-success' : ($dir === 'outgoing' ? 'text-danger' : 'text-muted') ?>">
                                         <?php if ($amt > 0): ?>
                                             <?= $dir === 'incoming' ? '+' : ($dir === 'outgoing' ? '-' : '') ?>
-                                            Ksh <?= number_format($amt, 2) ?>
+                                            <?= $cs ?> <?= number_format($amt, 2) ?>
                                         <?php else: ?>
                                             —
                                         <?php endif; ?>

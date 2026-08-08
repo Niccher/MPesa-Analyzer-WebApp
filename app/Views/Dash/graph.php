@@ -105,6 +105,8 @@
 
 <?= $this->section('content') ?>
 
+<?php $cs = currency_symbol(); ?>
+
 <!-- Summary Row -->
 <div class="row g-4 mb-4">
     <div class="col-lg-3 col-md-6">
@@ -115,7 +117,7 @@
                 </div>
                 <div>
                     <h6 class="text-secondary fw-bold mb-0">Total Volume</h6>
-                    <h3 class="fw-bold mb-0">Ksh <?= number_format(array_sum($analytics['spending'] ?? []) + array_sum($analytics['receiving'] ?? []), 0) ?></h3>
+                    <h3 class="fw-bold mb-0"><?= $cs ?> <?= number_format(array_sum($analytics['spending'] ?? []) + array_sum($analytics['receiving'] ?? []), 0) ?></h3>
                 </div>
             </div>
             <div class="small text-success mt-2"><i class="fa-solid fa-circle-check me-1"></i> 30-day aggregate</div>
@@ -129,7 +131,7 @@
                 </div>
                 <div>
                     <h6 class="text-secondary fw-bold mb-0">Total Inflow</h6>
-                    <h3 class="fw-bold mb-0 text-success">Ksh <?= number_format(array_sum($analytics['receiving'] ?? []), 0) ?></h3>
+                    <h3 class="fw-bold mb-0 text-success"><?= $cs ?> <?= number_format(array_sum($analytics['receiving'] ?? []), 0) ?></h3>
                 </div>
             </div>
             <div class="small text-muted mt-2"><?= number_format(count(array_filter($analytics['receiving'] ?? []))) ?> days with activity</div>
@@ -143,7 +145,7 @@
                 </div>
                 <div>
                     <h6 class="text-secondary fw-bold mb-0">Total Outflow</h6>
-                    <h3 class="fw-bold mb-0 text-danger">Ksh <?= number_format(array_sum($analytics['spending'] ?? []), 0) ?></h3>
+                    <h3 class="fw-bold mb-0 text-danger"><?= $cs ?> <?= number_format(array_sum($analytics['spending'] ?? []), 0) ?></h3>
                 </div>
             </div>
             <div class="small text-muted mt-2">Sent, Paid, and Withdrawn</div>
@@ -158,7 +160,7 @@
                 <div>
                     <h6 class="text-secondary fw-bold mb-0">Net Cash Flow</h6>
                     <?php $netFlow = array_sum($analytics['receiving'] ?? []) - array_sum($analytics['spending'] ?? []); ?>
-                    <h3 class="fw-bold mb-0 <?= $netFlow >= 0 ? 'text-success' : 'text-danger' ?>">Ksh <?= number_format(abs($netFlow), 0) ?></h3>
+                    <h3 class="fw-bold mb-0 <?= $netFlow >= 0 ? 'text-success' : 'text-danger' ?>"><?= $cs ?> <?= number_format(abs($netFlow), 0) ?></h3>
                 </div>
             </div>
             <div class="small mt-2 <?= $netFlow >= 0 ? 'text-success' : 'text-danger' ?>">
@@ -315,7 +317,7 @@
                             <span class="fw-bold small <?= $dir === 'incoming' ? 'text-success' : ($dir === 'outgoing' ? 'text-danger' : 'text-muted') ?>">
                                 <?php if ($amt > 0): ?>
                                     <?= $dir === 'incoming' ? '+' : ($dir === 'outgoing' ? '-' : '') ?>
-                                    Ksh <?= number_format($amt, 2) ?>
+                                    <?= $cs ?> <?= number_format($amt, 2) ?>
                                 <?php else: ?>
                                     —
                                 <?php endif; ?>
@@ -452,7 +454,7 @@
                 y: { 
                     beginAtZero: true, 
                     grid: { color: 'rgba(0,0,0,0.03)', borderDash: [5, 5] },
-                    ticks: { callback: value => 'Ksh ' + value.toLocaleString() }
+                    ticks: { callback: value => '<?= $cs ?> ' + value.toLocaleString() }
                 },
                 x: { 
                     grid: { display: false },

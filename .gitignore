@@ -1,16 +1,49 @@
 #-------------------------
-# Operating Specific Junk Files
+# CodeIgniter 4
+#-------------------------
+vendor/
+
+# Env files (never commit real credentials)
+.env
+.env.*
+!.env.example
+
+# Application runtime data
+writable/cache/*
+!writable/cache/index.html
+writable/logs/*
+!writable/logs/index.html
+writable/session/*
+!writable/session/index.html
+writable/uploads/*
+!writable/uploads/index.html
+writable/debugbar/*
+!writable/debugbar/index.html
+writable/*.sqlite
+writable/*.sqlite-journal
+
+# Views cache (CI4 stores compiled views under writable/cache)
+
+# Test artifacts
+tests/coverage*
+phpunit
+phpunit.xml
+.phpunit.result.cache
+.phpunit.cache/
+build/
+*.coverage
+
+#-------------------------
+# Operating System Junk
 #-------------------------
 
 # OS X
 .DS_Store
 .AppleDouble
 .LSOverride
-
-# OS X Thumbnails
 ._*
 
-# Windows image file caches
+# Windows
 Thumbs.db
 ehthumbs.db
 Desktop.ini
@@ -29,6 +62,8 @@ $RECYCLE.BIN/
 
 # Linux
 *~
+*.swp
+*.swo
 
 # KDE directory preferences
 .directory
@@ -37,97 +72,51 @@ $RECYCLE.BIN/
 .Trash-*
 
 #-------------------------
-# Environment Files
+# Logs & Temp Files
 #-------------------------
-# These should never be under version control,
-# as it poses a security risk.
-.env
-.vagrant
-Vagrantfile
-
-#-------------------------
-# Temporary Files
-#-------------------------
-writable/cache/*
-!writable/cache/index.html
-
-writable/logs/*
-!writable/logs/index.html
-
-writable/session/*
-!writable/session/index.html
-
-writable/uploads/*
-!writable/uploads/index.html
-
-writable/debugbar/*
-
+*.log
 php_errors.log
+*.tmp
+*.temp
 
 #-------------------------
-# User Guide Temp Files
-#-------------------------
-user_guide_src/build/*
-user_guide_src/cilexer/build/*
-user_guide_src/cilexer/dist/*
-user_guide_src/cilexer/pycilexer.egg-info/*
-
-#-------------------------
-# Test Files
-#-------------------------
-tests/coverage*
-
-# Don't save phpunit under version control.
-phpunit
-
-#-------------------------
-# Composer
-#-------------------------
-vendor/
-
-#-------------------------
-# IDE / Development Files
+# IDE / Editors
 #-------------------------
 
-# Modules Testing
-_modules/*
-
-# phpenv local config
-.php-version
-
-# Jetbrains editors (PHPStorm, etc)
+# Jetbrains (PHPStorm, etc)
 .idea/
 *.iml
 
 # Netbeans
 nbproject/
-build/
 nbbuild/
-dist/
 nbdist/
-nbactions.xml
-nb-configuration.xml
 .nb-gradle/
 
 # Sublime Text
-*.tmlanguage.cache
-*.tmPreferences.cache
-*.stTheme.cache
 *.sublime-workspace
 *.sublime-project
-.phpintel
-/api/
 
 # Visual Studio Code
 .vscode/
 
-/results/
-/phpunit*.xml
-/.phpunit.*.cache
+# phpenv local config
+.php-version
 
+# Modules Testing
+_modules/*
 
-# Ignore writable logs and debugbar
-writable/logs/*
-!writable/logs/index.html
-writable/debugbar/*
-!writable/debugbar/index.html
+#-------------------------
+# Databases / Dumps (security risk)
+#-------------------------
+*.sql
+*.sql.gz
+*.dump
+app_auth_tokens.sql
+
+#-------------------------
+# Docker / Misc
+#-------------------------
+.vagrant
+Vagrantfile
+node_modules/

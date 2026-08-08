@@ -74,6 +74,8 @@
 
 <?= $this->section('content') ?>
 
+<?php $cs = currency_symbol(); ?>
+
 <?php if (!empty($batches)) : ?>
 
 <!-- Summary Row -->
@@ -92,7 +94,7 @@
     </div>
     <div class="col-md-3 col-6">
         <div class="summary-stat text-center">
-            <div class="fw-bold fs-4 text-primary">Ksh <?= number_format($total_amount_all, 0) ?></div>
+            <div class="fw-bold fs-4 text-primary"><?= $cs ?> <?= number_format($total_amount_all, 0) ?></div>
             <div class="text-muted small text-uppercase" style="font-weight: 600; letter-spacing: 0.5px;">Total Value</div>
         </div>
     </div>
@@ -196,7 +198,7 @@
                             <?php endif; ?>
                         </td>
                         <td class="fw-semibold text-nowrap">
-                            Ksh <?= number_format($b->total_amount, 2) ?>
+                            <?= $cs ?> <?= number_format($b->total_amount, 2) ?>
                         </td>
                         <td class="text-nowrap">
                             <?= number_format($b->counterparties) ?>

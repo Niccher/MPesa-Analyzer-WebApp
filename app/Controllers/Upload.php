@@ -29,22 +29,22 @@ class Upload extends BaseController
     /**
      * Upload and process SMS data file
      */
+    private const UPLOAD_COOLDOWN_SECONDS = 30;
+
     public function upload(): ResponseInterface {
         helper('text');
         $modUpload = new ModUploads();
-        $dated = time(); // Use Unix timestamp for BIGINT column in tbl_Loot
+        $dated = time();
         $uuid = random_string('alnum', 16);
         $token = (string) $this->request->getPost('varToken');
         $devId = (string) $this->request->getPost('varDevId');
-        
-        // Enhanced logging for debugging
+
         log_message('info', "=== UPLOAD REQUEST START ===");
         log_message('info', 'Upload request: token=' . substr($token, 0, 8) . '... devId=' . $devId);
         log_message('debug', 'Request method: ' . $this->request->getMethod());
         log_message('debug', 'POST keys: ' . json_encode(array_keys($this->request->getPost())));
         log_message('debug', 'FILES keys: ' . json_encode(array_keys($_FILES ?? [])));
 
-        // Validate request method
         if (!$this->request->is('post')) {
             log_message('warning', 'Upload: Method not allowed (not POST)');
             return $this->respond([
@@ -54,7 +54,6 @@ class Upload extends BaseController
             ], 405);
         }
 
-        // Validate input
         $validation = $this->validate([
             'varToken' => 'required|string|min_length[8]|max_length[64]',
             'varDevId' => 'required|string|min_length[8]|max_length[64]',
@@ -79,6 +78,25 @@ class Upload extends BaseController
                 'time' => $dated,
                 'message' => 'Device not registered. Re-link the app with your token (device fingerprint required).'
             ], 422);
+        }
+
+        // Rate limiting: reject if last upload from this token was within cooldown
+        $lastUpload = $this->db->table('tbl_Loot')
+            ->select('MAX(loot_Created) as last')
+            ->where('loot_Owner', $token)
+            ->get()
+            ->getRow();
+        if ($lastUpload && $lastUpload->last) {
+            $lastTime = strtotime($lastUpload->last);
+            if ($lastTime && (time() - $lastTime) < self::UPLOAD_COOLDOWN_SECONDS) {
+                $wait = self::UPLOAD_COOLDOWN_SECONDS - (time() - $lastTime);
+                log_message('info', "Upload rate-limited for token {$token}: wait {$wait}s");
+                return $this->respond([
+                    'status' => self::STATUS_ERROR,
+                    'time' => $dated,
+                    'message' => "Please wait {$wait} seconds before uploading again."
+                ], 429);
+            }
         }
 
         try {

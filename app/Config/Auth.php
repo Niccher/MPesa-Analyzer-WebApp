@@ -402,6 +402,11 @@ class Auth extends ShieldAuth
      */
     public function loginRedirect(): string
     {
+        $user = auth()->user();
+        if ($user !== null && ($user->inGroup('superadmin') || $user->can('admin.access'))) {
+            return '/admin';
+        }
+
         $url = setting('Auth.redirects')['login'];
 
         return $this->getUrl($url);

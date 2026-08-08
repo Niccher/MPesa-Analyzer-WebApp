@@ -153,7 +153,7 @@
                                 <span class="fw-bold small <?= $dir === 'incoming' ? 'text-success' : ($dir === 'outgoing' ? 'text-danger' : 'text-muted') ?>">
                                     <?php if ($amt > 0): ?>
                                         <?= $dir === 'incoming' ? '+' : ($dir === 'outgoing' ? '-' : '') ?>
-                                        Ksh <?= number_format($amt, 2) ?>
+                                        <?= currency_symbol() ?> <?= number_format($amt, 2) ?>
                                     <?php else: ?>
                                         —
                                     <?php endif; ?>

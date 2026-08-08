@@ -49,6 +49,8 @@
 
 <?= $this->section('content') ?>
 
+<?php $cs = currency_symbol(); ?>
+
 <!-- Summary Cards & Overall Trends -->
 <div class="row g-4 mb-4">
     <div class="col-md-3">
@@ -62,14 +64,14 @@
                 <span class="trend-badge <?= $trendClass ?>"><?= $trendIcon ?> <?= $trends['percentage'] ?>% vs Last Mo.</span>
             </div>
             <p class="text-secondary fw-bold small mb-1">Total Outflow</p>
-            <h3 class="fw-bold mb-0 text-danger">Ksh <?= number_format($report['total_out'], 2) ?></h3>
+            <h3 class="fw-bold mb-0 text-danger"><?= $cs ?> <?= number_format($report['total_out'], 2) ?></h3>
         </div>
     </div>
     <div class="col-md-3">
         <div class="glass-card p-4 h-100">
             <div class="metric-icon bg-success-subtle text-success"><i class="fa-solid fa-arrow-down-long"></i></div>
             <p class="text-secondary fw-bold small mb-1">Total Inflow</p>
-            <h3 class="fw-bold mb-0 text-success">Ksh <?= number_format($report['total_in'], 2) ?></h3>
+            <h3 class="fw-bold mb-0 text-success"><?= $cs ?> <?= number_format($report['total_in'], 2) ?></h3>
         </div>
     </div>
     <div class="col-md-3">
@@ -79,7 +81,7 @@
             </div>
             <p class="text-secondary fw-bold small mb-1">Net Balance</p>
             <h3 class="fw-bold mb-0 <?= $report['net'] >= 0 ? 'text-primary' : 'text-warning' ?>">
-                <?= $report['net'] >= 0 ? '+' : '' ?>Ksh <?= number_format($report['net'], 2) ?>
+                <?= $report['net'] >= 0 ? '+' : '' ?><?= $cs ?> <?= number_format($report['net'], 2) ?>
             </h3>
         </div>
     </div>
@@ -122,7 +124,7 @@
                         <span style="width:10px;height:10px;background:<?= $catColors[$idx%5] ?>;border-radius:3px;"></span>
                         <small class="text-muted"><?= $name ?></small>
                     </div>
-                    <small class="fw-bold">Ksh <?= number_format($val, 0) ?></small>
+                    <small class="fw-bold"><?= $cs ?> <?= number_format($val, 0) ?></small>
                 </div>
                 <?php $idx++; endforeach; ?>
             </div>
@@ -149,7 +151,7 @@
                 <?php foreach ($recurring as $rec): ?>
                 <tr>
                     <td class="fw-bold"><?= htmlspecialchars($rec->counterparty) ?></td>
-                    <td class="text-danger fw-bold">Ksh <?= number_format($rec->amount, 2) ?></td>
+                    <td class="text-danger fw-bold"><?= $cs ?> <?= number_format($rec->amount, 2) ?></td>
                     <td><span class="badge bg-light text-dark"><?= $rec->occurs ?> times</span></td>
                     <td class="text-muted timestamp" data-timestamp="<?= strtotime($rec->last_paid) ?>">
                         <?= date('d M Y', strtotime($rec->last_paid)) ?>
@@ -182,7 +184,7 @@
                 <div class="flex-grow-1">
                     <div class="d-flex justify-content-between">
                         <span class="fw-bold small"><?= htmlspecialchars($cp->counterparty) ?></span>
-                        <span class="small" style="color:<?= $c ?>">Ksh <?= number_format($cp->total_amount, 0) ?></span>
+                        <span class="small" style="color:<?= $c ?>"><?= $cs ?> <?= number_format($cp->total_amount, 0) ?></span>
                     </div>
                     <div class="progress rounded-pill mt-1" style="height:5px;background:#f0f0f0;">
                         <div class="progress-bar" style="width:<?= $perc ?>%;background:<?= $c ?>;"></div>

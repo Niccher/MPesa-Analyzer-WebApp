@@ -100,6 +100,8 @@
 
 <?= $this->section('content') ?>
 
+<?php $cs = currency_symbol(); ?>
+
 <?php
 // Sort alerts so Danger is top
 $alerts = $smart_alerts ?? [];
@@ -175,13 +177,13 @@ usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
                     <i class="fa-solid fa-wallet metric-icon opacity-50"></i>
                 </div>
                 <div class="metric-box text-center mb-0">
-                    <h2 class="fw-bold mb-1">Ksh <?= number_format($metrics['current_balance'], 2) ?></h2>
+                    <h2 class="fw-bold mb-1"><?= $cs ?> <?= number_format($metrics['current_balance'], 2) ?></h2>
                     <p class="small mb-0 opacity-75">Current Balance</p>
                 </div>
                 <div class="mt-3 small">
                     <div class="d-flex justify-content-between opacity-75 mb-1">
                         <span>Fuliza Limit:</span>
-                        <span class="fw-bold">Ksh <?= number_format($metrics['fuliza_balance'], 2) ?></span>
+                        <span class="fw-bold"><?= $cs ?> <?= number_format($metrics['fuliza_balance'], 2) ?></span>
                     </div>
                 </div>
             </div>
@@ -197,17 +199,17 @@ usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
                     <i class="fa-solid fa-paper-plane metric-icon opacity-50"></i>
                 </div>
                 <div class="metric-box text-center mb-0">
-                    <h2 class="fw-bold mb-1">Ksh <?= number_format($metrics['total_sent_30'], 2) ?></h2>
+                    <h2 class="fw-bold mb-1"><?= $cs ?> <?= number_format($metrics['total_sent_30'], 2) ?></h2>
                     <p class="small mb-0 opacity-75">Total Outflow</p>
                 </div>
                 <div class="mt-3 small">
                     <div class="d-flex justify-content-between opacity-75 mb-1">
                         <span>Daily Avg:</span>
-                        <span class="fw-bold text-white">Ksh <?= number_format($metrics['daily_avg_spend'] ?? 0, 0) ?></span>
+                        <span class="fw-bold text-white"><?= $cs ?> <?= number_format($metrics['daily_avg_spend'] ?? 0, 0) ?></span>
                     </div>
                     <div class="d-flex justify-content-between opacity-75">
                         <span>Max Trans:</span>
-                        <span class="fw-bold text-white">Ksh <?= number_format($metrics['max_transaction'] ?? 0, 0) ?></span>
+                        <span class="fw-bold text-white"><?= $cs ?> <?= number_format($metrics['max_transaction'] ?? 0, 0) ?></span>
                     </div>
                 </div>
             </div>
@@ -223,17 +225,17 @@ usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
                     <i class="fa-solid fa-hand-holding-dollar metric-icon opacity-50"></i>
                 </div>
                 <div class="metric-box text-center mb-0">
-                    <h2 class="fw-bold mb-1">Ksh <?= number_format($metrics['total_received_30'], 2) ?></h2>
+                    <h2 class="fw-bold mb-1"><?= $cs ?> <?= number_format($metrics['total_received_30'], 2) ?></h2>
                     <p class="small mb-0 opacity-75">Total Inflow</p>
                 </div>
                 <div class="mt-3 small">
                     <div class="d-flex justify-content-between opacity-75 mb-1">
                         <span>Banks/Other:</span>
-                        <span class="fw-bold">Ksh <?= number_format($received_summary['banks'], 0) ?></span>
+                        <span class="fw-bold"><?= $cs ?> <?= number_format($received_summary['banks'], 0) ?></span>
                     </div>
                     <div class="d-flex justify-content-between opacity-75">
                         <span>M-Shwari/KCB:</span>
-                        <span class="fw-bold">Ksh <?= number_format($received_summary['mshwari_kcb'], 0) ?></span>
+                        <span class="fw-bold"><?= $cs ?> <?= number_format($received_summary['mshwari_kcb'], 0) ?></span>
                     </div>
                 </div>
             </div>
@@ -307,7 +309,7 @@ usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
                             </div>
                         </div>
                         <div class="text-end">
-                            <span class="h6 fw-bold mb-0" style="color: <?= $color ?>;">Ksh <?= number_format($entity->total_amount, 2) ?></span>
+                            <span class="h6 fw-bold mb-0" style="color: <?= $color ?>;"><?= $cs ?> <?= number_format($entity->total_amount, 2) ?></span>
                         </div>
                     </div>
                     <div class="progress rounded-pill shadow-none" style="height: 8px; background-color: #f0f0f0;">

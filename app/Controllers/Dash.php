@@ -32,6 +32,8 @@ class Dash extends BaseController
         $modBudget   = new ModBudget();
         $modInsights = new ModInsights();
 
+        $userBudgets = $modBudget->getBudgets($userId);
+
         $data = [
             'device_filter'       => $deviceToken,
             'linked_devices'      => $linkedDevices,
@@ -41,7 +43,8 @@ class Dash extends BaseController
             'received_summary'    => $received_summary,
             'recent_transactions' => $recent_transactions,
             'top_counterparties'  => $mod_uploads->getTopCounterparties(5, $deviceToken),
-            'budget_alerts'       => $modBudget->getBudgetProgress($modBudget->getBudgets()),
+            'budget_alerts'       => $modBudget->getBudgetProgress($userBudgets),
+            'budgets'             => $userBudgets,
             'smart_alerts'        => $modInsights->getSmartAlerts($deviceToken),
             'trends'              => $modInsights->getSpendingTrends($deviceToken),
             'health_score'        => $modInsights->getFinancialHealthScore($deviceToken),

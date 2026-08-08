@@ -31,6 +31,7 @@ $routes->set404Override();
 // route since we don't have to scan directories.
 //$routes->get('/', 'Auths::index');
 $routes->get('/', 'Home::index');
+$routes->get('/health', 'Home::health');
 $routes->get('/dashboard', 'Dash::index', ['filter' => 'session']);
 $routes->get('/dashboard/graph', 'Graph::index', ['filter' => 'session']);
 $routes->get('/dashboard/search', 'Search::index', ['filter' => 'session']);
@@ -47,6 +48,49 @@ $routes->get('/dashboard/history', 'History::index', ['filter' => 'session']);
 $routes->get('/dashboard/info', 'Info::index', ['filter' => 'session']);
 $routes->post('/dashboard/info/generate-token', 'Info::generateToken', ['filter' => 'session']);
 $routes->post('/dashboard/info/revoke-token', 'Info::revokeToken', ['filter' => 'session']);
+
+// Settings
+$routes->get('/dashboard/settings', 'Settings::index', ['filter' => 'session']);
+$routes->get('/dashboard/settings/profile', 'Settings::profile', ['filter' => 'session']);
+$routes->post('/dashboard/settings/profile/save', 'Settings::saveProfile', ['filter' => 'session']);
+$routes->get('/dashboard/settings/notifications', 'Settings::notifications', ['filter' => 'session']);
+$routes->post('/dashboard/settings/notifications/save', 'Settings::saveNotifications', ['filter' => 'session']);
+$routes->get('/dashboard/settings/preferences', 'Settings::preferences', ['filter' => 'session']);
+$routes->post('/dashboard/settings/preferences/save', 'Settings::savePreferences', ['filter' => 'session']);
+$routes->get('/dashboard/settings/security', 'Settings::security', ['filter' => 'session']);
+$routes->post('/dashboard/settings/security/revoke-device', 'Settings::revokeDevice', ['filter' => 'session']);
+$routes->get('/dashboard/settings/data', 'Settings::data', ['filter' => 'session']);
+$routes->post('/dashboard/settings/data/purge', 'Settings::purgeData', ['filter' => 'session']);
+$routes->post('/dashboard/settings/data/delete-upload', 'Settings::deleteUpload', ['filter' => 'session']);
+$routes->get('/dashboard/settings/export/csv', 'Settings::exportCsv', ['filter' => 'session']);
+$routes->get('/dashboard/settings/export/json', 'Settings::exportJson', ['filter' => 'session']);
+$routes->get('/dashboard/settings/data/export-settings', 'Settings::exportSettings', ['filter' => 'session']);
+$routes->post('/dashboard/settings/data/import-settings', 'Settings::importSettings', ['filter' => 'session']);
+$routes->get('/dashboard/settings/data/export-rules', 'Settings::exportCategoryRules', ['filter' => 'session']);
+$routes->post('/dashboard/settings/data/import-rules', 'Settings::importCategoryRules', ['filter' => 'session']);
+
+// Tags
+$routes->get('/dashboard/settings/tags', 'Settings::tags', ['filter' => 'session']);
+$routes->post('/dashboard/settings/tags/save', 'Settings::saveTag', ['filter' => 'session']);
+$routes->post('/dashboard/settings/tags/delete', 'Settings::deleteTag', ['filter' => 'session']);
+
+// Notes (AJAX)
+$routes->post('/dashboard/settings/notes/save', 'Settings::saveNote', ['filter' => 'session']);
+$routes->get('/dashboard/settings/notes/get/(:num)', 'Settings::getNote/$1', ['filter' => 'session']);
+
+// Spending Goals
+$routes->get('/dashboard/settings/goals', 'Settings::goals', ['filter' => 'session']);
+$routes->post('/dashboard/settings/goals/save', 'Settings::saveGoal', ['filter' => 'session']);
+$routes->post('/dashboard/settings/goals/delete', 'Settings::deleteGoal', ['filter' => 'session']);
+
+// Recurring Transactions
+$routes->get('/dashboard/settings/recurring', 'Settings::recurring', ['filter' => 'session']);
+$routes->post('/dashboard/settings/recurring/save', 'Settings::saveRecurring', ['filter' => 'session']);
+$routes->post('/dashboard/settings/recurring/delete', 'Settings::deleteRecurring', ['filter' => 'session']);
+
+// Report Scheduling
+$routes->get('/dashboard/settings/report-schedule', 'Settings::reportSchedule', ['filter' => 'session']);
+$routes->post('/dashboard/settings/report-schedule/save', 'Settings::saveReportSchedule', ['filter' => 'session']);
 
 // Analytics & Insights
 $routes->get('/dashboard/reports', 'Reports::index', ['filter' => 'session']);
@@ -90,11 +134,48 @@ $routes->add('/process/get/my_summary_calculations', 'Upload::upload_summary_cal
     $routes->add('/process/get/my_transactions_by_category', 'Upload::transactions_by_category');
     $routes->add('/process/get/my_sender_profiles', 'Upload::sender_profiles');
 
+$routes->add('/api/settings/profile', 'Api::profile');
+$routes->add('/api/settings/profile/update', 'Api::updateProfile');
+$routes->add('/api/settings/preferences', 'Api::preferences');
+$routes->add('/api/settings/preferences/save', 'Api::savePreferences');
+$routes->add('/api/transactions/notes/get/(:num)', 'Api::noteGet/$1');
+$routes->add('/api/transactions/notes/save', 'Api::noteSave');
+$routes->add('/api/process/scan', 'Api::scanTrigger');
+$routes->add('/api/process/progress', 'Api::scanProgress');
+$routes->add('/api/export/(:any)', 'Api::export/$1');
+
 $routes->add('/process/test', 'Testar::random');
 $routes->add('/process/test_data', 'Upload::prepare_dataset');
 $routes->add('/process/verify_token', 'UserAuth::verify_token');
 $routes->add('/process/delete_account', 'UserAuth::delete_account');
 $routes->add('/process/delete_data', 'UserAuth::delete_data');
+
+// Admin routes
+$routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
+    $routes->get('/', 'Admin\Overview::index');
+    $routes->get('', 'Admin\Overview::index');
+
+    // ML Backend
+    $routes->get('ml', 'Admin\Ml::index');
+    $routes->get('ml/models', 'Admin\Ml::models');
+    $routes->get('ml/config', 'Admin\Ml::config');
+    $routes->get('ml/test', 'Admin\Ml::test');
+    $routes->post('ml/config/save', 'Admin\Ml::saveConfig');
+    $routes->post('ml/models/activate', 'Admin\Ml::activateModel');
+    $routes->post('ml/test/run', 'Admin\Ml::runTest');
+
+    // Maintenance
+    $routes->get('settings/maintenance', 'Admin\Maintenance::index');
+    $routes->post('settings/maintenance/toggle', 'Admin\Maintenance::toggle');
+    $routes->post('settings/maintenance/schedule', 'Admin\Maintenance::schedule');
+    $routes->get('settings/maintenance/db-info', 'Admin\Maintenance::dbInfo');
+    $routes->get('settings/maintenance/cron', 'Admin\Maintenance::cron');
+    $routes->post('settings/maintenance/cron/run', 'Admin\Maintenance::runCron');
+
+    // Cron jobs
+    $routes->get('crons', 'Admin\Crons::index');
+    $routes->post('crons/save', 'Admin\Crons::save');
+});
 
 // Explicit Shield Authentication Routes
 $routes->group('', ['namespace' => '\CodeIgniter\Shield\Controllers'], static function ($routes) {
