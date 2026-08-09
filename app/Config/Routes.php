@@ -168,13 +168,29 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
     $routes->get('settings/maintenance', 'Admin\Maintenance::index');
     $routes->post('settings/maintenance/toggle', 'Admin\Maintenance::toggle');
     $routes->post('settings/maintenance/schedule', 'Admin\Maintenance::schedule');
-    $routes->get('settings/maintenance/db-info', 'Admin\Maintenance::dbInfo');
-    $routes->get('settings/maintenance/cron', 'Admin\Maintenance::cron');
-    $routes->post('settings/maintenance/cron/run', 'Admin\Maintenance::runCron');
+
+    // Database info
+    $routes->get('db-info', 'Admin\DbInfo::index');
 
     // Cron jobs
     $routes->get('crons', 'Admin\Crons::index');
     $routes->post('crons/save', 'Admin\Crons::save');
+    $routes->post('crons/delete', 'Admin\Crons::delete');
+    $routes->post('crons/toggle', 'Admin\Crons::toggle');
+    $routes->post('crons/run', 'Admin\Crons::run');
+    $routes->post('crons/output', 'Admin\Crons::output');
+
+    // User management
+    $routes->get('users', 'Admin\Users::index');
+    $routes->post('users/toggle', 'Admin\Users::toggle');
+    $routes->post('users/change-group', 'Admin\Users::changeGroup');
+    $routes->post('users/delete', 'Admin\Users::delete');
+
+    // Email notifications
+    $routes->get('notifications', 'Admin\Notifications::index');
+    $routes->post('notifications/save-config', 'Admin\Notifications::saveConfig');
+    $routes->post('notifications/send-test-email', 'Admin\Notifications::sendTestEmail');
+    $routes->post('notifications/save-triggers', 'Admin\Notifications::saveTriggers');
 });
 
 // Explicit Shield Authentication Routes

@@ -234,6 +234,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link <?= strpos($currentURL, 'admin/users') !== false ? 'active' : '' ?>" href="<?= base_url('admin/users') ?>">
+                        <i class="fa-solid fa-users"></i> Users
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link <?= strpos($currentURL, 'admin/ml') !== false ? 'active' : '' ?>" href="<?= base_url('admin/ml') ?>">
                         <i class="fa-solid fa-microchip"></i> ML Backend
                     </a>
@@ -244,8 +249,18 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link <?= strpos($currentURL, 'admin/db-info') !== false ? 'active' : '' ?>" href="<?= base_url('admin/db-info') ?>">
+                        <i class="fa-solid fa-database"></i> DB Info
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link <?= strpos($currentURL, 'admin/crons') !== false ? 'active' : '' ?>" href="<?= base_url('admin/crons') ?>">
                         <i class="fa-solid fa-clock"></i> Cron Jobs
+                    </a>
+                </li>
+<li class="nav-item">
+                    <a class="nav-link <?= strpos($currentURL, 'admin/notifications') !== false ? 'active' : '' ?>" href="<?= base_url('admin/notifications') ?>">
+                        <i class="fa-solid fa-envelope"></i> Email Notifications
                     </a>
                 </li>
             </ul>

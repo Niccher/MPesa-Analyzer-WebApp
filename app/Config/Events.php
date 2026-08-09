@@ -46,3 +46,27 @@ Events::on('pre_system', static function () {
         Services::toolbar()->respond();
     }
 });
+
+/*
+ * --------------------------------------------------------------------
+ * Application Events
+ * --------------------------------------------------------------------
+ */
+
+// Send a welcome email when a new user registers through Shield.
+Events::on('register', static function ($user) {
+    if (! \App\Libraries\Notifier::isTriggerEnabled('signup')) {
+        return;
+    }
+
+    $email = $user->email ?? ($user->getEmail() ?? '');
+    if (empty($email)) {
+        return;
+    }
+
+    \App\Libraries\Notifier::send(
+        $email,
+        'Welcome to Mpesa Analyzer',
+        'Welcome to Mpesa Analyzer! Your account has been created successfully.'
+    );
+});

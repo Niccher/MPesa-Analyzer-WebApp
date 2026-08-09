@@ -69,6 +69,18 @@ class LlmProcess extends BaseCommand
                 } else {
                     CLI::write('Job #' . $jobId . ' (user ' . $userId . '): processed ' . $messagesProcessed . ' messages.', 'green');
                     $triggered++;
+
+                    if (\App\Libraries\Notifier::isTriggerEnabled('ml_complete')) {
+                        $user = \auth()->getProvider()->findById($userId);
+                        $userEmail = $user ? $user->email : '';
+                        if (!empty($userEmail)) {
+                            \App\Libraries\Notifier::send(
+                                $userEmail,
+                                'Your Mpesa Analyzer analysis is ready',
+                                'Your spending analysis has finished processing. Log in to view your updated insights and results.'
+                            );
+                        }
+                    }
                 }
             } catch (\Throwable $e) {
                 $db->table('tbl_Processing_Jobs')

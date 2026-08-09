@@ -13,21 +13,19 @@
 <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-3">
     <div>
         <h2 class="fw-bold mb-1" style="color: var(--primary);"><i class="fa-solid fa-tools me-2"></i> Maintenance Mode</h2>
-        <p class="text-secondary mb-0">Configure maintenance windows and database maintenance.</p>
+        <p class="text-secondary mb-0">Configure maintenance mode and scheduled maintenance windows.</p>
     </div>
 </div>
 <?= $this->endSection() ?>
 <?= $this->section('content') ?>
 
 <div class="row g-4">
-    <div class="col-lg-8">
+    <div class="col-lg-12">
         <div class="card settings-card">
             <div class="card-body p-4">
                 <ul class="nav nav-tabs mb-3" role="tablist">
                     <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#maintenanceTab">Maintenance Mode</button></li>
                     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#scheduleTab">Scheduled Maintenance</button></li>
-                    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#dbInfoTab">DB Info</button></li>
-                    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cronTab">Cron Jobs</button></li>
                 </ul>
                 <div class="tab-content">
                     <div class="tab-pane fade show active" id="maintenanceTab">
@@ -44,11 +42,6 @@
                                 <label class="form-label fw-semibold">Maintenance Message</label>
                                 <textarea class="form-control" name="maintenance_message" rows="3"><?= htmlspecialchars($maintenance_message) ?></textarea>
                                 <small class="text-muted">Shown to users when maintenance mode is active.</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold">Allowed IPs (comma-separated)</label>
-                                <input type="text" class="form-control" name="allowed_ips" value="<?= htmlspecialchars($allowed_ips) ?>" placeholder="192.168.1.100, 10.0.0.1">
-                                <small class="text-muted">These IPs can access the site during maintenance.</small>
                             </div>
                             <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold"><i class="fa-solid fa-floppy-disk me-1"></i> Save</button>
                         </form>
@@ -76,46 +69,10 @@
                                     <label class="form-label fw-semibold">Maintenance Message</label>
                                     <textarea class="form-control" name="maintenance_message" rows="2"><?= htmlspecialchars($maintenance_message) ?></textarea>
                                 </div>
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Allowed IPs During Window</label>
-                                    <input type="text" class="form-control" name="allowed_ips" value="<?= htmlspecialchars($allowed_ips) ?>" placeholder="192.168.1.100, 10.0.0.1">
-                                </div>
                                 <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold"><i class="fa-solid fa-calendar-check me-1"></i> Save Schedule</button>
                             </form>
                         </div>
                     </div>
-
-                    <div class="tab-pane fade" id="dbInfoTab">
-                        <?= view('Admin/Maintenance/db_info', [
-                            'tables' => $tables,
-                            'total_tables' => $total_tables,
-                            'db_size_mb' => $db_size_mb,
-                            'db_name' => $db_name,
-                        ]) ?>
-                    </div>
-
-                    <div class="tab-pane fade" id="cronTab">
-                        <?= view('Admin/Maintenance/cron', ['cron_jobs' => $cron_jobs]) ?>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-4">
-        <div class="card settings-card">
-            <div class="card-body p-4">
-                <h5 class="fw-bold mb-3" style="color: var(--primary);">Quick Actions</h5>
-                <div class="d-grid gap-2">
-                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="tab" data-bs-target="#maintenanceTab" onclick="document.querySelector('[data-bs-target=\"#maintenanceTab\"]').click()">
-                        <i class="fa-solid fa-toggle-on me-2"></i> Toggle Maintenance
-                    </button>
-                    <a href="<?= base_url('admin/settings/maintenance/db-info') ?>" class="btn btn-outline-info">
-                        <i class="fa-solid fa-database me-2"></i> View DB Info
-                    </a>
-                    <a href="<?= base_url('admin/settings/maintenance/cron') ?>" class="btn btn-outline-secondary">
-                        <i class="fa-solid fa-clock me-2"></i> Manage Cron Jobs
-                    </a>
                 </div>
             </div>
         </div>

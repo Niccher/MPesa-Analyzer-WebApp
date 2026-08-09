@@ -32,6 +32,12 @@ class ReportsSend extends BaseCommand
             return;
         }
 
+        if (!\App\Libraries\Notifier::isTriggerEnabled('report')) {
+            CLI::write('Report emails are disabled in admin Email Notifications settings.', 'yellow');
+
+            return;
+        }
+
         $sent = 0;
         foreach ($subscribers as $sub) {
             $frequency = $sub['report_schedule_frequency'] ?? 'monthly';

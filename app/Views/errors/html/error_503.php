@@ -15,18 +15,39 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .error-code { font-size: 7rem; font-weight: 800; line-height: 1; margin-bottom: 0.25rem; background: linear-gradient(135deg, #70A1FF 0%, #1E90FF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .error-title { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.75rem; color: #2d3436; }
-        .error-message { font-size: 1rem; color: #636e72; margin-bottom: 2rem; line-height: 1.6; }
+        .error-message { font-size: 1rem; color: #636e72; margin-bottom: 1.25rem; line-height: 1.6; }
+        .expected-end { background: #eef2ff; border: 1px solid #d5dbff; color: #3730a3; padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.95rem; margin-bottom: 1.5rem; }
         .btn-primary { background-color: var(--primary); border: none; padding: 12px 32px; border-radius: 4px; font-weight: 600; transition: all 0.3s; }
         .btn-primary:hover { background-color: #4A4CD4; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(93, 95, 239, 0.35); }
         .illustration { font-size: 4rem; color: #70A1FF; margin-bottom: 0.75rem; }
     </style>
 </head>
 <body>
+    <?php
+        $message = $message ?? 'We are performing scheduled maintenance to make the analyzer even better. We will be back shortly!';
+        $expectedEnd = $expected_end ?? '';
+        $expectedEndDisplay = '';
+        if ($expectedEnd !== '') {
+            try {
+                $dt = new \DateTimeImmutable(str_replace('T', ' ', $expectedEnd), new \DateTimeZone('UTC'));
+                $dt = $dt->setTimezone(new \DateTimeZone('Africa/Nairobi'));
+                $expectedEndDisplay = $dt->format('l, j M Y \a\t g:i A');
+            } catch (\Throwable $e) {
+                $expectedEndDisplay = $expectedEnd;
+            }
+        }
+    ?>
     <div class="error-card">
         <div class="illustration"><i class="fa-solid fa-screwdriver-wrench"></i></div>
         <div class="error-code">503</div>
         <h1 class="error-title">Brief Pause</h1>
-        <p class="error-message">We're performing some maintenance to make the analyzer even better. We'll be back shortly!</p>
+        <p class="error-message"><?= esc($message) ?></p>
+        <?php if ($expectedEndDisplay !== ''): ?>
+            <div class="expected-end">
+                <i class="fa-solid fa-clock me-1"></i> Expected back online:
+                <strong><?= esc($expectedEndDisplay) ?></strong>
+            </div>
+        <?php endif; ?>
         <div class="d-grid gap-2">
             <button onclick="location.reload()" class="btn btn-primary btn-lg"><i class="fa-solid fa-rotate me-2"></i>Check Again</button>
             <a href="/" class="btn btn-link text-decoration-none text-secondary"><i class="fa-solid fa-house me-1"></i>Return Home</a>

@@ -22,5 +22,11 @@ echo "Running database migrations..."
 cd /var/www/html
 php spark migrate --all 2>&1 || echo "WARNING: Migration encountered an issue. Check logs."
 
-echo "Migrations complete. Starting Apache..."
+echo "Migrations complete."
+
+# Start the cron daemon so scheduled jobs run inside the container
+echo "Starting cron daemon..."
+cron
+
+echo "Starting Apache..."
 exec apache2-foreground

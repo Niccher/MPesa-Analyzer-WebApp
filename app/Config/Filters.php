@@ -23,6 +23,7 @@ class Filters extends BaseConfig
         'secureheaders' => SecureHeaders::class,
         'admin'         => \App\Filters\AdminFilter::class,
         'user-area'     => \App\Filters\UserAreaFilter::class,
+        'maintenance'   => \App\Filters\MaintenanceFilter::class,
     ];
 
     /**
@@ -35,6 +36,12 @@ class Filters extends BaseConfig
             // 'csrf',
             // 'invalidchars',
             'session' => ['except' => ['/', '/home', 'android-app', 'ml-backend', 'setup', 'faq', 'auth/*', 'process/*', 'login', 'register', 'auth_login', 'auth_register']],
+            'maintenance' => ['except' => [
+                'login', 'register', 'logout', 'magic-link', 'magic-link/*',
+                'auth', 'auth/*',
+                'process', 'process/*', 'api', 'api/*',
+                'health', 'ml-backend', 'android-app',
+            ]],
         ],
         'after' => [
             'toolbar',

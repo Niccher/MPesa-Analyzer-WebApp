@@ -3,125 +3,437 @@
 <?= $this->section('styles') ?>
 <style>
     .settings-card { border: none; border-radius: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+    .schedule-preview { font-family: monospace; background: #f1f3f5; border-radius: 4px; padding: 0.35rem 0.6rem; font-size: 0.85rem; }
+    .output-pre { background: #0f172a; color: #e2e8f0; border-radius: 4px; padding: 1rem; max-height: 380px; overflow: auto; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; }
+    [data-bs-theme="dark"] .output-pre { background: #000; }
 </style>
 <?= $this->endSection() ?>
 <?= $this->section('page_header') ?>
 <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-3">
     <div>
         <h2 class="fw-bold mb-1" style="color: var(--primary);"><i class="fa-solid fa-clock me-2"></i> Cron Jobs</h2>
-        <p class="text-secondary mb-0">Configure the background tasks that keep the platform running.</p>
+        <p class="text-secondary mb-0">Create and manage the background tasks that keep the platform running.</p>
     </div>
+    <button type="button" class="btn btn-primary rounded-pill px-4 fw-semibold" data-bs-toggle="modal" data-bs-target="#cronModal" id="addCronBtn">
+        <i class="fa-solid fa-plus me-1"></i> Add Cron Job
+    </button>
 </div>
 <?= $this->endSection() ?>
 <?= $this->section('content') ?>
 
 <div class="row g-4">
-    <div class="col-lg-8">
+    <div class="col-lg-12">
         <div class="card settings-card">
-            <div class="card-body p-4">
-                <form id="cronForm">
-                    <?= csrf_field() ?>
+            <div class="card-header bg-white border-0 pt-3 pb-0 px-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="fw-bold mb-0" style="color: var(--primary);"><i class="fa-solid fa-list-check me-2"></i> Scheduled Jobs <span class="text-secondary fs-6 fw-normal">(<?= count($cron_jobs) ?>)</span></h5>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <?php if (empty($cron_jobs)): ?>
+                    <div class="text-center text-muted p-5">
+                        <i class="fa-solid fa-inbox fs-1 d-block mb-2"></i>
+                        No cron jobs yet. Click <strong>Add Cron Job</strong> to create one.
+                    </div>
+                <?php else: ?>
                     <div class="table-responsive">
-                        <table class="table table-sm table-striped">
-                            <thead>
-                                <tr><th>Job</th><th>Command</th><th>Schedule</th><th>Enabled</th><th>Save</th></tr>
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Job</th>
+                                    <th>Type</th>
+                                    <th>Schedule</th>
+                                    <th>Last Run</th>
+                                    <th class="text-center" style="width: 80px;">Enabled</th>
+                                    <th style="width: 200px;">Actions</th>
+                                </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($cron_jobs as $key => $job): ?>
-                                <tr>
-                                    <td>
-                                        <strong><?= esc($job['description'] ?? $key) ?></strong>
-                                        <br><small class="text-muted"><?= $key ?></small>
-                                        <input type="hidden" name="job_key[]" value="<?= esc($key) ?>">
-                                    </td>
-                                    <td>
-                                        <input type="text" class="form-control form-control-sm" name="command[]" value="<?= esc($job['command'] ?? '') ?>">
-                                    </td>
-                                    <td>
-                                        <input type="text" class="form-control form-control-sm" name="schedule[]" value="<?= esc($job['schedule'] ?? '') ?>" placeholder="*/5 * * * *">
-                                    </td>
-                                    <td>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" name="enabled[]" value="1" role="switch" <?= !empty($job['enabled']) ? 'checked' : '' ?> data-key="<?= esc($key) ?>">
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <button type="submit" class="btn btn-sm btn-outline-primary" data-save="<?= esc($key) ?>"><i class="fa-solid fa-floppy-disk"></i></button>
-                                    </td>
-                                </tr>
+                                <?php foreach ($cron_jobs as $job): ?>
+                                    <?php
+                                        $jobType = $job['type'] ?? '';
+                                        $typeMeta = $job_types[$jobType] ?? ['group' => 'Checks', 'label' => $jobType === '' ? 'Legacy / Unknown' : $jobType . ' (unmapped)'];
+                                        $group = $typeMeta['group'] ?? 'Checks';
+                                        $badgeClass = match ($group) {
+                                            'Spark Commands' => 'bg-primary',
+                                            'Database' => 'bg-success',
+                                            default => 'bg-info text-dark',
+                                        };
+                                    ?>
+                                    <tr data-key="<?= esc($job['key']) ?>">
+                                        <td>
+                                            <strong><?= esc($job['name'] ?? $job['key']) ?></strong>
+                                            <br><small class="text-muted"><?= esc($job['description'] ?? '') ?></small>
+                                        </td>
+                                        <td>
+                                            <span class="badge <?= $badgeClass ?>"><?= esc($typeMeta['label']) ?></span>
+                                            <?php if ($jobType !== ''): ?>
+                                                <br><small class="text-muted"><code><?= esc($jobType) ?></code></small>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <code><?= esc($job['schedule'] ?? 'N/A') ?></code>
+                                            <br><small class="text-muted"><?= esc(\App\Libraries\CronRunner::describe($job['schedule'] ?? '')) ?></small>
+                                        </td>
+                                        <td>
+                                            <?php if (!empty($job['last_run'])): ?>
+                                                <small><?= esc($job['last_run']) ?></small>
+                                                <br>
+                                                <span class="badge <?= ($job['last_status'] ?? '') === 'success' ? 'bg-success' : 'bg-danger' ?>">
+                                                    <?= ($job['last_status'] ?? '') === 'success' ? 'Success' : 'Error' ?>
+                                                </span>
+                                            <?php else: ?>
+                                                <small class="text-muted">Never</small>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="form-check form-switch d-inline-block">
+                                                <input class="form-check-input cron-toggle" type="checkbox" role="switch"
+                                                    data-key="<?= esc($job['key']) ?>" <?= !empty($job['enabled']) ? 'checked' : '' ?>>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button type="button" class="btn btn-success btn-run" data-key="<?= esc($job['key']) ?>" title="Run now">
+                                                    <i class="fa-solid fa-play"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary btn-output" data-key="<?= esc($job['key']) ?>" title="View output"
+                                                    <?= empty($job['last_run']) ? 'disabled' : '' ?>>
+                                                    <i class="fa-solid fa-terminal"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-primary btn-edit"
+                                                    data-key="<?= esc($job['key']) ?>"
+                                                    data-name="<?= esc($job['name'] ?? '', 'attr') ?>"
+                                                    data-type="<?= esc($job['type'] ?? '', 'attr') ?>"
+                                                    data-schedule="<?= esc($job['schedule'] ?? '', 'attr') ?>"
+                                                    data-description="<?= esc($job['description'] ?? '', 'attr') ?>"
+                                                    data-enabled="<?= !empty($job['enabled']) ? '1' : '0' ?>"
+                                                    title="Edit">
+                                                    <i class="fa-solid fa-pen"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger btn-delete" data-key="<?= esc($job['key']) ?>" data-name="<?= esc($job['name'] ?? $job['key'], 'attr') ?>" title="Delete">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
-                    <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold d-none" id="saveAllBtn"><i class="fa-solid fa-floppy-disk me-1"></i> Save All</button>
-                </form>
+                <?php endif; ?>
             </div>
         </div>
     </div>
-    <div class="col-lg-4">
-        <div class="card settings-card">
-            <div class="card-body p-4">
-                <h5 class="fw-bold mb-3" style="color: var(--primary);">Scheduler</h5>
-                <p class="text-muted small mb-3">
-                    These settings define what runs. For the jobs to run automatically, add them to the
-                    host crontab (recommended), e.g.:
-                </p>
-                <pre class="bg-light border rounded p-3 small" style="overflow-x:auto;">* * * * * docker exec mpesa-analyzer-webapp php spark llm:process >> /var/log/mpesa-cron.log 2>&1</pre>
-                <div class="d-grid gap-2">
-                    <a href="<?= base_url('admin/settings/maintenance') ?>#cronTab" class="btn btn-outline-primary">
-                        <i class="fa-solid fa-play me-2"></i> Run jobs now
-                    </a>
+</div>
+
+<!-- Create / Edit Modal -->
+<div class="modal fade" id="cronModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form id="cronForm">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="cronModalTitle" style="color: var(--primary);"><i class="fa-solid fa-plus me-2"></i>Add Cron Job</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <hr>
-                <h6 class="fw-bold">Available spark commands</h6>
-                <ul class="small text-muted mb-0">
-                    <li><code>llm:process</code> — pending LLM jobs</li>
-                    <li><code>session:gc</code> — expired sessions</li>
-                    <li><code>uploads:cleanup</code> — orphaned uploads</li>
-                    <li><code>reports:send</code> — scheduled reports</li>
-                </ul>
+                <div class="modal-body">
+                    <input type="hidden" name="job_key" id="jobKey" value="">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Job Name</label>
+                        <input type="text" class="form-control" name="name" id="jobName" placeholder="e.g. Nightly database backup" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Job Type</label>
+                        <select class="form-select" name="type" id="jobType" required>
+                            <option value="">-- Choose a job --</option>
+                            <?php foreach ($job_sections as $section => $items): ?>
+                                <optgroup label="<?= esc($section) ?>">
+                                    <?php foreach ($items as $item): ?>
+                                        <option value="<?= esc($item['type']) ?>" data-desc="<?= esc($item['desc'], 'attr') ?>"><?= esc($item['label']) ?></option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="text-muted d-block mt-1" id="jobTypeDesc"></small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Schedule <span class="text-muted fw-normal">(when the job runs)</span></label>
+                        <select class="form-select mb-2" id="schedulePreset">
+                            <option value="">-- Choose a preset --</option>
+                            <?php foreach ($presets as $p): ?>
+                                <option value="<?= esc($p['value']) ?>"><?= esc($p['label']) ?></option>
+                            <?php endforeach; ?>
+                            <option value="custom">Custom...</option>
+                        </select>
+
+                        <div class="row g-2 mb-2" id="scheduleBuilder">
+                            <div class="col">
+                                <label class="form-label small fw-semibold mb-1">Minute</label>
+                                <select class="form-select form-select-sm sch-field" data-field="minute" id="schMinute">
+                                    <option value="*">*</option>
+                                    <option value="*/5">*/5</option>
+                                    <option value="*/10">*/10</option>
+                                    <option value="*/15">*/15</option>
+                                    <option value="*/30">*/30</option>
+                                    <?php foreach ([0,5,10,15,20,25,30,35,40,45,50,55] as $m): ?><option value="<?= $m ?>"><?= $m ?></option><?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col">
+                                <label class="form-label small fw-semibold mb-1">Hour</label>
+                                <select class="form-select form-select-sm sch-field" data-field="hour" id="schHour">
+                                    <option value="*">*</option>
+                                    <?php foreach (range(0, 23) as $h): ?><option value="<?= $h ?>"><?= $h ?></option><?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col">
+                                <label class="form-label small fw-semibold mb-1">Day (month)</label>
+                                <select class="form-select form-select-sm sch-field" data-field="day" id="schDay">
+                                    <option value="*">*</option>
+                                    <?php foreach (range(1, 31) as $d): ?><option value="<?= $d ?>"><?= $d ?></option><?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col">
+                                <label class="form-label small fw-semibold mb-1">Month</label>
+                                <select class="form-select form-select-sm sch-field" data-field="month" id="schMonth">
+                                    <option value="*">*</option>
+                                    <?php foreach (range(1, 12) as $mo): ?><option value="<?= $mo ?>"><?= $mo ?></option><?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col">
+                                <label class="form-label small fw-semibold mb-1">Day (week)</label>
+                                <select class="form-select form-select-sm sch-field" data-field="dow" id="schDow">
+                                    <option value="*">*</option>
+                                    <?php
+                                        $days = [0 => '0 (Sun)', 1 => '1 (Mon)', 2 => '2 (Tue)', 3 => '3 (Wed)', 4 => '4 (Thu)', 5 => '5 (Fri)', 6 => '6 (Sat)', 7 => '7 (Sun)'];
+                                        foreach ($days as $dv => $dl): ?><option value="<?= $dv ?>"><?= $dl ?></option><?php endforeach;
+                                    ?>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="schedule-preview flex-grow-1" id="schedulePreview">* * * * *</span>
+                            <span class="badge bg-secondary" id="scheduleHuman">Every minute</span>
+                        </div>
+                        <input type="hidden" name="schedule" id="scheduleInput" value="* * * * *">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Description</label>
+                        <textarea class="form-control" name="description" id="jobDescription" rows="2" placeholder="Short description of what this job does"></textarea>
+                    </div>
+
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="enabled" id="jobEnabled" role="switch" value="1" checked>
+                        <label class="form-check-label fw-semibold" for="jobEnabled">Enable this job</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary px-4"><i class="fa-solid fa-floppy-disk me-1"></i> Save Job</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Output Modal -->
+<div class="modal fade" id="outputModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" style="color: var(--primary);"><i class="fa-solid fa-terminal me-2"></i><span id="outputTitle">Job Output</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex gap-2 align-items-center mb-3">
+                    <span class="badge bg-secondary" id="outputRunAt">Never</span>
+                    <span class="badge bg-success d-none" id="outputStatusOk"><i class="fa-solid fa-circle-check me-1"></i>Success</span>
+                    <span class="badge bg-danger d-none" id="outputStatusErr"><i class="fa-solid fa-circle-xmark me-1"></i>Error</span>
+                </div>
+                <pre class="output-pre" id="outputBody">No output.</pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-document.getElementById('cronForm')?.addEventListener('submit', function(e) {
+const CRON_PRESET_LABELS = {
+    '* * * * *': 'Every minute',
+    '*/5 * * * *': 'Every 5 minutes',
+    '*/10 * * * *': 'Every 10 minutes',
+    '*/15 * * * *': 'Every 15 minutes',
+    '*/30 * * * *': 'Every 30 minutes',
+    '0 * * * *': 'Every hour',
+    '0 2 * * *': 'Daily at 2:00 AM',
+    '0 6 * * *': 'Daily at 6:00 AM',
+    '0 6 * * 1': 'Weekly on Monday at 6:00 AM',
+    '0 3 * * 0': 'Weekly on Sunday at 3:00 AM'
+};
+
+function buildSchedule() {
+    const parts = ['schMinute', 'schHour', 'schDay', 'schMonth', 'schDow'].map(id => document.getElementById(id).value);
+    const expr = parts.join(' ');
+    document.getElementById('scheduleInput').value = expr;
+    document.getElementById('schedulePreview').textContent = expr;
+    document.getElementById('scheduleHuman').textContent = CRON_PRESET_LABELS[expr] || 'Custom schedule';
+}
+
+function setScheduleFields(expr) {
+    const p = (expr || '* * * * *').split(/\s+/);
+    const ids = ['schMinute', 'schHour', 'schDay', 'schMonth', 'schDow'];
+    ids.forEach((id, i) => {
+        const sel = document.getElementById(id);
+        if (sel.querySelector('option[value="' + p[i] + '"]')) sel.value = p[i];
+    });
+}
+
+document.querySelectorAll('.sch-field').forEach(sel => sel.addEventListener('change', buildSchedule));
+
+document.getElementById('schedulePreset').addEventListener('change', function() {
+    if (this.value && this.value !== 'custom') {
+        setScheduleFields(this.value);
+        buildSchedule();
+    }
+});
+
+// Type description helper
+document.getElementById('jobType').addEventListener('change', function() {
+    const opt = this.selectedOptions[0];
+    document.getElementById('jobTypeDesc').textContent = opt && opt.dataset.desc ? opt.dataset.desc : '';
+});
+
+// Modal open/reset
+const cronModal = document.getElementById('cronModal');
+cronModal.addEventListener('hidden.bs.modal', function() {
+    document.getElementById('cronForm').reset();
+    document.getElementById('jobKey').value = '';
+    document.getElementById('cronModalTitle').innerHTML = '<i class="fa-solid fa-plus me-2"></i>Add Cron Job';
+    setScheduleFields('* * * * *');
+    buildSchedule();
+    document.getElementById('jobTypeDesc').textContent = '';
+    document.getElementById('jobEnabled').checked = true;
+});
+
+// Edit
+document.querySelectorAll('.btn-edit').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.getElementById('jobKey').value = this.dataset.key;
+        document.getElementById('jobName').value = this.dataset.name;
+        document.getElementById('jobDescription').value = this.dataset.description || '';
+        document.getElementById('jobType').value = this.dataset.type;
+        document.getElementById('jobType').dispatchEvent(new Event('change'));
+        setScheduleFields(this.dataset.schedule);
+        buildSchedule();
+        document.getElementById('jobEnabled').checked = this.dataset.enabled === '1';
+        document.getElementById('cronModalTitle').innerHTML = '<i class="fa-solid fa-pen me-2"></i>Edit Cron Job';
+        new bootstrap.Modal(cronModal).show();
+    });
+});
+
+// Save
+document.getElementById('cronForm').addEventListener('submit', function(e) {
     e.preventDefault();
     const data = new FormData(this);
+    if (!data.get('enabled')) data.append('enabled', '0');
+    fetch('<?= base_url('admin/crons/save') ?>', { method: 'POST', body: data })
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === 'success') {
+                showAlert('Cron Jobs', res.message, 'success');
+                bootstrap.Modal.getInstance(cronModal).hide();
+                setTimeout(() => location.reload(), 600);
+            } else {
+                showAlert('Cron Jobs', res.message || 'Failed to save job.', 'danger');
+            }
+        });
+});
 
-    const keys = data.getAll('job_key[]');
-    const commands = data.getAll('command[]');
-    const schedules = data.getAll('schedule[]');
-    const enabledVals = data.getAll('enabled[]');
+// Run now
+document.querySelectorAll('.btn-run').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const key = this.dataset.key;
+        const original = this.innerHTML;
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
-    // Build a map of which job_keys are enabled
-    const enabledSet = new Set();
-    document.querySelectorAll('input[name="enabled[]"]').forEach(chk => {
-        if (chk.checked) enabledSet.add(chk.dataset.key);
+        const data = new FormData();
+        data.append('job_key', key);
+        fetch('<?= base_url('admin/crons/run') ?>', { method: 'POST', body: data })
+            .then(r => r.json())
+            .then(res => {
+                this.disabled = false;
+                this.innerHTML = original;
+                showOutputModal(res.name || key, res.last_run, res.status, res.output);
+                setTimeout(() => location.reload(), 800);
+            })
+            .catch(() => {
+                this.disabled = false;
+                this.innerHTML = original;
+                showAlert('Cron Jobs', 'Failed to run job.', 'danger');
+            });
     });
+});
 
-    let promises = [];
-    keys.forEach((key, i) => {
-        const body = new FormData();
-        body.append('job_key', key);
-        body.append('command', commands[i] || '');
-        body.append('schedule', schedules[i] || '');
-        body.append('description', document.querySelector('[data-save="' + key + '"]').closest('tr').querySelector('strong').textContent);
-        body.append('enabled', enabledSet.has(key) ? '1' : '0');
-        promises.push(
-            fetch('<?= base_url('admin/crons/save') ?>', { method: 'POST', body })
-                .then(r => r.json())
-        );
+// View stored output
+document.querySelectorAll('.btn-output').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const data = new FormData();
+        data.append('job_key', this.dataset.key);
+        fetch('<?= base_url('admin/crons/output') ?>', { method: 'POST', body: data })
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === 'success') {
+                    showOutputModal(res.name, res.last_run, res.last_status, res.output);
+                } else {
+                    showAlert('Cron Jobs', res.message || 'Failed to load output.', 'danger');
+                }
+            });
     });
+});
 
-    Promise.all(promises).then(results => {
-        const failed = results.filter(r => r.status !== 'success');
-        if (failed.length === 0) {
-            showAlert('Cron Jobs', 'All cron jobs saved.', 'success');
-        } else {
-            showAlert('Cron Jobs', failed[0].message || 'Some jobs failed to save.', 'danger');
-        }
+function showOutputModal(name, lastRun, status, output) {
+    document.getElementById('outputTitle').textContent = name + ' — Output';
+    document.getElementById('outputRunAt').textContent = lastRun ? ('Run at ' + lastRun) : 'Never';
+    document.getElementById('outputStatusOk').classList.add('d-none');
+    document.getElementById('outputStatusErr').classList.add('d-none');
+    if (status === 'success') document.getElementById('outputStatusOk').classList.remove('d-none');
+    else if (status === 'error') document.getElementById('outputStatusErr').classList.remove('d-none');
+    document.getElementById('outputBody').textContent = output || 'No output.';
+    new bootstrap.Modal(document.getElementById('outputModal')).show();
+}
+
+// Toggle enabled
+document.querySelectorAll('.cron-toggle').forEach(chk => {
+    chk.addEventListener('change', function() {
+        const data = new FormData();
+        data.append('job_key', this.dataset.key);
+        data.append('enabled', this.checked ? '1' : '0');
+        fetch('<?= base_url('admin/crons/toggle') ?>', { method: 'POST', body: data })
+            .then(r => r.json())
+            .then(res => showAlert('Cron Jobs', res.message, res.status === 'success' ? 'success' : 'danger'));
+    });
+});
+
+// Delete
+document.querySelectorAll('.btn-delete').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const name = this.dataset.name;
+        if (!confirm('Delete cron job "' + name + '"? This cannot be undone.')) return;
+        const data = new FormData();
+        data.append('job_key', this.dataset.key);
+        fetch('<?= base_url('admin/crons/delete') ?>', { method: 'POST', body: data })
+            .then(r => r.json())
+            .then(res => {
+                showAlert('Cron Jobs', res.message, res.status === 'success' ? 'success' : 'danger');
+                if (res.status === 'success') setTimeout(() => location.reload(), 600);
+            });
     });
 });
 </script>

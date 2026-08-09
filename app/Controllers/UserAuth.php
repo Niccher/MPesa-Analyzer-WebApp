@@ -68,6 +68,13 @@ class UserAuth extends BaseController{
             if (!$register_attempt){
                 return $this->respond(["status" => "Invalid", "error" => "Unexpected error occurred.0"]);
             }else{
+                if (\App\Libraries\Notifier::isTriggerEnabled('signup')) {
+                    \App\Libraries\Notifier::send(
+                        $newUser->getEmail(),
+                        'Welcome to Mpesa Analyzer',
+                        'Welcome to Mpesa Analyzer! Your account has been created successfully.'
+                    );
+                }
                 return $this->respond(["status" => "Valid", "message" => "New User added."]);
             }
         }catch (Exception $ex) {

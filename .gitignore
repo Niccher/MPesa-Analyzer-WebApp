@@ -19,6 +19,7 @@ writable/uploads/*
 !writable/uploads/index.html
 writable/debugbar/*
 !writable/debugbar/index.html
+writable/backups/
 writable/*.sqlite
 writable/*.sqlite-journal
 
@@ -120,3 +121,9 @@ app_auth_tokens.sql
 .vagrant
 Vagrantfile
 node_modules/
+
+#-------------------------
+# Local Debug / Scratch Scripts
+#-------------------------
+ipcheck.php
+test_upsert.php

@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     git \
+    cron \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) intl mysqli pdo_mysql zip gd
 
@@ -31,6 +32,11 @@ COPY . /var/www/html
 RUN mkdir -p /var/www/html/writable \
     && chown -R www-data:www-data /var/www/html/writable \
     && chmod -R 775 /var/www/html/writable
+
+# Install cron job to run the scheduler every minute
+RUN printf 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\n* * * * * root cd /var/www/html && php spark cron:run >> /var/log/mpesa-cron.log 2>&1\n' > /etc/cron.d/mpesa-analyzer \
+    && chmod 644 /etc/cron.d/mpesa-analyzer \
+    && touch /var/log/mpesa-cron.log
 
 
 # Copy and set entrypoint script

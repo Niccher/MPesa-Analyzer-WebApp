@@ -1,0 +1,193 @@
+<?= $this->extend('Layouts/superadmin') ?>
+<?= $this->section('title') ?> User Management - Mpesa Analyzer <?= $this->endSection() ?>
+<?= $this->section('styles') ?>
+<style>
+    .settings-card { border: none; border-radius: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+    .group-badge { font-size: 0.7rem; padding: 0.2rem 0.5rem; }
+    .status-badge { font-size: 0.7rem; padding: 0.2rem 0.5rem; }
+</style>
+<?= $this->endSection() ?>
+<?= $this->section('page_header') ?>
+<div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-3">
+    <div>
+        <h2 class="fw-bold mb-1" style="color: var(--primary);"><i class="fa-solid fa-users me-2"></i> User Management</h2>
+        <p class="text-secondary mb-0">Manage user accounts, groups, and status</p>
+    </div>
+</div>
+<?= $this->endSection() ?>
+<?= $this->section('content') ?>
+
+<div class="card settings-card mb-4">
+    <div class="card-body p-3">
+        <form method="get" action="<?= base_url('admin/users') ?>" class="d-flex gap-2 flex-wrap">
+            <input type="text" class="form-control" name="q" value="<?= esc($search) ?>" placeholder="Search by username or email..." style="max-width: 300px;">
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-magnifying-glass me-1"></i> Search</button>
+            <?php if ($search !== ''): ?>
+                <a href="<?= base_url('admin/users') ?>" class="btn btn-outline-secondary">Clear</a>
+            <?php endif; ?>
+        </form>
+    </div>
+</div>
+
+<div class="card settings-card">
+    <div class="card-body p-0">
+        <?php if (empty($users)): ?>
+            <div class="text-center text-muted p-5">No users found</div>
+        <?php else: ?>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 60px;">ID</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th style="width: 180px;">Groups</th>
+                            <th style="width: 120px;">Status</th>
+                            <th style="width: 120px;">Storage</th>
+                            <th style="width: 160px;">Registered</th>
+                            <th style="width: 180px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($users as $user): ?>
+                            <tr data-user-id="<?= $user['id'] ?>">
+                                <td><small class="text-muted">#<?= $user['id'] ?></small></td>
+                                <td><strong><?= esc($user['username']) ?></strong></td>
+                                <td><?= esc($user['email']) ?></td>
+                                <td>
+                                    <?php foreach (explode(',', $user['groups']) as $g): ?>
+                                        <?php
+                                            $badgeClass = 'bg-secondary';
+                                            if ($g === 'superadmin') $badgeClass = 'bg-danger';
+                                            elseif ($g === 'admin') $badgeClass = 'bg-warning text-dark';
+                                            elseif ($g === 'user') $badgeClass = 'bg-info';
+                                        ?>
+                                        <span class="badge group-badge <?= $badgeClass ?> me-1"><?= esc(ucfirst($g)) ?></span>
+                                    <?php endforeach; ?>
+                                </td>
+                                <td>
+                                    <?php if ($user['active']): ?>
+                                        <span class="badge status-badge bg-success"><i class="fa-solid fa-circle-check me-1"></i>Active</span>
+                                    <?php else: ?>
+                                        <span class="badge status-badge bg-danger"><i class="fa-solid fa-circle-xmark me-1"></i>Inactive</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><small class="text-muted"><?= esc($user['storage_human']) ?></small></td>
+                                <td><small class="text-muted"><?= esc($user['created_at']) ?></small></td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button type="button" class="btn btn-outline-secondary btn-toggle"
+                                            data-user-id="<?= $user['id'] ?>"
+                                            data-active="<?= $user['active'] ? '1' : '0' ?>"
+                                            title="<?= $user['active'] ? 'Deactivate' : 'Activate' ?>">
+                                            <i class="fa-solid <?= $user['active'] ? 'fa-user-slash' : 'fa-user-check' ?>"></i>
+                                        </button>
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" title="Change Group">
+                                                <i class="fa-solid fa-user-gear"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li><a class="dropdown-item btn-change-group" href="#" data-user-id="<?= $user['id'] ?>" data-group="user">User</a></li>
+                                                <li><a class="dropdown-item btn-change-group" href="#" data-user-id="<?= $user['id'] ?>" data-group="admin">Admin</a></li>
+                                                <li><a class="dropdown-item btn-change-group" href="#" data-user-id="<?= $user['id'] ?>" data-group="superadmin">Superadmin</a></li>
+                                            </ul>
+                                        </div>
+                                        <button type="button" class="btn btn-outline-danger btn-delete" data-user-id="<?= $user['id'] ?>" title="Delete">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <?php if ($total_pages > 1): ?>
+                <div class="card-footer bg-white border-0 p-3">
+                    <nav aria-label="Users pagination">
+                        <ul class="pagination pagination-sm mb-0 justify-content-center">
+                            <?php if ($page > 1): ?>
+                                <li class="page-item"><a class="page-link" href="<?= base_url('admin/users?page=' . ($page - 1) . ($search ? '&q=' . urlencode($search) : '')) ?>">Previous</a></li>
+                            <?php endif; ?>
+                            <?php
+                            $start = max(1, $page - 2);
+                            $end = min($total_pages, $page + 2);
+                            for ($i = $start; $i <= $end; $i++):
+                            ?>
+                                <li class="page-item <?= $i === $page ? 'active' : '' ?>">
+                                    <a class="page-link" href="<?= base_url('admin/users?page=' . $i . ($search ? '&q=' . urlencode($search) : '')) ?>"><?= $i ?></a>
+                                </li>
+                            <?php endfor; ?>
+                            <?php if ($page < $total_pages): ?>
+                                <li class="page-item"><a class="page-link" href="<?= base_url('admin/users?page=' . ($page + 1) . ($search ? '&q=' . urlencode($search) : '')) ?>">Next</a></li>
+                            <?php endif; ?>
+                        </ul>
+                    </nav>
+                    <small class="text-muted d-block text-center mt-1">Showing <?= min($per_page, $total - ($page - 1) * $per_page) ?> of <?= $total ?> users</small>
+                </div>
+            <?php endif; ?>
+        <?php endif; ?>
+    </div>
+</div>
+
+<script>
+function postAjax(url, body) {
+    return fetch(url, {
+        method: 'POST',
+        body: new URLSearchParams(body),
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(r => r.json());
+}
+
+document.querySelectorAll('.btn-toggle').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const id = this.dataset.userId;
+        const active = this.dataset.active === '1' ? '0' : '1';
+        postAjax('<?= base_url('admin/users/toggle') ?>', { user_id: id, active })
+            .then(res => {
+                if (res.status === 'success') {
+                    showAlert('User Management', res.message, 'success');
+                    setTimeout(() => location.reload(), 600);
+                } else {
+                    showAlert('User Management', res.message, 'danger');
+                }
+            });
+    });
+});
+
+document.querySelectorAll('.btn-change-group').forEach(a => {
+    a.addEventListener('click', function(e) {
+        e.preventDefault();
+        const id = this.dataset.userId;
+        const group = this.dataset.group;
+        postAjax('<?= base_url('admin/users/change-group') ?>', { user_id: id, group })
+            .then(res => {
+                if (res.status === 'success') {
+                    showAlert('User Management', res.message, 'success');
+                    setTimeout(() => location.reload(), 600);
+                } else {
+                    showAlert('User Management', res.message, 'danger');
+                }
+            });
+    });
+});
+
+document.querySelectorAll('.btn-delete').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const id = this.dataset.userId;
+        if (!confirm('Delete this user and all their data? This cannot be undone.')) return;
+        postAjax('<?= base_url('admin/users/delete') ?>', { user_id: id })
+            .then(res => {
+                if (res.status === 'success') {
+                    showAlert('User Management', res.message, 'success');
+                    setTimeout(() => location.reload(), 600);
+                } else {
+                    showAlert('User Management', res.message, 'danger');
+                }
+            });
+    });
+});
+</script>
+<?= $this->endSection() ?>
