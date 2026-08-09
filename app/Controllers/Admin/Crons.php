@@ -17,8 +17,9 @@ class Crons extends BaseController
 
         return view('Admin/Crons/index', [
             'bg_color' => '#B1B8ED',
-            'cron_jobs' => $jobs,
+             'cron_jobs' => $jobs,
             'cron_runs' => CronLogger::recent(100),
+            'run_type_counts' => CronLogger::typeCounts(),
             'job_types' => CronRunner::types(),
             'job_sections' => $this->jobSections(),
             'presets' => [

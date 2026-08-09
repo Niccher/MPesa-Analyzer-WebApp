@@ -133,7 +133,27 @@
                     <div class="tab-pane fade" id="cronRunsTab">
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                             <h5 class="fw-bold mb-0" style="color: var(--primary);"><i class="fa-solid fa-clock-rotate-left me-2"></i> Run History</h5>
-                            <span class="text-muted small">Last <?= count($cron_runs) ?> runs</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-muted small">Last <?= count($cron_runs) ?> runs</span>
+                                <select class="form-select form-select-sm" id="runTypeFilter" style="min-width: 180px;">
+                                    <option value="all" data-badge="bg-secondary">All Types</option>
+                                    <?php
+                                    // All known job types with their run counts.
+                                    foreach ($job_types as $type => $meta):
+                                        $cnt = $run_type_counts[$type] ?? 0;
+                                    ?>
+                                        <option value="<?= esc($type) ?>"><?= esc($meta['label']) ?> (<?= $cnt ?>)</option>
+                                    <?php endforeach; ?>
+                                    <?php
+                                    // Any unmapped types that have runs.
+                                    $mapped = array_keys($job_types);
+                                    foreach ($run_type_counts as $type => $cnt):
+                                        if (in_array($type, $mapped) || $type === '') continue;
+                                    ?>
+                                        <option value="<?= esc($type) ?>"><?= esc($type) ?> (<?= $cnt ?>)</option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
                         </div>
                         <?php if (empty($cron_runs)): ?>
                             <div class="text-center text-muted p-5">
@@ -170,7 +190,7 @@
                                                     }
                                                 }
                                             ?>
-                                            <tr>
+                                            <tr data-job-type="<?= esc($run['job_type'] ?? '') ?>">
                                                 <td>
                                                     <strong><?= esc($run['job_name'] ?: $run['job_key']) ?></strong>
                                                     <br><small class="text-muted"><code><?= esc($run['job_key']) ?></code></small>
@@ -562,7 +582,7 @@ document.querySelectorAll('.cron-toggle').forEach(chk => {
     });
 });
 
-// Delete
+// Delete cron job
 document.querySelectorAll('.btn-delete').forEach(btn => {
     btn.addEventListener('click', function() {
         const name = this.dataset.name;
@@ -577,5 +597,21 @@ document.querySelectorAll('.btn-delete').forEach(btn => {
             });
     });
 });
+
+// Run type filter
+const runTypeFilter = document.getElementById('runTypeFilter');
+if (runTypeFilter) {
+    runTypeFilter.addEventListener('change', function() {
+        const type = this.value;
+        const rows = document.querySelectorAll('#cronRunsTab tbody tr');
+        rows.forEach(row => {
+            if (type === 'all') {
+                row.style.display = '';
+            } else {
+                row.style.display = (row.dataset.jobType === type) ? '' : 'none';
+            }
+        });
+    });
+}
 </script>
 <?= $this->endSection() ?>

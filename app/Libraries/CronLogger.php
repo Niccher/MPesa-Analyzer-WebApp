@@ -65,6 +65,32 @@ class CronLogger
     }
 
     /**
+     * Count of runs grouped by job_type (for the filter dropdown).
+     *
+     * @return array<string,int>  Map of job_type => count
+     */
+    public static function typeCounts(): array
+    {
+        $db = \Config\Database::connect();
+        if (!$db->tableExists(self::TABLE)) {
+            return [];
+        }
+
+        $rows = $db->table(self::TABLE)
+            ->select('job_type, COUNT(*) AS cnt')
+            ->groupBy('job_type')
+            ->get()
+            ->getResultArray();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $type = (string)($row['job_type'] ?? '');
+            $counts[$type] = (int)($row['cnt'] ?? 0);
+        }
+        return $counts;
+    }
+
+    /**
      * Most recent runs for a single job.
      *
      * @return array

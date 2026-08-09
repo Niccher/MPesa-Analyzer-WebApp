@@ -163,19 +163,70 @@ class Users extends BaseController
             return $this->response->setJSON(['status' => 'error', 'message' => 'User not found']);
         }
 
-        // Delete user data
+        // Collect the user's auth identity secrets (SHA2-hashed device tokens
+        // stored as the "owner" identifier in the SMS/Loot tables).
+        $secrets = $db->table('auth_identities')
+            ->select('secret')
+            ->where('user_id', $id)
+            ->get()
+            ->getResultArray();
+        $secretList = array_column($secrets, 'secret');
+
+        $db->transStart();
+
+        $failedQuery = null;
+
+        if (!empty($secretList)) {
+            $sub = "SELECT secret FROM auth_identities WHERE user_id = " . (int)$id;
+
+            // Child tables that reference tbl_Sms / tbl_Loot (deleted first).
+            if ($db->tableExists('tbl_Analyzed_Transactions') && $db->tableExists('tbl_Sms')) {
+                $q = "DELETE FROM tbl_Analyzed_Transactions WHERE orig_sms_id IN (SELECT id FROM tbl_Sms WHERE sms_owner IN ($sub))";
+                if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
+            }
+            if ($db->tableExists('tbl_Sms_Processing') && $db->tableExists('tbl_Sms')) {
+                $q = "DELETE FROM tbl_Sms_Processing WHERE sms_id IN (SELECT id FROM tbl_Sms WHERE sms_owner IN ($sub))";
+                if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
+            }
+
+            // Parent owner rows.
+            if ($db->tableExists('tbl_Loot')) {
+                $q = "DELETE FROM tbl_Loot WHERE loot_Owner IN ($sub)";
+                if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
+            }
+            if ($db->tableExists('tbl_Loot_Summary') && $db->tableExists('tbl_Loot')) {
+                $q = "DELETE FROM tbl_Loot_Summary WHERE loot_Uuid IN (SELECT loot_Uuid FROM tbl_Loot WHERE loot_Owner IN ($sub))";
+                if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
+            }
+            if ($db->tableExists('tbl_Sms')) {
+                $q = "DELETE FROM tbl_Sms WHERE sms_owner IN ($sub)";
+                if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
+            }
+            if ($db->tableExists('tbl_Sender_Profiles')) {
+                $q = "DELETE FROM tbl_Sender_Profiles WHERE sp_owner IN ($sub)";
+                if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
+            }
+        }
+
+        foreach (['tbl_Processing_Jobs', 'tbl_User_Settings', 'tbl_User_Devices'] as $t) {
+            if ($db->tableExists($t) && $db->table($t)->where('user_id', (string)$id)->delete() === false) {
+                $failedQuery = "$t WHERE user_id=$id → " . json_encode($db->error());
+            }
+        }
+
         $db->table('auth_groups_users')->where('user_id', $id)->delete();
         $db->table('auth_identities')->where('user_id', $id)->delete();
         $db->table('auth_permissions_users')->where('user_id', $id)->delete();
         $db->table('auth_logins')->where('user_id', $id)->delete();
         $db->table('auth_remember_tokens')->where('user_id', $id)->delete();
         $db->table('auth_token_logins')->where('user_id', $id)->delete();
+
         $db->table('users')->where('id', $id)->delete();
-        // Also clean up their data tables
-        foreach (['tbl_Loot', 'tbl_Sms', 'tbl_Analyzed_Transactions', 'tbl_Processing_Jobs', 'tbl_User_Settings'] as $t) {
-            if ($db->tableExists($t)) {
-                $db->table($t)->where('user_id', $id)->delete();
-            }
+
+        $db->transComplete();
+
+        if ($db->transStatus() === false) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Delete failed: ' . ($failedQuery ?? json_encode($db->error()))]);
         }
 
         return $this->response->setJSON([
