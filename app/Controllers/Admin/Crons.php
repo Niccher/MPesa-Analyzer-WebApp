@@ -3,6 +3,7 @@
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Libraries\CronLogger;
 use App\Libraries\CronRunner;
 use CodeIgniter\API\ResponseTrait;
 
@@ -17,6 +18,7 @@ class Crons extends BaseController
         return view('Admin/Crons/index', [
             'bg_color' => '#B1B8ED',
             'cron_jobs' => $jobs,
+            'cron_runs' => CronLogger::recent(100),
             'job_types' => CronRunner::types(),
             'job_sections' => $this->jobSections(),
             'presets' => [
@@ -166,6 +168,8 @@ class Crons extends BaseController
             'value' => json_encode($job),
         ]);
 
+        CronLogger::log($key, $job['name'] ?? $key, $job['type'], $res['status'], $res['output'], 'manual');
+
         return $this->respond([
             'status' => $res['status'],
             'message' => $res['status'] === 'success' ? 'Job ran successfully.' : 'Job finished with errors.',
@@ -192,6 +196,31 @@ class Crons extends BaseController
             'last_run' => $job['last_run'] ?? null,
             'last_status' => $job['last_status'] ?? null,
             'name' => $job['name'] ?? $key,
+        ]);
+    }
+
+    public function history()
+    {
+        $key = trim((string) $this->request->getPost('job_key'));
+        if ($key === '') {
+            return $this->respond(['status' => 'error', 'message' => 'Missing job key.'], 400);
+        }
+
+        $db = \Config\Database::connect();
+        $row = $db->table('tbl_Settings')->where('`key`', 'cron_' . $key)->get()->getRow();
+        $job = $row ? (json_decode($row->value ?? '{}', true) ?: []) : [];
+
+        $runs = CronLogger::forJob($key, 25);
+        foreach ($runs as &$run) {
+            $run['ran_at_local'] = self::localTime($run['ran_at'] ?? null);
+        }
+        unset($run);
+
+        return $this->respond([
+            'status' => 'success',
+            'name' => $job['name'] ?? $key,
+            'key' => $key,
+            'runs' => $runs,
         ]);
     }
 
@@ -268,5 +297,22 @@ class Crons extends BaseController
         }
 
         return true;
+    }
+
+    /**
+     * Convert a UTC timestamp to the local (Africa/Nairobi) display string.
+     */
+    private static function localTime(?string $ts): string
+    {
+        if ($ts === null || $ts === '') {
+            return '';
+        }
+
+        try {
+            $dt = new \DateTimeImmutable($ts, new \DateTimeZone('UTC'));
+            return $dt->setTimezone(new \DateTimeZone('Africa/Nairobi'))->format('d M Y, g:i A');
+        } catch (\Throwable $e) {
+            return $ts;
+        }
     }
 }

@@ -179,6 +179,7 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
     $routes->post('crons/toggle', 'Admin\Crons::toggle');
     $routes->post('crons/run', 'Admin\Crons::run');
     $routes->post('crons/output', 'Admin\Crons::output');
+    $routes->post('crons/history', 'Admin\Crons::history');
 
     // User management
     $routes->get('users', 'Admin\Users::index');
@@ -191,6 +192,8 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
     $routes->post('notifications/save-config', 'Admin\Notifications::saveConfig');
     $routes->post('notifications/send-test-email', 'Admin\Notifications::sendTestEmail');
     $routes->post('notifications/save-triggers', 'Admin\Notifications::saveTriggers');
+    $routes->post('notifications/add-trigger', 'Admin\Notifications::addTrigger');
+    $routes->post('notifications/delete-trigger', 'Admin\Notifications::deleteTrigger');
 });
 
 // Explicit Shield Authentication Routes

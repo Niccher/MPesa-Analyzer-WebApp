@@ -99,8 +99,7 @@ class DbInfo extends BaseController
         $totalBytes = 0;
         foreach ($tables as &$t) {
             $t['field_count'] = $fieldCountMap[$t['name']] ?? 0;
-            $list = explode(', ', $fieldListMap[$t['name']] ?? '');
-            $t['field_list'] = implode(', ', array_slice($list, 0, 8)) . (count($list) > 8 ? '…' : '');
+            $t['field_list'] = $fieldListMap[$t['name']] ?? '';
             $t['size_human']  = number_to_size($t['size_bytes'] ?? 0);
             $t['data_human']  = number_to_size($t['data_bytes'] ?? 0);
             $t['index_human'] = number_to_size($t['index_bytes'] ?? 0);

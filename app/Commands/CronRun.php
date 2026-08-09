@@ -2,6 +2,7 @@
 
 namespace App\Commands;
 
+use App\Libraries\CronLogger;
 use App\Libraries\CronRunner;
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
@@ -51,6 +52,8 @@ class CronRun extends BaseCommand
             $name = $job['name'] ?? $row['key'];
             CLI::write("[{$name}] {$res['status']} - " . strtok($res['output'], "\n"), $res['status'] === 'success' ? 'green' : 'red');
             $executed++;
+
+            CronLogger::log(str_replace('cron_', '', $row['key']), $name, $job['type'] ?? '', $res['status'], $res['output'], 'scheduler');
         }
 
         CLI::write("Cron check complete. Executed: {$executed}, scanned: " . count($jobs) . '.', 'green');

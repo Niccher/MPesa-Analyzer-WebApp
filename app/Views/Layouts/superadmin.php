@@ -348,6 +348,9 @@
     <!-- SortableJS for Drag-and-Drop Widgets -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <!-- Sidebar Toggle Script -->
     <script>
         document.getElementById("sidebarToggle").addEventListener("click", function(e) {

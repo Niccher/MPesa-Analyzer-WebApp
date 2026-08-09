@@ -26,6 +26,7 @@
                 <ul class="nav nav-tabs mb-3" role="tablist">
                     <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#maintenanceTab">Maintenance Mode</button></li>
                     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#scheduleTab">Scheduled Maintenance</button></li>
+                    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#historyTab">History</button></li>
                 </ul>
                 <div class="tab-content">
                     <div class="tab-pane fade show active" id="maintenanceTab">
@@ -72,6 +73,64 @@
                                 <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold"><i class="fa-solid fa-calendar-check me-1"></i> Save Schedule</button>
                             </form>
                         </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="historyTab">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold mb-0" style="color: var(--primary);"><i class="fa-solid fa-clock-rotate-left me-2"></i> Maintenance History</h6>
+                            <span class="text-muted small">Last <?= count($maintenance_history) ?> events</span>
+                        </div>
+                        <?php if (empty($maintenance_history)): ?>
+                            <div class="text-center text-muted p-5">
+                                <i class="fa-solid fa-inbox fs-1 d-block mb-2"></i>
+                                No maintenance events recorded yet.
+                            </div>
+                        <?php else: ?>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 90px;">Action</th>
+                                            <th style="width: 170px;">Time</th>
+                                            <th style="width: 130px;">Initiated By</th>
+                                            <th>Message</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($maintenance_history as $ev): ?>
+                                            <?php
+                                                $isStart = $ev['action'] === 'start';
+                                                $isCron = $ev['source'] === 'cron';
+                                                $ts = $ev['created_at'];
+                                                $local = '';
+                                                if ($ts !== null && $ts !== '') {
+                                                    try {
+                                                        $dt = new \DateTimeImmutable($ts, new \DateTimeZone('UTC'));
+                                                        $local = $dt->setTimezone(new \DateTimeZone('Africa/Nairobi'))->format('d M Y, g:i A');
+                                                    } catch (\Throwable $e) {
+                                                        $local = $ts;
+                                                    }
+                                                }
+                                            ?>
+                                            <tr>
+                                                <td>
+                                                    <span class="badge <?= $isStart ? 'bg-success' : 'bg-danger' ?>">
+                                                        <i class="fa-solid <?= $isStart ? 'fa-play' : 'fa-stop' ?> me-1"></i><?= $isStart ? 'Started' : 'Stopped' ?>
+                                                    </span>
+                                                </td>
+                                                <td><small><?= esc($local) ?></small></td>
+                                                <td>
+                                                    <span class="badge <?= $isCron ? 'bg-info text-dark' : 'bg-primary' ?>">
+                                                        <i class="fa-solid <?= $isCron ? 'fa-clock' : 'fa-user' ?> me-1"></i><?= $isCron ? 'Cron Job' : 'Manual' ?>
+                                                    </span>
+                                                </td>
+                                                <td><small class="text-muted"><?= esc($ev['message'] ?? '') ?: '<em>No message</em>' ?></small></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

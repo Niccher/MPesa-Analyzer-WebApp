@@ -10,8 +10,6 @@ class Notifications extends BaseController
 {
     use ResponseTrait;
 
-    private const ALLOWED_TRIGGERS = ['signup', 'password_reset', 'report', 'ml_complete'];
-
     public function index()
     {
         $config = Notifier::config();
@@ -23,10 +21,12 @@ class Notifications extends BaseController
         }
 
         return view('Admin/Notifications/index', [
-            'bg_color' => '#B1B8ED',
-            'config' => $config,
-            'triggers' => $triggers,
-            'shield' => $shieldSettings,
+            'bg_color'        => '#B1B8ED',
+            'config'          => $config,
+            'triggers'        => $triggers,
+            'trigger_meta'    => Notifier::triggerMeta(),
+            'custom_triggers' => Notifier::customTriggers(),
+            'shield'          => $shieldSettings,
         ]);
     }
 
@@ -78,12 +78,7 @@ class Notifications extends BaseController
             return $this->response->setJSON(['status' => 'error', 'message' => 'Enter a valid test email address.']);
         }
 
-        $result = Notifier::send(
-            $to,
-            'Mpesa Analyzer Test Email',
-            "This is a test email from the Mpesa Analyzer admin panel.\n\nIf you received this, SMTP is configured correctly.",
-            false
-        );
+        $result = Notifier::sendTestEmail($to);
 
         return $this->response->setJSON($result);
     }
@@ -93,8 +88,9 @@ class Notifications extends BaseController
         $posted = $this->request->getPost('triggers');
         $triggers = [];
 
-        foreach (self::ALLOWED_TRIGGERS as $trigger) {
-            $triggers[$trigger] = !empty($posted[$trigger]);
+        // Save toggle state for every known trigger (built-in + custom).
+        foreach (Notifier::triggerMeta() as $meta) {
+            $triggers[$meta['key']] = !empty($posted[$meta['key']]);
         }
 
         $db = \Config\Database::connect();
@@ -108,6 +104,99 @@ class Notifications extends BaseController
         return $this->response->setJSON([
             'status' => 'success',
             'message' => 'Email trigger settings saved.',
+        ]);
+    }
+
+    public function addTrigger()
+    {
+        $key = strtolower(trim((string) $this->request->getPost('trigger_key')));
+        $label = trim((string) $this->request->getPost('trigger_label'));
+        $description = trim((string) $this->request->getPost('trigger_description'));
+
+        if ($key === '' || $label === '') {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Trigger key and label are required.']);
+        }
+
+        if (!preg_match('/^[a-z][a-z0-9_]*$/', $key)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Trigger key must start with a letter and contain only lowercase letters, numbers and underscores.']);
+        }
+
+        // Built-in triggers are listed in Notifier::TRIGGER_META (private) — guard via triggerMeta().
+        foreach (Notifier::triggerMeta() as $built) {
+            if ($built['key'] === $key) {
+                return $this->response->setJSON(['status' => 'error', 'message' => 'That trigger already exists as a built-in trigger.']);
+            }
+        }
+
+        $db = \Config\Database::connect();
+        $custom = Notifier::customTriggers();
+
+        foreach ($custom as $item) {
+            if ($item['key'] === $key) {
+                return $this->response->setJSON(['status' => 'error', 'message' => 'A trigger with that key already exists.']);
+            }
+        }
+
+        $custom[] = [
+            'key' => $key,
+            'label' => $label,
+            'description' => $description,
+        ];
+
+        $db->table('tbl_Settings')->upsert([
+            'key' => 'email_triggers_custom',
+            'value' => json_encode($custom),
+            'type' => 'json',
+            'description' => 'Custom email notification triggers',
+        ]);
+
+        // New custom triggers are enabled by default so they take effect immediately.
+        $triggers = Notifier::triggers();
+        $triggers[$key] = true;
+        $db->table('tbl_Settings')->upsert([
+            'key' => 'email_triggers',
+            'value' => json_encode($triggers),
+            'type' => 'json',
+            'description' => 'Email notification triggers',
+        ]);
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'message' => 'Trigger "' . $label . '" added and enabled.',
+        ]);
+    }
+
+    public function deleteTrigger()
+    {
+        $key = trim((string) $this->request->getPost('trigger_key'));
+        if ($key === '') {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Missing trigger key.']);
+        }
+
+        $db = \Config\Database::connect();
+
+        $custom = Notifier::customTriggers();
+        $filtered = array_values(array_filter($custom, static fn ($item) => $item['key'] !== $key));
+
+        $db->table('tbl_Settings')->upsert([
+            'key' => 'email_triggers_custom',
+            'value' => json_encode($filtered),
+            'type' => 'json',
+            'description' => 'Custom email notification triggers',
+        ]);
+
+        $triggers = Notifier::triggers();
+        unset($triggers[$key]);
+        $db->table('tbl_Settings')->upsert([
+            'key' => 'email_triggers',
+            'value' => json_encode($triggers),
+            'type' => 'json',
+            'description' => 'Email notification triggers',
+        ]);
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'message' => 'Trigger deleted.',
         ]);
     }
 

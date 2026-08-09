@@ -112,7 +112,7 @@
                 <?php else: ?>
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0">
-                            <thead>
+                            <thead class="table-light">
                                 <tr>
                                     <th>Engine</th>
                                     <th class="text-end">Tables</th>
@@ -122,9 +122,13 @@
                             <tbody>
                                 <?php foreach ($engines as $e): ?>
                                     <tr>
-                                        <td class="fw-semibold"><i class="fa-solid fa-cubes me-1 text-secondary"></i><?= esc($e['engine_name']) ?></td>
-                                        <td class="text-end"><?= (int) $e['table_count'] ?></td>
-                                        <td class="text-end"><?= esc($e['size_mb']) ?> MB</td>
+                                        <td>
+                                            <span class="badge bg-success">
+                                                <i class="fa-solid fa-database me-1"></i><?= esc($e['engine_name']) ?>
+                                            </span>
+                                        </td>
+                                        <td class="text-end"><i class="fa-solid fa-table-list me-1 text-secondary"></i><?= (int) $e['table_count'] ?></td>
+                                        <td class="text-end"><i class="fa-solid fa-hard-drive me-1 text-secondary"></i><?= esc($e['size_mb']) ?> MB</td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -149,29 +153,42 @@
             <table class="table table-hover mb-0 align-middle" id="tablesTable">
                 <thead class="table-light">
                     <tr>
-                        <th>Table</th>
-                        <th class="text-end">Rows</th>
-                        <th class="text-end">Data</th>
-                        <th class="text-end">Index</th>
-                        <th class="text-end">Total</th>
-                        <th>Engine</th>
-                        <th>Collation</th>
-                        <th class="text-end">Fields</th>
-                        <th>Columns</th>
+                        <th style="width: 25%;">Table</th>
+                        <th style="width: 50%;">Fields &amp; Rows</th>
+                        <th style="width: 25%;">Size</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($tables as $t): ?>
                         <tr>
-                            <td class="fw-semibold"><i class="fa-solid fa-table me-1 text-secondary"></i><?= esc($t['name']) ?></td>
-                            <td class="text-end"><?= number_format((int) $t['row_count']) ?></td>
-                            <td class="text-end"><?= esc($t['data_human']) ?></td>
-                            <td class="text-end"><?= esc($t['index_human']) ?></td>
-                            <td class="text-end fw-semibold"><?= esc($t['size_human']) ?></td>
-                            <td><small><?= esc($t['engine_name']) ?></small></td>
-                            <td><small class="text-muted"><?= esc($t['collation']) ?></small></td>
-                            <td class="text-end"><?= $t['field_count'] ?></td>
-                            <td><small class="text-muted"><?= htmlspecialchars($t['field_list']) ?></small></td>
+                            <td>
+                                <strong class="d-block"><i class="fa-solid fa-table me-1 text-secondary"></i><?= esc($t['name']) ?></strong>
+                                <div class="d-flex align-items-center gap-1 flex-wrap mt-1">
+                                    <span class="badge bg-success"><i class="fa-solid fa-database me-1"></i><?= esc($t['engine_name']) ?></span>
+                                    <span class="badge bg-secondary"><i class="fa-solid fa-globe me-1"></i><?= esc($t['collation']) ?></span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <strong><i class="fa-solid fa-table-columns me-1 text-secondary"></i><?= $t['field_count'] ?> fields</strong>
+                                    <span class="badge bg-info text-dark"><i class="fa-solid fa-rows me-1"></i><?= number_format((int) $t['row_count']) ?> rows</span>
+                                </div>
+                                <em class="text-muted d-block mt-1" style="font-size: 0.8rem; white-space: normal; word-break: break-word;"><?= htmlspecialchars($t['field_list']) ?></em>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-baseline">
+                                    <small class="text-muted fw-semibold text-uppercase" style="font-size: 0.7rem; width: 44px; flex-shrink: 0;">Total</small>
+                                    <strong class="ms-1"><i class="fa-solid fa-database me-1 text-secondary"></i><?= esc($t['size_human']) ?></strong>
+                                </div>
+                                <div class="d-flex align-items-baseline mt-1">
+                                    <small class="text-muted" style="font-size: 0.75rem; width: 44px; flex-shrink: 0;">Data</small>
+                                    <small class="ms-1"><?= esc($t['data_human']) ?></small>
+                                </div>
+                                <div class="d-flex align-items-baseline mt-1">
+                                    <small class="text-muted" style="font-size: 0.75rem; width: 44px; flex-shrink: 0;">Index</small>
+                                    <small class="ms-1"><?= esc($t['index_human']) ?></small>
+                                </div>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>

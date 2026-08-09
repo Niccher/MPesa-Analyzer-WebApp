@@ -27,6 +27,9 @@ class MaintenanceFilter implements FilterInterface
             $config[$s['key']] = $s['value'];
         }
 
+        // Record start/stop transitions (manual toggle or scheduled window).
+        \App\Libraries\MaintenanceLogger::sync($config);
+
         $isMaintenance = (bool)($config['maintenance_mode'] ?? false);
         $expectedEnd = $config['maintenance_schedule_end'] ?? '';
 

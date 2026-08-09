@@ -27,12 +27,20 @@ class Maintenance extends BaseController
         $scheduleStart = $config['maintenance_schedule_start'] ?? '';
         $scheduleEnd = $config['maintenance_schedule_end'] ?? '';
 
+        // Maintenance history (most recent first)
+        $history = $db->table('tbl_Maintenance_Log')
+            ->orderBy('id', 'DESC')
+            ->limit(200)
+            ->get()
+            ->getResultArray();
+
         $data = [
             'is_maintenance' => $isMaintenance,
             'maintenance_message' => $config['maintenance_message'] ?? 'We are performing scheduled maintenance. Please check back soon.',
             'scheduled' => $scheduled,
             'schedule_start' => $scheduleStart,
             'schedule_end' => $scheduleEnd,
+            'maintenance_history' => $history,
             'bg_color' => '#B1B8ED',
         ];
 
@@ -50,6 +58,16 @@ class Maintenance extends BaseController
             'type' => 'boolean',
             'description' => 'Enable maintenance mode',
         ]);
+
+        $message = trim((string)$this->request->getPost('maintenance_message'));
+        if ($message !== '') {
+            $db->table('tbl_Settings')->upsert([
+                'key' => 'maintenance_message',
+                'value' => $message,
+                'type' => 'string',
+                'description' => 'Maintenance mode message',
+            ]);
+        }
 
         // If disabling, also clear scheduled
         if (!$enabled) {

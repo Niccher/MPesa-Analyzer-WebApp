@@ -6,6 +6,9 @@
     .schedule-preview { font-family: monospace; background: #f1f3f5; border-radius: 4px; padding: 0.35rem 0.6rem; font-size: 0.85rem; }
     .output-pre { background: #0f172a; color: #e2e8f0; border-radius: 4px; padding: 1rem; max-height: 380px; overflow: auto; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; }
     [data-bs-theme="dark"] .output-pre { background: #000; }
+    .run-item { cursor: pointer; border: 1px solid #e0e0e0; border-radius: 4px; padding: 0.5rem 0.75rem; }
+    .run-item:hover, .run-item.active { border-color: var(--primary); background: rgba(177,184,237,0.15); }
+    .run-list { max-height: 420px; overflow: auto; }
 </style>
 <?= $this->endSection() ?>
 <?= $this->section('page_header') ?>
@@ -14,9 +17,6 @@
         <h2 class="fw-bold mb-1" style="color: var(--primary);"><i class="fa-solid fa-clock me-2"></i> Cron Jobs</h2>
         <p class="text-secondary mb-0">Create and manage the background tasks that keep the platform running.</p>
     </div>
-    <button type="button" class="btn btn-primary rounded-pill px-4 fw-semibold" data-bs-toggle="modal" data-bs-target="#cronModal" id="addCronBtn">
-        <i class="fa-solid fa-plus me-1"></i> Add Cron Job
-    </button>
 </div>
 <?= $this->endSection() ?>
 <?= $this->section('content') ?>
@@ -24,104 +24,188 @@
 <div class="row g-4">
     <div class="col-lg-12">
         <div class="card settings-card">
-            <div class="card-header bg-white border-0 pt-3 pb-0 px-4">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <h5 class="fw-bold mb-0" style="color: var(--primary);"><i class="fa-solid fa-list-check me-2"></i> Scheduled Jobs <span class="text-secondary fs-6 fw-normal">(<?= count($cron_jobs) ?>)</span></h5>
+            <div class="card-body p-4">
+                <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#cronJobsTab">Cron Jobs <span class="badge bg-secondary ms-1"><?= count($cron_jobs) ?></span></button></li>
+                    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cronRunsTab">Cron Runs <span class="badge bg-secondary ms-1"><?= count($cron_runs) ?></span></button></li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="cronJobsTab">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                            <h5 class="fw-bold mb-0" style="color: var(--primary);"><i class="fa-solid fa-list-check me-2"></i> Scheduled Jobs</h5>
+                            <button type="button" class="btn btn-primary rounded-pill px-4 fw-semibold" data-bs-toggle="modal" data-bs-target="#cronModal" id="addCronBtn">
+                                <i class="fa-solid fa-plus me-1"></i> Add Cron Job
+                            </button>
+                        </div>
+                        <?php if (empty($cron_jobs)): ?>
+                            <div class="text-center text-muted p-5">
+                                <i class="fa-solid fa-inbox fs-1 d-block mb-2"></i>
+                                No cron jobs yet. Click <strong>Add Cron Job</strong> to create one.
+                            </div>
+                        <?php else: ?>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Job</th>
+                                            <th>Type</th>
+                                            <th>Schedule</th>
+                                            <th>Last Run</th>
+                                            <th class="text-center" style="width: 80px;">Enabled</th>
+                                            <th style="width: 200px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($cron_jobs as $job): ?>
+                                            <?php
+                                                $jobType = $job['type'] ?? '';
+                                                $typeMeta = $job_types[$jobType] ?? ['group' => 'Checks', 'label' => $jobType === '' ? 'Legacy / Unknown' : $jobType . ' (unmapped)'];
+                                                $group = $typeMeta['group'] ?? 'Checks';
+                                                $badgeClass = match ($group) {
+                                                    'Spark Commands' => 'bg-primary',
+                                                    'Database' => 'bg-success',
+                                                    default => 'bg-info text-dark',
+                                                };
+                                            ?>
+                                            <tr data-key="<?= esc($job['key']) ?>">
+                                                <td>
+                                                    <strong><?= esc($job['name'] ?? $job['key']) ?></strong>
+                                                    <br><small class="text-muted"><?= esc($job['description'] ?? '') ?></small>
+                                                </td>
+                                                <td>
+                                                    <span class="badge <?= $badgeClass ?>"><?= esc($typeMeta['label']) ?></span>
+                                                    <?php if ($jobType !== ''): ?>
+                                                        <br><small class="text-muted"><code><?= esc($jobType) ?></code></small>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <code><?= esc($job['schedule'] ?? 'N/A') ?></code>
+                                                    <br><small class="text-muted"><?= esc(\App\Libraries\CronRunner::describe($job['schedule'] ?? '')) ?></small>
+                                                </td>
+                                                <td>
+                                                    <?php if (!empty($job['last_run'])): ?>
+                                                        <small><?= esc($job['last_run']) ?></small>
+                                                        <br>
+                                                        <span class="badge <?= ($job['last_status'] ?? '') === 'success' ? 'bg-success' : 'bg-danger' ?>">
+                                                            <?= ($job['last_status'] ?? '') === 'success' ? 'Success' : 'Error' ?>
+                                                        </span>
+                                                    <?php else: ?>
+                                                        <small class="text-muted">Never</small>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="text-center">
+                                                    <div class="form-check form-switch d-inline-block">
+                                                        <input class="form-check-input cron-toggle" type="checkbox" role="switch"
+                                                            data-key="<?= esc($job['key']) ?>" <?= !empty($job['enabled']) ? 'checked' : '' ?>>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="btn-group btn-group-sm" role="group">
+                                                        <button type="button" class="btn btn-success btn-run" data-key="<?= esc($job['key']) ?>" title="Run now">
+                                                            <i class="fa-solid fa-play"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-history" data-key="<?= esc($job['key']) ?>" data-name="<?= esc($job['name'] ?? $job['key'], 'attr') ?>" title="View history">
+                                                            <i class="fa-solid fa-clock-rotate-left"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-primary btn-edit"
+                                                            data-key="<?= esc($job['key']) ?>"
+                                                            data-name="<?= esc($job['name'] ?? '', 'attr') ?>"
+                                                            data-type="<?= esc($job['type'] ?? '', 'attr') ?>"
+                                                            data-schedule="<?= esc($job['schedule'] ?? '', 'attr') ?>"
+                                                            data-description="<?= esc($job['description'] ?? '', 'attr') ?>"
+                                                            data-enabled="<?= !empty($job['enabled']) ? '1' : '0' ?>"
+                                                            title="Edit">
+                                                            <i class="fa-solid fa-pen"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-danger btn-delete" data-key="<?= esc($job['key']) ?>" data-name="<?= esc($job['name'] ?? $job['key'], 'attr') ?>" title="Delete">
+                                                            <i class="fa-solid fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="tab-pane fade" id="cronRunsTab">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                            <h5 class="fw-bold mb-0" style="color: var(--primary);"><i class="fa-solid fa-clock-rotate-left me-2"></i> Run History</h5>
+                            <span class="text-muted small">Last <?= count($cron_runs) ?> runs</span>
+                        </div>
+                        <?php if (empty($cron_runs)): ?>
+                            <div class="text-center text-muted p-5">
+                                <i class="fa-solid fa-inbox fs-1 d-block mb-2"></i>
+                                No runs recorded yet. Runs appear here when a job is executed by the scheduler or manually.
+                            </div>
+                        <?php else: ?>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Job</th>
+                                            <th>Type</th>
+                                            <th style="width: 140px;">Trigger</th>
+                                            <th style="width: 170px;">Run At</th>
+                                            <th style="width: 90px;">Status</th>
+                                            <th>Output</th>
+                                            <th style="width: 90px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($cron_runs as $run): ?>
+                                            <?php
+                                                $runJobType = $run['job_type'] ?? '';
+                                                $runTypeMeta = $job_types[$runJobType] ?? ['label' => $runJobType === '' ? 'Legacy' : $runJobType];
+                                                $runLocal = '';
+                                                if (!empty($run['ran_at'])) {
+                                                    try {
+                                                        $runLocal = (new \DateTimeImmutable($run['ran_at'], new \DateTimeZone('UTC')))
+                                                            ->setTimezone(new \DateTimeZone('Africa/Nairobi'))
+                                                            ->format('d M Y, g:i A');
+                                                    } catch (\Throwable $e) {
+                                                        $runLocal = $run['ran_at'];
+                                                    }
+                                                }
+                                            ?>
+                                            <tr>
+                                                <td>
+                                                    <strong><?= esc($run['job_name'] ?: $run['job_key']) ?></strong>
+                                                    <br><small class="text-muted"><code><?= esc($run['job_key']) ?></code></small>
+                                                </td>
+                                                <td><small><?= esc($runTypeMeta['label']) ?></small></td>
+                                                <td>
+                                                    <span class="badge <?= ($run['trigger'] ?? 'scheduler') === 'manual' ? 'bg-info text-dark' : 'bg-secondary' ?>">
+                                                        <i class="fa-solid <?= ($run['trigger'] ?? 'scheduler') === 'manual' ? 'fa-user' : 'fa-clock' ?> me-1"></i><?= ($run['trigger'] ?? 'scheduler') === 'manual' ? 'Manual' : 'Scheduler' ?>
+                                                    </span>
+                                                </td>
+                                                <td><small><?= esc($runLocal) ?></small></td>
+                                                <td>
+                                                    <span class="badge <?= ($run['status'] ?? '') === 'success' ? 'bg-success' : 'bg-danger' ?>">
+                                                        <?= ($run['status'] ?? '') === 'success' ? 'Success' : 'Error' ?>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <small class="text-muted d-block text-truncate" style="max-width: 260px;"><?= esc(strtok((string) ($run['output'] ?? ''), "\n")) ?></small>
+                                                </td>
+                                                <td>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm btn-history"
+                                                        data-key="<?= esc($run['job_key']) ?>"
+                                                        data-name="<?= esc($run['job_name'] ?: $run['job_key'], 'attr') ?>"
+                                                        title="View history">
+                                                        <i class="fa-solid fa-clock-rotate-left me-1"></i> History
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
-            </div>
-            <div class="card-body p-0">
-                <?php if (empty($cron_jobs)): ?>
-                    <div class="text-center text-muted p-5">
-                        <i class="fa-solid fa-inbox fs-1 d-block mb-2"></i>
-                        No cron jobs yet. Click <strong>Add Cron Job</strong> to create one.
-                    </div>
-                <?php else: ?>
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Job</th>
-                                    <th>Type</th>
-                                    <th>Schedule</th>
-                                    <th>Last Run</th>
-                                    <th class="text-center" style="width: 80px;">Enabled</th>
-                                    <th style="width: 200px;">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($cron_jobs as $job): ?>
-                                    <?php
-                                        $jobType = $job['type'] ?? '';
-                                        $typeMeta = $job_types[$jobType] ?? ['group' => 'Checks', 'label' => $jobType === '' ? 'Legacy / Unknown' : $jobType . ' (unmapped)'];
-                                        $group = $typeMeta['group'] ?? 'Checks';
-                                        $badgeClass = match ($group) {
-                                            'Spark Commands' => 'bg-primary',
-                                            'Database' => 'bg-success',
-                                            default => 'bg-info text-dark',
-                                        };
-                                    ?>
-                                    <tr data-key="<?= esc($job['key']) ?>">
-                                        <td>
-                                            <strong><?= esc($job['name'] ?? $job['key']) ?></strong>
-                                            <br><small class="text-muted"><?= esc($job['description'] ?? '') ?></small>
-                                        </td>
-                                        <td>
-                                            <span class="badge <?= $badgeClass ?>"><?= esc($typeMeta['label']) ?></span>
-                                            <?php if ($jobType !== ''): ?>
-                                                <br><small class="text-muted"><code><?= esc($jobType) ?></code></small>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <code><?= esc($job['schedule'] ?? 'N/A') ?></code>
-                                            <br><small class="text-muted"><?= esc(\App\Libraries\CronRunner::describe($job['schedule'] ?? '')) ?></small>
-                                        </td>
-                                        <td>
-                                            <?php if (!empty($job['last_run'])): ?>
-                                                <small><?= esc($job['last_run']) ?></small>
-                                                <br>
-                                                <span class="badge <?= ($job['last_status'] ?? '') === 'success' ? 'bg-success' : 'bg-danger' ?>">
-                                                    <?= ($job['last_status'] ?? '') === 'success' ? 'Success' : 'Error' ?>
-                                                </span>
-                                            <?php else: ?>
-                                                <small class="text-muted">Never</small>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td class="text-center">
-                                            <div class="form-check form-switch d-inline-block">
-                                                <input class="form-check-input cron-toggle" type="checkbox" role="switch"
-                                                    data-key="<?= esc($job['key']) ?>" <?= !empty($job['enabled']) ? 'checked' : '' ?>>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="btn-group btn-group-sm" role="group">
-                                                <button type="button" class="btn btn-success btn-run" data-key="<?= esc($job['key']) ?>" title="Run now">
-                                                    <i class="fa-solid fa-play"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-outline-secondary btn-output" data-key="<?= esc($job['key']) ?>" title="View output"
-                                                    <?= empty($job['last_run']) ? 'disabled' : '' ?>>
-                                                    <i class="fa-solid fa-terminal"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-outline-primary btn-edit"
-                                                    data-key="<?= esc($job['key']) ?>"
-                                                    data-name="<?= esc($job['name'] ?? '', 'attr') ?>"
-                                                    data-type="<?= esc($job['type'] ?? '', 'attr') ?>"
-                                                    data-schedule="<?= esc($job['schedule'] ?? '', 'attr') ?>"
-                                                    data-description="<?= esc($job['description'] ?? '', 'attr') ?>"
-                                                    data-enabled="<?= !empty($job['enabled']) ? '1' : '0' ?>"
-                                                    title="Edit">
-                                                    <i class="fa-solid fa-pen"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-outline-danger btn-delete" data-key="<?= esc($job['key']) ?>" data-name="<?= esc($job['name'] ?? $job['key'], 'attr') ?>" title="Delete">
-                                                    <i class="fa-solid fa-trash"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -263,6 +347,24 @@
     </div>
 </div>
 
+<!-- Run History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" style="color: var(--primary);"><i class="fa-solid fa-clock-rotate-left me-2"></i><span id="historyTitle">Run History</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3" id="historyBody"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 const CRON_PRESET_LABELS = {
     '* * * * *': 'Every minute',
@@ -381,22 +483,61 @@ document.querySelectorAll('.btn-run').forEach(btn => {
     });
 });
 
-// View stored output
-document.querySelectorAll('.btn-output').forEach(btn => {
+// View run history
+document.querySelectorAll('.btn-history').forEach(btn => {
     btn.addEventListener('click', function() {
         const data = new FormData();
         data.append('job_key', this.dataset.key);
-        fetch('<?= base_url('admin/crons/output') ?>', { method: 'POST', body: data })
+        fetch('<?= base_url('admin/crons/history') ?>', { method: 'POST', body: data })
             .then(r => r.json())
             .then(res => {
                 if (res.status === 'success') {
-                    showOutputModal(res.name, res.last_run, res.last_status, res.output);
+                    showHistoryModal(res.name, res.runs || []);
                 } else {
-                    showAlert('Cron Jobs', res.message || 'Failed to load output.', 'danger');
+                    showAlert('Cron Jobs', res.message || 'Failed to load history.', 'danger');
                 }
             });
     });
 });
+
+function showHistoryModal(name, runs) {
+    document.getElementById('historyTitle').textContent = name + ' — Run History';
+    const body = document.getElementById('historyBody');
+
+    if (!runs.length) {
+        body.innerHTML = '<div class="col-12 text-center text-muted p-4">' +
+            '<i class="fa-solid fa-inbox fs-1 d-block mb-2"></i>No runs recorded for this job yet.</div>';
+    } else {
+        body.innerHTML = '' +
+            '<div class="col-md-5"><div class="run-list d-flex flex-column gap-2" id="historyRunList"></div></div>' +
+            '<div class="col-md-7"><pre class="output-pre" id="historyOutput" style="max-height: 460px;">Loading...</pre></div>';
+        const list = document.getElementById('historyRunList');
+        runs.forEach((run, idx) => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'run-item btn text-start w-100 d-flex justify-content-between align-items-center gap-2' + (idx === 0 ? ' active' : '');
+            const statusBadge = run.status === 'success'
+                ? '<span class="badge bg-success"><i class="fa-solid fa-circle-check me-1"></i>Success</span>'
+                : '<span class="badge bg-danger"><i class="fa-solid fa-circle-xmark me-1"></i>Error</span>';
+            const triggerBadge = run.trigger === 'manual'
+                ? '<span class="badge bg-info text-dark"><i class="fa-solid fa-user me-1"></i>Manual</span>'
+                : '<span class="badge bg-secondary"><i class="fa-solid fa-clock me-1"></i>Scheduler</span>';
+            item.innerHTML = '<span class="d-flex flex-column gap-1">' +
+                '<small><strong>' + (run.ran_at_local || run.ran_at || 'Unknown time') + '</strong></small>' +
+                '<span class="d-flex gap-1">' + statusBadge + triggerBadge + '</span></span>' +
+                '<i class="fa-solid fa-chevron-right text-muted"></i>';
+            item.addEventListener('click', () => {
+                list.querySelectorAll('.run-item').forEach(el => el.classList.remove('active'));
+                item.classList.add('active');
+                document.getElementById('historyOutput').textContent = run.output || 'No output.';
+            });
+            list.appendChild(item);
+        });
+        document.getElementById('historyOutput').textContent = runs[0].output || 'No output.';
+    }
+
+    new bootstrap.Modal(document.getElementById('historyModal')).show();
+}
 
 function showOutputModal(name, lastRun, status, output) {
     document.getElementById('outputTitle').textContent = name + ' — Output';
