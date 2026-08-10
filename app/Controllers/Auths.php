@@ -139,6 +139,18 @@ class Auths extends BaseController
 
         if ($this->request->getPost()){
             $u_id = $this->request->getVar('varId');
+
+            \App\Libraries\Audit::log(
+                'get/user_info',
+                'data',
+                'User info requested',
+                [
+                    'var_user_id' => $u_id,
+                    'app_version' => $this->request->getHeaderLine('X-App-Version') ?: null,
+                ],
+                null
+            );
+
             $pushed = $mod_user->user_info($u_id);
             if ($pushed){
                 return $this->respond([

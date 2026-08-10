@@ -103,6 +103,18 @@ class UserAuth extends BaseController{
             $userModel = new UserModel();
             $user = $userModel->find($identity->user_id);
             if ($user) {
+                \App\Libraries\Audit::log(
+                    'verify_token',
+                    'auth',
+                    'Token verified',
+                    [
+                        'token_hash'  => $hashedToken,
+                        'app_version' => $this->request->getHeaderLine('X-App-Version') ?: null,
+                        'device_time' => $this->request->getHeaderLine('X-Device-Time') ?: null,
+                    ],
+                    (int) $identity->user_id
+                );
+
                 // Return payload matching the expected Android format
                 return $this->respond([
                     "status" => "1",

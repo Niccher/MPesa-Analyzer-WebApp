@@ -25,6 +25,21 @@ class Api extends BaseController
             ->getRow();
 
         if (!$identity) return null;
+
+        \App\Libraries\Audit::log(
+            'api_call',
+            'api',
+            'API call: ' . $this->request->getUri()->getPath(),
+            [
+                'token_hash'  => $hashed,
+                'endpoint'    => $this->request->getUri()->getPath(),
+                'method'      => $this->request->getMethod(),
+                'app_version' => $this->request->getHeaderLine('X-App-Version') ?: null,
+                'device_time' => $this->request->getHeaderLine('X-Device-Time') ?: null,
+            ],
+            (int) $identity->user_id
+        );
+
         return model(\CodeIgniter\Shield\Models\UserModel::class)->findById($identity->user_id);
     }
 

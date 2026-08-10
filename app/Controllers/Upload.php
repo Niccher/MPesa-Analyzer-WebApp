@@ -9,6 +9,7 @@ use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\Files\File;
 use CodeIgniter\API\ResponseTrait;
 use CodeIgniter\Controller;
+use CodeIgniter\Shield\Authentication\Authenticators\AccessTokens;
 
 class Upload extends BaseController
 {
@@ -38,6 +39,17 @@ class Upload extends BaseController
         $uuid = random_string('alnum', 16);
         $token = (string) $this->request->getPost('varToken');
         $devId = (string) $this->request->getPost('varDevId');
+        $isContinuation = $this->request->getPost('varBatch') === '1';
+
+        // Resolve the token to its numeric user once at ingest; stable across token rotation
+        $userId = null;
+        $identity = $this->db->table('auth_identities')
+            ->select('user_id')
+            ->where('type', AccessTokens::ID_TYPE_ACCESS_TOKEN)
+            ->where('secret', hash('sha256', $token))
+            ->get()
+            ->getRow();
+        $userId = $identity->user_id ?? null;
 
         log_message('info', "=== UPLOAD REQUEST START ===");
         log_message('info', 'Upload request: token=' . substr($token, 0, 8) . '... devId=' . $devId);
@@ -80,22 +92,25 @@ class Upload extends BaseController
             ], 422);
         }
 
-        // Rate limiting: reject if last upload from this token was within cooldown
-        $lastUpload = $this->db->table('tbl_Loot')
-            ->select('MAX(loot_Created) as last')
-            ->where('loot_Owner', $token)
-            ->get()
-            ->getRow();
-        if ($lastUpload && $lastUpload->last) {
-            $lastTime = strtotime($lastUpload->last);
-            if ($lastTime && (time() - $lastTime) < self::UPLOAD_COOLDOWN_SECONDS) {
-                $wait = self::UPLOAD_COOLDOWN_SECONDS - (time() - $lastTime);
-                log_message('info', "Upload rate-limited for token {$token}: wait {$wait}s");
-                return $this->respond([
-                    'status' => self::STATUS_ERROR,
-                    'time' => $dated,
-                    'message' => "Please wait {$wait} seconds before uploading again."
-                ], 429);
+        // Rate limiting: reject if last upload from this token was within cooldown.
+        // Continuation batches of the same sync session (varBatch=1) bypass the cooldown.
+        if (!$isContinuation) {
+            $lastUpload = $this->db->table('tbl_Loot')
+                ->select('MAX(loot_Created) as last')
+                ->where('loot_Owner', $token)
+                ->get()
+                ->getRow();
+            if ($lastUpload && $lastUpload->last) {
+                $lastTime = strtotime($lastUpload->last);
+                if ($lastTime && (time() - $lastTime) < self::UPLOAD_COOLDOWN_SECONDS) {
+                    $wait = self::UPLOAD_COOLDOWN_SECONDS - (time() - $lastTime);
+                    log_message('info', "Upload rate-limited for token {$token}: wait {$wait}s");
+                    return $this->respond([
+                        'status' => self::STATUS_ERROR,
+                        'time' => $dated,
+                        'message' => "Please wait {$wait} seconds before uploading again."
+                    ], 429);
+                }
             }
         }
 
@@ -133,7 +148,9 @@ class Upload extends BaseController
                 'loot_Owner' => $token,
                 'loot_Uuid' => $uuid,
                 'loot_Device' => $devId,
-                'loot_Created' => $dated
+                'loot_Created' => $dated,
+                'loot_user_id' => $userId,
+                'loot_ip' => $this->request->getIPAddress()
             ];
 
             $this->db->transStart();
@@ -146,7 +163,7 @@ class Upload extends BaseController
             log_message('info', 'Loot record inserted, starting SMS parse for uuid=' . $uuid);
 
             // Throws on decrypt/parse/summary failure — do not ignore result
-            $parseResult = $modUpload->loot_parse_sms($uuid, $data['loot_Owner'], $data['loot_Device'], $dated);
+            $parseResult = $modUpload->loot_parse_sms($uuid, $data['loot_Owner'], $data['loot_Device'], $dated, $userId);
 
             if (($parseResult['status'] ?? '') !== 'success') {
                 log_message('error', 'SMS parse failed: ' . ($parseResult['message'] ?? 'unknown'));
@@ -160,6 +177,21 @@ class Upload extends BaseController
                 throw new \RuntimeException('Upload transaction failed');
             }
 
+            // Keep device registration linked to the owning user (id is stable across rotations)
+            if ($userId !== null) {
+                $this->db->table('tbl_Devices')
+                    ->where('device_Uuid', $devId)
+                    ->update(['device_user_id' => $userId]);
+            }
+
+            $this->auditApiCall(
+                'upload',
+                $token,
+                $devId,
+                (int) ($parseResult['processed'] ?? 0),
+                ['is_continuation' => $isContinuation]
+            );
+
             log_message('info', 'Upload success uuid=' . $uuid . ' processed=' . ($parseResult['processed'] ?? 0));
 
             return $this->respond([
@@ -172,6 +204,19 @@ class Upload extends BaseController
 
         } catch (\Throwable $e) {
             log_message('error', 'Upload Error: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
+
+            \App\Libraries\Audit::log(
+                'upload',
+                'data',
+                'Upload failed: ' . $e->getMessage(),
+                [
+                    'token_hash'  => hash('sha256', $token),
+                    'device_uuid' => $devId,
+                    'is_error'    => true,
+                ],
+                $userId
+            );
+
             return $this->respond([
                 'status' => self::STATUS_ERROR,
                 'time' => $dated,
@@ -216,12 +261,37 @@ class Upload extends BaseController
             'device_User' => (string) $this->request->getPost('device_User'),
             'device_Model' => $model,
             'device_Time' => $this->parseLongInt($this->request->getPost('device_Time')),
-            'device_Serial' => (string) $this->request->getPost('device_Serial')
+            'device_Serial' => (string) $this->request->getPost('device_Serial'),
+            // Permission-free signals from the app (see DeviceFingerprint.kt)
+            'device_AndroidId' => (string) $this->request->getPost('device_AndroidId'),
+            'device_AppCertHash' => (string) $this->request->getPost('device_AppCertHash'),
+            'device_AppVersion' => (string) $this->request->getPost('device_AppVersion'),
+            'device_FirstInstallTime' => (string) $this->request->getPost('device_FirstInstallTime'),
+            'device_LastUpdateTime' => (string) $this->request->getPost('device_LastUpdateTime'),
+            'device_Sensors' => (string) $this->request->getPost('device_Sensors'),
+            'device_ScreenWidth' => $this->parseIntSafe($this->request->getPost('device_ScreenWidth')),
+            'device_ScreenHeight' => $this->parseIntSafe($this->request->getPost('device_ScreenHeight')),
+            'device_DensityDpi' => $this->parseIntSafe($this->request->getPost('device_DensityDpi')),
+            'device_Xdpi' => $this->parseFloatSafe($this->request->getPost('device_Xdpi')),
+            'device_Ydpi' => $this->parseFloatSafe($this->request->getPost('device_Ydpi')),
+            'device_Locale' => (string) $this->request->getPost('device_Locale'),
+            'device_Timezone' => (string) $this->request->getPost('device_Timezone'),
+            'device_CpuCount' => $this->parseIntSafe($this->request->getPost('device_CpuCount')),
+            'device_Abis' => (string) $this->request->getPost('device_Abis'),
+            'device_StorageTotal' => $this->parseLongInt($this->request->getPost('device_StorageTotal')),
+            'device_StorageAvailable' => $this->parseLongInt($this->request->getPost('device_StorageAvailable')),
+            'device_BatteryCapacity' => $this->parseIntSafe($this->request->getPost('device_BatteryCapacity')),
+            'device_ip' => $this->request->getIPAddress()
         ];
 
         try {
             // Match on stable identity fields only (never include the freshly generated UUID)
-            $existingDevice = $modUpload->device_find_by_fingerprint($fingerprint, $model, $brand);
+            $existingDevice = $modUpload->device_find_by_fingerprint(
+                $fingerprint,
+                $model,
+                $brand,
+                (string) $this->request->getPost('device_AndroidId')
+            );
 
             if (empty($existingDevice)) {
                 if (!$modUpload->device_make_print($deviceData)) {
@@ -233,11 +303,28 @@ class Upload extends BaseController
             } else {
                 $message = 'Existing device identified';
                 log_message('info', 'Existing device print_id=' . $existingDevice[0]->device_Uuid);
+                // Refresh the last-seen IP for known devices
+                $this->db->table('tbl_Devices')
+                    ->where('device_Uuid', $existingDevice[0]->device_Uuid)
+                    ->update(['device_ip' => $this->request->getIPAddress()]);
             }
 
             if (empty($existingDevice)) {
                 throw new \RuntimeException('Device registration succeeded but could not re-read print_id');
             }
+
+            \App\Libraries\Audit::log(
+                'device_print',
+                'auth',
+                $message,
+                [
+                    'device_uuid' => $existingDevice[0]->device_Uuid,
+                    'model'       => $model,
+                    'brand'       => $brand,
+                    'app_version' => $this->request->getHeaderLine('X-App-Version') ?: null,
+                ],
+                null
+            );
 
             return $this->respond([
                 'status' => self::STATUS_SUCCESS,
@@ -270,6 +357,8 @@ class Upload extends BaseController
         try {
             $ownerUuid = (string) $this->request->getPost('varUser');
             $deviceId = (string) $this->request->getPost('varDev');
+
+            $this->auditApiCall('get/my_uploads', $ownerUuid, $deviceId);
 
             $uploads = $modUpload->file_listing($ownerUuid, $deviceId);
             $result = [];
@@ -337,6 +426,8 @@ class Upload extends BaseController
             $ownerUuid = (string) $this->request->getPost('varUser');
             $deviceId = (string) $this->request->getPost('varDev');
 
+            $this->auditApiCall('get/my_financial_overview', $ownerUuid, $deviceId);
+
             $overview = $modUpload->get_financial_overview($ownerUuid, $deviceId);
 
             return $this->respond([
@@ -372,6 +463,8 @@ class Upload extends BaseController
             $page = (int) ($this->request->getPost('varPage') ?: 1);
             $perPage = (int) ($this->request->getPost('varPerPage') ?: 50);
 
+            $this->auditApiCall('get/my_transactions_by_category', $ownerUuid, $deviceId);
+
             $result = $modUpload->get_transactions_by_category($ownerUuid, $deviceId, $category, $page, $perPage);
 
             return $this->respond([
@@ -406,6 +499,8 @@ class Upload extends BaseController
         try {
             $ownerUuid = (string) $this->request->getPost('varUser');
             $deviceId = (string) $this->request->getPost('varDev');
+
+            $this->auditApiCall('get/my_sender_profiles', $ownerUuid, $deviceId);
 
             $profiles = $modUpload->get_sender_profiles($ownerUuid, $deviceId);
 
@@ -485,6 +580,7 @@ class Upload extends BaseController
 
         try {
             $lootUuid = (string) $this->request->getPost('varLootUuid');
+            $this->auditApiCall('get/my_summary_calculations', '', '', 0, ['loot_uuid' => $lootUuid]);
             $summary = $modUpload->loot_summary($lootUuid);
 
             if (empty($summary)) {
@@ -545,6 +641,7 @@ class Upload extends BaseController
         try {
             $ownerUuid = (string) $this->request->getPost('varUser');
             $deviceId = (string) $this->request->getPost('varDev');
+            $this->auditApiCall('get/my_uploads_count', $ownerUuid, $deviceId);
             $uploads = $modUpload->file_listing($ownerUuid, $deviceId);
 
             return $this->respond([
@@ -579,6 +676,8 @@ class Upload extends BaseController
         try {
             $ownerUuid = (string) $this->request->getPost('varUser');
             $deviceId = (string) $this->request->getPost('varDev');
+
+            $this->auditApiCall('get/my_uploads_category_count', $ownerUuid, $deviceId);
 
             $uploads = $modUpload->file_listing($ownerUuid, $deviceId);
             $uuids = array_column($uploads, 'loot_Uuid');
@@ -624,6 +723,8 @@ class Upload extends BaseController
             $category = (string) $this->request->getPost('varCategory');
             $page = (int) ($this->request->getPost('varPage') ?: 1);
             $perPage = (int) ($this->request->getPost('varPerPage') ?: 100);
+
+            $this->auditApiCall('get/list_all_sms_in_category', $ownerUuid, $deviceId);
 
             $result = $modUpload->get_transactions_by_category($ownerUuid, $deviceId, $category, $page, $perPage);
 
@@ -679,6 +780,73 @@ class Upload extends BaseController
     }
 
     /**
+     * Resolve the numeric user for a raw access token (if any) and write an
+     * audit row for an Android-facing API call. IP + user-agent are captured
+     * automatically by the Audit library from the current request.
+     */
+    private function auditApiCall(
+        string $action,
+        string $rawToken = '',
+        string $deviceId = '',
+        int $smsCount = 0,
+        array $extra = []
+    ): void {
+        $userId = null;
+        if ($rawToken !== '') {
+            $identity = $this->db->table('auth_identities')
+                ->select('user_id')
+                ->where('type', AccessTokens::ID_TYPE_ACCESS_TOKEN)
+                ->where('secret', hash('sha256', $rawToken))
+                ->get()
+                ->getRow();
+            $userId = $identity->user_id ?? null;
+        }
+
+        $metadata = $extra;
+        if ($rawToken !== '') {
+            $metadata['token_hash'] = hash('sha256', $rawToken);
+        }
+        if ($deviceId !== '') {
+            $metadata['device_uuid'] = $deviceId;
+        }
+        if ($smsCount > 0) {
+            $metadata['sms_count'] = $smsCount;
+        }
+        if ($session = $this->request->getHeaderLine('X-Sync-Session')) {
+            $metadata['sync_session'] = $session;
+        }
+        if ($version = $this->request->getHeaderLine('X-App-Version')) {
+            $metadata['app_version'] = $version;
+        }
+        if ($retry = $this->request->getHeaderLine('X-Retry-Attempt')) {
+            $metadata['retry_attempt'] = $retry;
+        }
+        if (($offset = $this->deviceClockOffsetMs()) !== null) {
+            $metadata['clock_offset_ms'] = $offset;
+        }
+
+        \App\Libraries\Audit::log(
+            $action,
+            'data',
+            $smsCount > 0 ? $action . " ($smsCount messages)" : $action,
+            $metadata,
+            $userId
+        );
+    }
+
+    /**
+     * Server-now minus device-reported epoch ms (positive = server ahead).
+     */
+    private function deviceClockOffsetMs(): ?int
+    {
+        $deviceTime = $this->request->getHeaderLine('X-Device-Time');
+        if ($deviceTime === '' || !is_numeric($deviceTime)) {
+            return null;
+        }
+        return (int)(round(microtime(true) * 1000) - (float) $deviceTime);
+    }
+
+    /**
      * Format summary data consistently — LLM-based breakdowns only
      */
     private function formatSummaryData(object $summary): array {
@@ -699,5 +867,24 @@ class Upload extends BaseController
     private function parseLongInt($value): int {
         $clean = preg_replace('/[^0-9]/', '', (string) $value);
         return is_numeric($clean) ? (int) $clean : time() * 1000;
+    }
+
+    /**
+     * Safely parse integer from input (0 when missing/invalid)
+     */
+    private function parseIntSafe($value): int {
+        $clean = preg_replace('/[^0-9\-]/', '', (string) $value);
+        return is_numeric($clean) ? (int) $clean : 0;
+    }
+
+    /**
+     * Safely parse float from input (0.0 when missing/invalid)
+     */
+    private function parseFloatSafe($value): float {
+        $clean = (string) $value;
+        if (!is_numeric($clean)) {
+            $clean = preg_replace('/[^0-9\-.]/', '', $clean);
+        }
+        return is_numeric($clean) ? (float) $clean : 0.0;
     }
 }
