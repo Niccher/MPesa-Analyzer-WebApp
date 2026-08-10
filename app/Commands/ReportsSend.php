@@ -54,18 +54,17 @@ class ReportsSend extends BaseCommand
 
             $user = \auth()->getProvider()->findById($sub['user_id']);
 
-            $mail = \Config\Services::email();
-            $mail->setTo($email);
-            $mail->setFrom(env('email.fromEmail', 'noreply@mympesa.chegecache.co.ke'), env('email.fromName', 'Mpesa Analyzer'));
-            $mail->setSubject('Your Mpesa Analyzer ' . ucfirst($frequency) . ' Report');
-            $mail->setMessage('Your scheduled Mpesa Analyzer report is ready. Please log in to the app to view your full report.');
+            $result = \App\Libraries\Notifier::sendTrigger($email, 'report', [
+                'frequency' => $frequency,
+                'period'    => date('F Y'),
+            ]);
 
-            if ($mail->send()) {
+            if ($result['status'] === 'success') {
                 CLI::write('Report sent to ' . $email . ' (' . $frequency . ').', 'green');
                 $sent++;
                 $db->table('tbl_User_Settings')->where('id', $sub['id'])->update(['report_schedule_last_sent' => date('Y-m-d')]);
             } else {
-                CLI::write('Failed to send report to ' . $email, 'red');
+                CLI::write('Failed to send report to ' . $email . ': ' . $result['message'], 'red');
             }
         }
 

@@ -27,6 +27,8 @@ class Notifications extends BaseController
             'trigger_meta'    => Notifier::triggerMeta(),
             'custom_triggers' => Notifier::customTriggers(),
             'shield'          => $shieldSettings,
+            'email_log'       => Notifier::logEntries(50),
+            'email_log_count' => Notifier::logCount(),
         ]);
     }
 

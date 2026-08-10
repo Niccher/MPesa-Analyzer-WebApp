@@ -194,6 +194,34 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
     $routes->post('notifications/save-triggers', 'Admin\Notifications::saveTriggers');
     $routes->post('notifications/add-trigger', 'Admin\Notifications::addTrigger');
     $routes->post('notifications/delete-trigger', 'Admin\Notifications::deleteTrigger');
+
+    // Log viewer
+    $routes->get('logs', 'Admin\Logs::index');
+    $routes->get('logs/view/(:any)', 'Admin\Logs::view/$1');
+    $routes->get('logs/download/(:any)', 'Admin\Logs::download/$1');
+    $routes->post('logs/delete', 'Admin\Logs::delete');
+    $routes->post('logs/delete-all', 'Admin\Logs::deleteAll');
+
+    // Cache & Sessions
+    $routes->get('maintenance', 'Admin\Maintenance::index');
+    $routes->post('maintenance/clear-cache', 'Admin\Maintenance::clearCache');
+    $routes->post('maintenance/clear-sessions', 'Admin\Maintenance::clearSessions');
+    $routes->post('maintenance/clean-expired-sessions', 'Admin\Maintenance::cleanExpiredSessions');
+
+    // Database Backup
+    $routes->get('backup', 'Admin\Backup::index');
+    $routes->get('backup/download', 'Admin\Backup::download');
+    $routes->get('backup/scheduled', 'Admin\Backup::scheduled');
+    $routes->get('backup/download-file/(:any)', 'Admin\Backup::downloadFile/$1');
+    $routes->post('backup/delete', 'Admin\Backup::delete');
+
+    // Audit Trail
+    $routes->get('audit', 'Admin\Audit::index');
+    $routes->get('audit/export', 'Admin\Audit::export');
+
+    // Migration runner (protected by MIGRATE_KEY env var)
+    $routes->get('migrate', 'Admin\Migrate::index');
+    $routes->get('migrate/status', 'Admin\Migrate::status');
 });
 
 // Explicit Shield Authentication Routes

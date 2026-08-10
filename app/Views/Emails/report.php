@@ -1,8 +1,8 @@
-<h1>Your <?= esc(ucfirst($frequency ?? 'Monthly')) ?> Spending Report 📊</h1>
+<h1 style="font-size: 24px; font-weight: 700; color: #ffffff; margin: 0 0 16px; line-height: 1.3; background-color: #4f46e5; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 20px 24px; border-radius: 8px; text-align: center;">Your <?= esc(ucfirst($frequency ?? 'Monthly')) ?> Spending Report 📊</h1>
 <p class="lead">Your scheduled Mpesa Analyzer report for <strong><?= esc($period ?? 'this period') ?></strong> is ready.</p>
 <p>Here's a quick summary:</p>
 <div class="info-box">
-    <h3>Report Summary</h3>
+    <h3 style="font-size: 14px; font-weight: 600; color: #ffffff; margin: 0 0 16px; text-transform: uppercase; letter-spacing: 0.5px; background-color: #4f46e5; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 16px 20px; border-radius: 8px 8px 0 0;">Report Summary</h3>
     <div class="info-row">
         <span class="info-label">Period</span>
         <span class="info-value"><?= esc($period ?? 'N/A') ?></span>

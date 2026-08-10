@@ -114,9 +114,9 @@
                             <div class="fw-bold text-warning text-dark">Delete My Data</div>
                             <small class="text-muted">Delete all your uploaded SMS data and summaries, but keep your account.</small>
                         </div>
-                        <form action="<?= base_url('process/delete_data') ?>" method="POST" onsubmit="return confirm('WARNING: Are you sure you want to delete all your uploaded data? Your account will remain active. This cannot be undone.');">
+                        <form action="<?= base_url('process/delete_data') ?>" method="POST" id="deleteDataForm">
                             <?= csrf_field() ?>
-                            <button type="submit" class="btn btn-outline-warning btn-sm px-3 fw-bold text-dark"><i class="fa-solid fa-eraser me-1"></i> Delete Data</button>
+                            <button type="button" id="deleteDataBtn" class="btn btn-outline-warning btn-sm px-3 fw-bold text-dark"><i class="fa-solid fa-eraser me-1"></i> Delete Data</button>
                         </form>
                     </div>
                 </div>
@@ -127,9 +127,9 @@
                             <div class="fw-bold text-danger">Delete Account</div>
                             <small class="text-muted">Permanently remove your account and all data.</small>
                         </div>
-                        <form action="<?= base_url('process/delete_account') ?>" method="POST" onsubmit="return confirm('WARNING: Are you absolutely sure? This will delete all your M-Pesa data, devices, and your user account permanently. This cannot be undone.');">
+                        <form action="<?= base_url('process/delete_account') ?>" method="POST" id="deleteAccountForm">
                             <?= csrf_field() ?>
-                            <button type="submit" class="btn btn-outline-danger btn-sm px-3 fw-bold"><i class="fa-solid fa-trash-can me-1"></i> Delete Account</button>
+                            <button type="button" id="deleteAccountBtn" class="btn btn-outline-danger btn-sm px-3 fw-bold"><i class="fa-solid fa-trash-can me-1"></i> Delete Account</button>
                         </form>
                     </div>
                 </div>
@@ -163,9 +163,9 @@
                         </form>
                         
                         <?php if (!empty($tokens)): ?>
-                            <form action="<?= url_to('Info::revokeToken') ?>" method="POST" style="display:inline;">
+                            <form action="<?= url_to('Info::revokeToken') ?>" method="POST" id="revokeTokenForm" style="display:inline;">
                                 <?= csrf_field() ?>
-                                <button type="submit" class="btn btn-outline-danger btn-sm px-3 fw-bold" onclick="return confirm('Are you sure? Your Android app will immediately be logged out.')"><i class="fa-solid fa-ban me-1"></i> Nullify Existing</button>
+                                <button type="button" id="revokeTokenBtn" class="btn btn-outline-danger btn-sm px-3 fw-bold"><i class="fa-solid fa-ban me-1"></i> Nullify Existing</button>
                             </form>
                         <?php endif; ?>
                     </div>
@@ -257,4 +257,94 @@
         </div>
     </div>
 </div>
+<?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    function submitForm(id) {
+        const form = document.getElementById(id);
+        if (form) form.submit();
+    }
+
+    // Delete My Data — warning, not undoable.
+    const deleteDataBtn = document.getElementById('deleteDataBtn');
+    if (deleteDataBtn) {
+        deleteDataBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Delete all your data?',
+                html: 'This will permanently delete <strong>all</strong> your uploaded SMS data, summaries, tags and analysis results.<br><br>'
+                    + '<span style="color: #dc3545; font-weight: 600;">This action cannot be undone.</span><br><br>'
+                    + 'Your account will remain active.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, delete my data',
+                cancelButtonText: 'Cancel',
+                allowOutsideClick: false,
+                focusCancel: true,
+            }).then(function (result) {
+                if (result.isConfirmed) submitForm('deleteDataForm');
+            });
+        });
+    }
+
+    // Delete Account — requires typing DELETE to proceed.
+    const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+    if (deleteAccountBtn) {
+        deleteAccountBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Delete your account permanently?',
+                html: 'This will permanently remove your account, connected devices and <strong>all</strong> your data.<br><br>'
+                    + '<span style="color: #dc3545; font-weight: 600;">This action cannot be undone.</span><br><br>'
+                    + 'To proceed, type <strong>DELETE</strong> below.',
+                icon: 'warning',
+                input: 'text',
+                inputPlaceholder: 'Type DELETE to confirm',
+                inputAttributes: { autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off' },
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Delete my account',
+                cancelButtonText: 'Cancel',
+                allowOutsideClick: false,
+                inputValidator: function (value) {
+                    if (value !== 'DELETE') {
+                        return 'Please type DELETE to confirm';
+                    }
+                },
+            }).then(function (result) {
+                if (result.isConfirmed) submitForm('deleteAccountForm');
+            });
+        });
+    }
+
+    // Nullify API token — warning, logs the Android app out.
+    const revokeTokenBtn = document.getElementById('revokeTokenBtn');
+    if (revokeTokenBtn) {
+        revokeTokenBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Revoke API token?',
+                text: 'Your Android app will immediately be logged out. You can generate a new token afterwards.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, revoke it',
+                cancelButtonText: 'Cancel',
+                allowOutsideClick: false,
+                focusCancel: true,
+            }).then(function (result) {
+                if (result.isConfirmed) submitForm('revokeTokenForm');
+            });
+        });
+    }
+});
+</script>
 <?= $this->endSection() ?>

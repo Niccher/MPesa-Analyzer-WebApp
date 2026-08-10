@@ -163,6 +163,16 @@ class Users extends BaseController
             return $this->response->setJSON(['status' => 'error', 'message' => 'User not found']);
         }
 
+        // Capture the user's email + username for the confirmation email (sent after deletion).
+        $userEmail = '';
+        $emailRow = $db->table('auth_identities')
+            ->where('user_id', $id)
+            ->where('type', 'email_password')
+            ->get()
+            ->getRow();
+        $userEmail = $emailRow->secret ?? '';
+        $userName = $user->username ?? '';
+
         // Collect the user's auth identity secrets (SHA2-hashed device tokens
         // stored as the "owner" identifier in the SMS/Loot tables).
         $secrets = $db->table('auth_identities')
@@ -171,6 +181,27 @@ class Users extends BaseController
             ->get()
             ->getResultArray();
         $secretList = array_column($secrets, 'secret');
+
+        // Count data that will be removed so the confirmation email can report it.
+        $smsDeleted = 0;
+        $transactionsDeleted = 0;
+        $filesDeleted = 0;
+        if (!empty($secretList)) {
+            $sub = "SELECT secret FROM auth_identities WHERE user_id = " . (int)$id;
+            if ($db->tableExists('tbl_Sms')) {
+                $smsDeleted = (int)$db->query("SELECT COUNT(*) AS cnt FROM tbl_Sms WHERE SHA2(sms_owner, 256) IN ($sub)")->getRow()->cnt;
+            }
+            if ($db->tableExists('tbl_Loot')) {
+                $filesDeleted = (int)$db->query("SELECT COUNT(*) AS cnt FROM tbl_Loot WHERE SHA2(loot_Owner, 256) IN ($sub)")->getRow()->cnt;
+            }
+            if ($db->tableExists('tbl_Analyzed_Transactions') && $db->tableExists('tbl_Sms')) {
+                $q = "SELECT COUNT(DISTINCT a.id) AS cnt
+                      FROM tbl_Analyzed_Transactions a
+                      INNER JOIN tbl_Sms s ON s.id = a.orig_sms_int_id OR s.sms__id = a.orig_sms_id
+                      WHERE SHA2(s.sms_owner, 256) IN ($sub)";
+                $transactionsDeleted = (int)$db->query($q)->getRow()->cnt;
+            }
+        }
 
         $db->transStart();
 
@@ -181,29 +212,45 @@ class Users extends BaseController
 
             // Child tables that reference tbl_Sms / tbl_Loot (deleted first).
             if ($db->tableExists('tbl_Analyzed_Transactions') && $db->tableExists('tbl_Sms')) {
-                $q = "DELETE FROM tbl_Analyzed_Transactions WHERE orig_sms_id IN (SELECT id FROM tbl_Sms WHERE sms_owner IN ($sub))";
+                $q = "DELETE a FROM tbl_Analyzed_Transactions a
+                      INNER JOIN tbl_Sms s ON s.id = a.orig_sms_int_id OR s.sms__id = a.orig_sms_id
+                      WHERE SHA2(s.sms_owner, 256) IN ($sub)";
                 if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
             }
             if ($db->tableExists('tbl_Sms_Processing') && $db->tableExists('tbl_Sms')) {
-                $q = "DELETE FROM tbl_Sms_Processing WHERE sms_id IN (SELECT id FROM tbl_Sms WHERE sms_owner IN ($sub))";
+                $q = "DELETE FROM tbl_Sms_Processing WHERE sms_id IN (SELECT id FROM tbl_Sms WHERE SHA2(sms_owner, 256) IN ($sub))";
+                if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
+            }
+            if ($db->tableExists('tbl_Sms_Classification') && $db->tableExists('tbl_Sms')) {
+                $q = "DELETE FROM tbl_Sms_Classification WHERE sms_id IN (SELECT id FROM tbl_Sms WHERE SHA2(sms_owner, 256) IN ($sub))";
                 if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
             }
 
             // Parent owner rows.
+            // Delete physical uploaded files before removing the Loot rows.
             if ($db->tableExists('tbl_Loot')) {
-                $q = "DELETE FROM tbl_Loot WHERE loot_Owner IN ($sub)";
+                $loots = $db->query("SELECT loot_Name FROM tbl_Loot WHERE SHA2(loot_Owner, 256) IN ($sub)")->getResult();
+                foreach ($loots as $loot) {
+                    $filePathTxt = WRITEPATH . 'uploads/txt_loot/' . ltrim($loot->loot_Name, '/');
+                    $filePathJson = str_replace('.txt', '.json', $filePathTxt);
+                    if (file_exists($filePathTxt)) unlink($filePathTxt);
+                    if (file_exists($filePathJson)) unlink($filePathJson);
+                }
+            }
+            if ($db->tableExists('tbl_Loot')) {
+                $q = "DELETE FROM tbl_Loot WHERE SHA2(loot_Owner, 256) IN ($sub)";
                 if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
             }
             if ($db->tableExists('tbl_Loot_Summary') && $db->tableExists('tbl_Loot')) {
-                $q = "DELETE FROM tbl_Loot_Summary WHERE loot_Uuid IN (SELECT loot_Uuid FROM tbl_Loot WHERE loot_Owner IN ($sub))";
+                $q = "DELETE FROM tbl_Loot_Summary WHERE loot_Uuid IN (SELECT loot_Uuid FROM tbl_Loot WHERE SHA2(loot_Owner, 256) IN ($sub))";
                 if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
             }
             if ($db->tableExists('tbl_Sms')) {
-                $q = "DELETE FROM tbl_Sms WHERE sms_owner IN ($sub)";
+                $q = "DELETE FROM tbl_Sms WHERE SHA2(sms_owner, 256) IN ($sub)";
                 if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
             }
             if ($db->tableExists('tbl_Sender_Profiles')) {
-                $q = "DELETE FROM tbl_Sender_Profiles WHERE sp_owner IN ($sub)";
+                $q = "DELETE FROM tbl_Sender_Profiles WHERE SHA2(sp_owner, 256) IN ($sub)";
                 if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
             }
         }
@@ -211,6 +258,22 @@ class Users extends BaseController
         foreach (['tbl_Processing_Jobs', 'tbl_User_Settings', 'tbl_User_Devices'] as $t) {
             if ($db->tableExists($t) && $db->table($t)->where('user_id', (string)$id)->delete() === false) {
                 $failedQuery = "$t WHERE user_id=$id → " . json_encode($db->error());
+            }
+        }
+
+        // Feature tables (FK cascades handle these when the users row is deleted,
+        // but delete explicitly so no orphaned rows survive if FKs are not enforced).
+        foreach (['tbl_Transaction_Tags', 'tbl_Transaction_Notes', 'tbl_Spending_Goals', 'tbl_Budgets', 'tbl_Recurring_Transactions'] as $t) {
+            if ($db->tableExists($t) && $db->table($t)->where('user_id', (string)$id)->delete() === false) {
+                $failedQuery = "$t WHERE user_id=$id → " . json_encode($db->error());
+            }
+        }
+        if ($db->tableExists('tbl_Transaction_Tag_Map') && $db->tableExists('tbl_Transaction_Tags')) {
+            if ($db->table('tbl_Transaction_Tag_Map')
+                ->whereIn('tag_id', function (\CodeIgniter\Database\BaseBuilder $b) use ($id) {
+                    return $b->select('id')->from('tbl_Transaction_Tags')->where('user_id', (string)$id);
+                })->delete() === false) {
+                $failedQuery = 'tbl_Transaction_Tag_Map → ' . json_encode($db->error());
             }
         }
 
@@ -227,6 +290,17 @@ class Users extends BaseController
 
         if ($db->transStatus() === false) {
             return $this->response->setJSON(['status' => 'error', 'message' => 'Delete failed: ' . ($failedQuery ?? json_encode($db->error()))]);
+        }
+
+        // Send a confirmation email (HTML styled, includes an Email ID).
+        if (!empty($userEmail) && \App\Libraries\Notifier::isTriggerEnabled('user_account_deleted')) {
+            \App\Libraries\Notifier::sendTrigger($userEmail, 'user_account_deleted', [
+                'username'            => $userName,
+                'smsDeleted'          => $smsDeleted,
+                'transactionsDeleted' => $transactionsDeleted,
+                'filesDeleted'        => $filesDeleted,
+                'deletedAt'           => date('Y-m-d H:i:s T'),
+            ]);
         }
 
         return $this->response->setJSON([

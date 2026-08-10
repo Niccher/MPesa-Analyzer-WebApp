@@ -1,7 +1,7 @@
-<h1>Maintenance Mode Started 🔧</h1>
+<h1 style="font-size: 24px; font-weight: 700; color: #ffffff; margin: 0 0 16px; line-height: 1.3; background-color: #4f46e5; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 20px 24px; border-radius: 8px; text-align: center;">Maintenance Mode Started 🔧</h1>
 <p class="lead">Mpesa Analyzer is entering scheduled maintenance. The platform will be temporarily unavailable.</p>
 <div class="info-box">
-    <h3>Maintenance Details</h3>
+    <h3 style="font-size: 14px; font-weight: 600; color: #ffffff; margin: 0 0 16px; text-transform: uppercase; letter-spacing: 0.5px; background-color: #4f46e5; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 16px 20px; border-radius: 8px 8px 0 0;">Maintenance Details</h3>
     <div class="info-row">
         <span class="info-label">Status</span>
         <span class="info-value"><span class="badge badge-warning">Maintenance Active</span></span>

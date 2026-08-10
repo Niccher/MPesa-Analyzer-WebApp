@@ -64,9 +64,5 @@ Events::on('register', static function ($user) {
         return;
     }
 
-    \App\Libraries\Notifier::send(
-        $email,
-        'Welcome to Mpesa Analyzer',
-        'Welcome to Mpesa Analyzer! Your account has been created successfully.'
-    );
+    \App\Libraries\Notifier::sendTrigger($email, 'signup');
 });

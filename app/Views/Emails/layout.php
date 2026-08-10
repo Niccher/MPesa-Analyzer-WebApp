@@ -59,9 +59,13 @@
         .content h1 { 
             font-size: 24px; 
             font-weight: 700; 
-            color: #1a1a2e; 
+            color: #ffffff; 
             margin: 0 0 16px; 
             line-height: 1.3; 
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); 
+            padding: 20px 24px; 
+            border-radius: 8px; 
+            text-align: center;
         }
         .content p { 
             font-size: 16px; 
@@ -74,6 +78,25 @@
             color: #374151; 
             font-weight: 500; 
             margin-bottom: 24px; 
+        }
+        .info-box { 
+            background: #ffffff; 
+            border: 1px solid #e2e8f0; 
+            border-radius: 8px; 
+            padding: 0; 
+            margin: 24px 0; 
+            overflow: hidden;
+        }
+        .info-box h3 { 
+            font-size: 14px; 
+            font-weight: 600; 
+            color: #ffffff; 
+            margin: 0 0 16px 0; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px; 
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); 
+            padding: 16px 20px; 
+            border-radius: 8px 8px 0 0; 
         }
         .button { 
             display: inline-block; 
@@ -88,26 +111,13 @@
             border: none;
         }
         .button:hover { opacity: 0.95; }
-        .info-box { 
-            background: #f8fafc; 
-            border: 1px solid #e2e8f0; 
-            border-radius: 8px; 
-            padding: 20px; 
-            margin: 24px 0; 
-        }
-        .info-box h3 { 
-            font-size: 14px; 
-            font-weight: 600; 
-            color: #374151; 
-            margin: 0 0 12px; 
-            text-transform: uppercase; 
-            letter-spacing: 0.5px; 
-        }
         .info-row { 
             display: table; 
             width: 100%; 
             margin-bottom: 8px; 
+            padding: 0 20px 20px;
         }
+        .info-row:first-child { padding-top: 16px; }
         .info-row:last-child { margin-bottom: 0; }
         .info-label { 
             display: table-cell; 
@@ -183,9 +193,9 @@
     <div class="email-wrapper">
         <table role="presentation" class="email-container" cellspacing="0" cellpadding="0" border="0" width="100%">
             <tr>
-                <td class="header">
-                    <a href="<?= esc(base_url()) ?>" class="logo">
-                        <span class="logo-icon"><i class="fa-solid fa-chart-line"></i></span>
+                <td class="header" style="background-color: #4f46e5; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 32px 40px; text-align: center;">
+                    <a href="<?= esc(base_url()) ?>" class="logo" style="display: inline-block; font-size: 24px; font-weight: 700; color: #ffffff; text-decoration: none; letter-spacing: -0.5px;">
+                        <span class="logo-icon" style="display: inline-block; width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 10px; margin-right: 12px; vertical-align: middle; line-height: 40px; font-size: 20px; color: #ffffff;"><i class="fa-solid fa-chart-line"></i></span>
                         Mpesa Analyzer
                     </a>
                 </td>

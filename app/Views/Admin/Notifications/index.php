@@ -29,6 +29,7 @@ foreach ($trigger_meta as $m) {
                 <ul class="nav nav-tabs mb-3" role="tablist">
                     <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#setupTab"><i class="fa-solid fa-server me-1"></i> Setup &amp; Configuration</button></li>
                     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#triggersTab"><i class="fa-solid fa-bell me-1"></i> Triggers <span class="badge bg-secondary ms-1"><?= count($trigger_meta) ?></span></button></li>
+                    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#emailsSentTab"><i class="fa-solid fa-paper-plane me-1"></i> Emails Sent <span class="badge bg-secondary ms-1"><?= esc($email_log_count ?: 0) ?></span></button></li>
                 </ul>
                 <div class="tab-content">
                     <div class="tab-pane fade show active" id="setupTab">
@@ -215,6 +216,59 @@ foreach ($trigger_meta as $m) {
                                         <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold w-100"><i class="fa-solid fa-plus me-1"></i> Add</button>
                                     </div>
                                 </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="emailsSentTab">
+                        <div class="card settings-card mb-4">
+                            <div class="card-body p-4">
+                                <h5 class="fw-bold mb-1" style="color: var(--primary);"><i class="fa-solid fa-paper-plane me-2"></i> Sent Emails</h5>
+                                <p class="text-muted small mb-3">Log of all emails sent through the notification system (last 50).</p>
+                                <?php if (empty($email_log)): ?>
+                                    <div class="text-center text-muted p-4">
+                                        <i class="fa-solid fa-inbox fs-1 d-block mb-2"></i>
+                                        No emails have been sent yet. The log records every send attempt (success or failure).
+                                    </div>
+                                <?php else: ?>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover align-middle mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Date &amp; Time</th>
+                                                    <th>Trigger</th>
+                                                    <th>Recipient</th>
+                                                    <th>Subject</th>
+                                                    <th style="width: 100px;">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php foreach ($email_log as $entry): ?>
+                                                    <?php
+                                                        $statusClass = ($entry['status'] ?? '') === 'success' ? 'bg-success' : 'bg-danger';
+                                                        $statusLabel = ($entry['status'] ?? '') === 'success' ? 'Sent' : 'Failed';
+                                                        $localTime = '';
+                                                        if (!empty($entry['sent_at'])) {
+                                                            try {
+                                                                $dt = new \DateTimeImmutable($entry['sent_at'], new \DateTimeZone('UTC'));
+                                                                $localTime = $dt->setTimezone(new \DateTimeZone('Africa/Nairobi'))->format('d M Y, g:i A');
+                                                            } catch (\Throwable $e) {
+                                                                $localTime = $entry['sent_at'];
+                                                            }
+                                                        }
+                                                    ?>
+                                                    <tr>
+                                                        <td><small class="text-muted"><?= esc($localTime ?: '—') ?></small></td>
+                                                        <td><code><?= esc($entry['trigger'] ?: '—') ?></code></td>
+                                                        <td><?= esc($entry['to_email'] ?: '—') ?></td>
+                                                        <td><?= esc($entry['subject'] ?: '—') ?></td>
+                                                        <td><span class="badge <?= $statusClass ?>"><?= $statusLabel ?></span></td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>

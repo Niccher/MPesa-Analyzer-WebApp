@@ -17,11 +17,12 @@ class Crons extends BaseController
 
         return view('Admin/Crons/index', [
             'bg_color' => '#B1B8ED',
-             'cron_jobs' => $jobs,
+            'cron_jobs' => $jobs,
             'cron_runs' => CronLogger::recent(100),
             'run_type_counts' => CronLogger::typeCounts(),
             'job_types' => CronRunner::types(),
             'job_sections' => $this->jobSections(),
+            'job_type_counts' => $this->jobTypeCounts($jobs),
             'presets' => [
                 ['value' => '* * * * *', 'label' => 'Every minute'],
                 ['value' => '*/5 * * * *', 'label' => 'Every 5 minutes'],
@@ -264,6 +265,23 @@ class Crons extends BaseController
         }
 
         return $sections;
+    }
+
+    /**
+     * Count jobs by type (for the jobs tab filter).
+     *
+     * @param array $jobs List of jobs from loadJobs()
+     * @return array<string,int> Map of job_type => count
+     */
+    private function jobTypeCounts(array $jobs): array
+    {
+        $counts = [];
+        foreach ($jobs as $job) {
+            $type = $job['type'] ?? '';
+            if ($type === '') continue;
+            $counts[$type] = ($counts[$type] ?? 0) + 1;
+        }
+        return $counts;
     }
 
     /**

@@ -11,6 +11,7 @@ class Notifier
         'ml_complete'       => true,
         'new_device'        => true,
         'user_deleted_data' => true,
+        'user_account_deleted' => true,
         'user_upgraded'     => true,
         'user_downgraded'   => true,
         'user_activated'    => true,
@@ -29,6 +30,7 @@ class Notifier
         'ml_complete'       => ['label' => 'ML Analysis Complete', 'group' => 'Analysis', 'description' => 'Notify a user when their ML analysis finishes and results are ready.'],
         'new_device'        => ['label' => 'New Device Connected', 'group' => 'Security', 'description' => 'Notify a user when a new device connects to their account.'],
         'user_deleted_data' => ['label' => 'Data Deleted', 'group' => 'User Lifecycle', 'description' => 'Notify a user when they request to delete their data.'],
+        'user_account_deleted' => ['label' => 'Account Deleted', 'group' => 'User Lifecycle', 'description' => 'Notify a user when their account is permanently deleted.'],
         'user_upgraded'     => ['label' => 'Role Upgraded', 'group' => 'Admin', 'description' => 'Notify a user when their role is upgraded (e.g. to admin).'],
         'user_downgraded'   => ['label' => 'Role Downgraded', 'group' => 'Admin', 'description' => 'Notify a user when their role is downgraded (e.g. from admin).'],
         'user_activated'    => ['label' => 'Account Activated', 'group' => 'User Lifecycle', 'description' => 'Notify a user when their account is activated.'],
@@ -47,6 +49,7 @@ class Notifier
         'ml_complete'         => 'Emails/ml_complete',
         'new_device'          => 'Emails/new_device',
         'user_deleted_data'   => 'Emails/user_deleted_data',
+        'user_account_deleted' => 'Emails/user_account_deleted',
         'user_upgraded'       => 'Emails/user_upgraded',
         'user_downgraded'     => 'Emails/user_downgraded',
         'user_activated'      => 'Emails/user_activated',
@@ -200,9 +203,10 @@ class Notifier
       * Send an email to a single recipient using a template.
       *
       * @param array $data  Variables passed to the view, including the "as-at" timestamp.
-      * @return array{status: string, message: string}
-      */
-    public static function sendTemplate(string $to, string $subject, string $template, array $data = []): array
+     * @param string $trigger  Logical trigger name (e.g. 'signup') recorded in the email log.
+     * @return array{status: string, message: string}
+     */
+    public static function sendTemplate(string $to, string $subject, string $template, array $data = [], string $trigger = ''): array
     {
         $templateKey = $template;
         $data = array_merge($data, [
@@ -220,12 +224,21 @@ class Notifier
 
         $content = view($contentView, $data, ['debug' => false]);
 
+        // Emails are HTML-only: the styled layout embeds the content view.
         $html = view('Emails/layout', array_merge($data, ['content' => $content]), ['debug' => false]);
 
-        $textPath = self::templatePath($template, true);
-        $text = $textPath !== '' ? view($textPath, $data, ['debug' => false]) : strip_tags($content);
+        $logTrigger = $trigger !== '' ? $trigger : self::templateBaseName($template);
+        return self::sendRaw($to, $subject, $html, '', $logTrigger);
+    }
 
-        return self::sendRaw($to, $subject, $html, $text);
+    /**
+     * Derive a short trigger name from a view path (e.g. "Emails/signup" → "signup").
+     *
+     * @internal
+     */
+    private static function templateBaseName(string $template): string
+    {
+        return basename(str_replace('\\', '/', $template));
     }
 
     /**
@@ -275,11 +288,34 @@ class Notifier
     }
 
     /**
+     * Record an email send attempt in tbl_Email_Log.
+     */
+    public static function logEmail(string $trigger, string $to, string $subject, string $status, string $detail = ''): void
+    {
+        try {
+            $db = \Config\Database::connect();
+            if (!$db->tableExists('tbl_Email_Log')) {
+                return;
+            }
+            $db->table('tbl_Email_Log')->insert([
+                'trigger'    => $trigger,
+                'to_email'   => $to,
+                'subject'    => $subject,
+                'status'     => $status,
+                'message'    => $detail,
+                'sent_at'    => gmdate('Y-m-d H:i:s'),
+            ]);
+        } catch (\Throwable $e) {
+            // Logging must never break email sending.
+        }
+    }
+
+    /**
      * Raw SMTP sender shared by both legacy send() and template-based sendTemplate().
      *
      * @return array{status: string, message: string}
      */
-    private static function sendRaw(string $to, string $subject, string $html = '', string $text = ''): array
+    private static function sendRaw(string $to, string $subject, string $html = '', string $text = '', string $trigger = ''): array
     {
         $config = self::config();
 
@@ -328,12 +364,14 @@ class Notifier
         }
 
         if ($mail->send()) {
+            self::logEmail($trigger, $to, $subject, 'success', 'Email sent to ' . $to . '.');
             return ['status' => 'success', 'message' => 'Email sent to ' . $to . '.'];
         }
 
         $debug = $mail->printDebugger(['headers', 'subject', 'body', 'message']);
-
         $msg = is_array($debug) ? implode("\n", $debug) : (string)$debug;
+
+        self::logEmail($trigger, $to, $subject, 'error', $msg);
 
         if (strpos($config['smtp_host'], 'gmail.com') !== false || strpos($config['smtp_host'], 'google') !== false) {
             $msg .= "\n\nIf using Gmail: Google no longer accepts regular account passwords for SMTP. Generate a Gmail App Password (Google Account → Security → App passwords) and use it as the SMTP password.";
@@ -346,12 +384,14 @@ class Notifier
      * Send an email to multiple recipients using a template (batch-friendly).
      *
      * @param array $recipients  Array of ['email' => ..., 'data' => [...]] or just ['email1@...', ...]
+     * @param string $trigger  Logical trigger name (e.g. 'maintenance_started') recorded in the email log.
      * @return array{status: string, sent: int, failed: int, message: string}
      */
-    public static function sendToMany(string $subject, string $template, array $recipients): array
+    public static function sendToMany(string $subject, string $template, array $recipients, string $trigger = ''): array
     {
         $sent = 0;
         $failed = 0;
+        $logTrigger = $trigger !== '' ? $trigger : self::templateBaseName($template);
 
         foreach ($recipients as $recipient) {
             if (is_array($recipient)) {
@@ -363,7 +403,7 @@ class Notifier
                 $data = [];
             }
 
-            $result = self::sendTemplate($to, $subject, $template, $data);
+            $result = self::sendTemplate($to, $subject, $template, $data, $logTrigger);
             if ($result['status'] === 'success') {
                 $sent++;
             } else {
@@ -394,7 +434,7 @@ class Notifier
         // Subject is stored in language strings for i18n; fall back to a sensible default.
         $subject = self::subjectFor($trigger, $extraData);
 
-        return self::sendTemplate($to, $subject, self::TRIGGER_TEMPLATES[$trigger], $extraData);
+        return self::sendTemplate($to, $subject, self::TRIGGER_TEMPLATES[$trigger], $extraData, $trigger);
     }
 
     /**
@@ -409,6 +449,7 @@ class Notifier
             'ml_complete'         => 'Your Mpesa Analyzer analysis is ready',
             'new_device'          => 'New device connected to your account',
             'user_deleted_data'   => 'Your Mpesa Analyzer data has been deleted',
+            'user_account_deleted' => 'Your Mpesa Analyzer account has been deleted',
             'user_upgraded'       => 'Your role has been upgraded',
             'user_downgraded'     => 'Your role has been changed',
             'user_activated'      => 'Your Mpesa Analyzer account is now active',
@@ -418,5 +459,37 @@ class Notifier
         ];
 
         return $subjects[$trigger] ?? 'Notification from Mpesa Analyzer';
+    }
+
+    /**
+     * Retrieve a page of the email send log from tbl_Email_Log.
+     *
+     * @return array<int,array>
+     */
+    public static function logEntries(int $limit = 50, int $offset = 0): array
+    {
+        $db = \Config\Database::connect();
+        if (!$db->tableExists('tbl_Email_Log')) {
+            return [];
+        }
+
+        return $db->table('tbl_Email_Log')
+            ->orderBy('id', 'DESC')
+            ->limit($limit, $offset)
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * Total number of entries in the email log.
+     */
+    public static function logCount(): int
+    {
+        $db = \Config\Database::connect();
+        if (!$db->tableExists('tbl_Email_Log')) {
+            return 0;
+        }
+
+        return (int) $db->table('tbl_Email_Log')->selectCount('id')->get()->getRow()->id ?? 0;
     }
 }

@@ -63,6 +63,11 @@ class Info extends BaseController
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s')
             ]);
+
+            // Persist the raw token → user link so uploaded data stays
+            // attributable even after this Shield token is revoked.
+            $modUploads = new ModUploads();
+            $modUploads->linkDevice((int)$user->id, $rawToken, 'Android App Device');
             
             return redirect()->to(url_to('Info::index'))->with('new_token', $rawToken);
         }

@@ -74,11 +74,9 @@ class LlmProcess extends BaseCommand
                         $user = \auth()->getProvider()->findById($userId);
                         $userEmail = $user ? $user->email : '';
                         if (!empty($userEmail)) {
-                            \App\Libraries\Notifier::send(
-                                $userEmail,
-                                'Your Mpesa Analyzer analysis is ready',
-                                'Your spending analysis has finished processing. Log in to view your updated insights and results.'
-                            );
+                            \App\Libraries\Notifier::sendTrigger($userEmail, 'ml_complete', [
+                                'messagesProcessed' => $messagesProcessed,
+                            ]);
                         }
                     }
                 }

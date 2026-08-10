@@ -3,6 +3,7 @@
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Libraries\Audit;
 use CodeIgniter\API\ResponseTrait;
 
 class Maintenance extends BaseController
@@ -11,104 +12,198 @@ class Maintenance extends BaseController
 
     public function index()
     {
-        $db = \Config\Database::connect();
-        $settings = $db->table('tbl_Settings')
-            ->whereIn('`key`', ['maintenance_mode', 'maintenance_message', 'maintenance_scheduled', 'maintenance_schedule_start', 'maintenance_schedule_end'])
-            ->get()
-            ->getResultArray();
+        $cacheInfo = $this->getCacheInfo();
+        $sessionInfo = $this->getSessionInfo();
 
-        $config = [];
-        foreach ($settings as $s) {
-            $config[$s['key']] = $s['value'];
-        }
-
-        $isMaintenance = (bool)($config['maintenance_mode'] ?? false);
-        $scheduled = (bool)($config['maintenance_scheduled'] ?? false);
-        $scheduleStart = $config['maintenance_schedule_start'] ?? '';
-        $scheduleEnd = $config['maintenance_schedule_end'] ?? '';
-
-        // Maintenance history (most recent first)
-        $history = $db->table('tbl_Maintenance_Log')
-            ->orderBy('id', 'DESC')
-            ->limit(200)
-            ->get()
-            ->getResultArray();
-
-        $data = [
-            'is_maintenance' => $isMaintenance,
-            'maintenance_message' => $config['maintenance_message'] ?? 'We are performing scheduled maintenance. Please check back soon.',
-            'scheduled' => $scheduled,
-            'schedule_start' => $scheduleStart,
-            'schedule_end' => $scheduleEnd,
-            'maintenance_history' => $history,
+        return view('Admin/Maintenance/index', [
             'bg_color' => '#B1B8ED',
-        ];
-
-        return view('Admin/Maintenance/index', $data);
-    }
-
-    public function toggle()
-    {
-        $db = \Config\Database::connect();
-        $enabled = (bool)$this->request->getPost('maintenance_mode');
-
-        $db->table('tbl_Settings')->upsert([
-            'key' => 'maintenance_mode',
-            'value' => $enabled ? '1' : '0',
-            'type' => 'boolean',
-            'description' => 'Enable maintenance mode',
-        ]);
-
-        $message = trim((string)$this->request->getPost('maintenance_message'));
-        if ($message !== '') {
-            $db->table('tbl_Settings')->upsert([
-                'key' => 'maintenance_message',
-                'value' => $message,
-                'type' => 'string',
-                'description' => 'Maintenance mode message',
-            ]);
-        }
-
-        // If disabling, also clear scheduled
-        if (!$enabled) {
-            $db->table('tbl_Settings')->upsert([
-                'key' => 'maintenance_scheduled',
-                'value' => '0',
-                'type' => 'boolean',
-                'description' => 'Scheduled maintenance enabled',
-            ]);
-        }
-
-        return $this->response->setJSON([
-            'status' => 'success',
-            'message' => $enabled ? 'Maintenance mode enabled' : 'Maintenance mode disabled',
-            'maintenance_mode' => $enabled,
+            'cache_info' => $cacheInfo,
+            'session_info' => $sessionInfo,
         ]);
     }
 
-    public function schedule()
+    public function clearCache()
     {
-        $db = \Config\Database::connect();
+        try {
+            $cache = \Config\Services::cache();
+            $cleared = $cache->clean();
 
-        $enabled = (bool)$this->request->getPost('scheduled');
-        $start = $this->request->getPost('schedule_start');
-        $end = $this->request->getPost('schedule_end');
-        $message = $this->request->getPost('maintenance_message');
+            // Also clear view cache files
+            $viewCachePath = WRITEPATH . 'cache';
+            $viewCleared = 0;
+            if (is_dir($viewCachePath)) {
+                $files = new \RecursiveIteratorIterator(
+                    new \RecursiveDirectoryIterator($viewCachePath, \FilesystemIterator::SKIP_DOTS),
+                    \RecursiveIteratorIterator::CHILD_FIRST
+                );
+                foreach ($files as $file) {
+                    if ($file->isFile()) {
+                        @unlink($file->getPathname());
+                        $viewCleared++;
+                    }
+                }
+                // Remove empty directories
+                foreach ($files as $file) {
+                    if ($file->isDir()) {
+                        @rmdir($file->getPathname());
+                    }
+                }
+            }
 
-        $updates = [
-            ['key' => 'maintenance_scheduled', 'value' => $enabled ? '1' : '0', 'type' => 'boolean', 'description' => 'Scheduled maintenance enabled'],
-            ['key' => 'maintenance_schedule_start', 'value' => $start, 'type' => 'string', 'description' => 'Maintenance window start (UTC)'],
-            ['key' => 'maintenance_schedule_end', 'value' => $end, 'type' => 'string', 'description' => 'Maintenance window end (UTC)'],
-            ['key' => 'maintenance_message', 'value' => $message, 'type' => 'string', 'description' => 'Maintenance mode message'],
+            Audit::log('cache_clear', 'system', 'Cleared application cache', [
+                'cache_driver' => get_class($cache),
+                'view_files_cleared' => $viewCleared,
+            ]);
+
+            return $this->respond([
+                'status' => 'success',
+                'message' => 'Cache cleared successfully. Driver: ' . $cleared . ' entries, View files: ' . $viewCleared,
+            ]);
+        } catch (\Throwable $e) {
+            return $this->respond(['status' => 'error', 'message' => 'Failed to clear cache: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function clearSessions()
+    {
+        try {
+            $session = \Config\Services::session();
+            $session->destroy();
+
+            // Clear session files
+            $sessionPath = WRITEPATH . 'session';
+            $filesCleared = 0;
+            if (is_dir($sessionPath)) {
+                $files = new \RecursiveIteratorIterator(
+                    new \RecursiveDirectoryIterator($sessionPath, \FilesystemIterator::SKIP_DOTS),
+                    \RecursiveIteratorIterator::CHILD_FIRST
+                );
+                foreach ($files as $file) {
+                    if ($file->isFile()) {
+                        @unlink($file->getPathname());
+                        $filesCleared++;
+                    }
+                }
+            }
+
+            Audit::log('session_clear', 'system', 'Cleared all sessions', [
+                'files_cleared' => $filesCleared,
+            ]);
+
+            return $this->respond([
+                'status' => 'success',
+                'message' => 'All sessions cleared. Files removed: ' . $filesCleared,
+            ]);
+        } catch (\Throwable $e) {
+            return $this->respond(['status' => 'error', 'message' => 'Failed to clear sessions: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function cleanExpiredSessions()
+    {
+        try {
+            $db = \Config\Database::connect();
+            $table = $db->prefixTable('ci_sessions');
+
+            if (!$db->tableExists('ci_sessions')) {
+                return $this->respond(['status' => 'success', 'message' => 'Session table does not exist.']);
+            }
+
+            // Delete sessions older than 2 hours (7200 seconds)
+            $cutoff = time() - 7200;
+            $result = $db->table('ci_sessions')
+                ->where('timestamp <', $cutoff)
+                ->delete();
+
+            $deleted = $db->affectedRows();
+
+            Audit::log('session_cleanup', 'system', 'Cleaned expired sessions', [
+                'deleted_count' => $deleted,
+                'cutoff_timestamp' => $cutoff,
+            ]);
+
+            return $this->respond([
+                'status' => 'success',
+                'message' => "Cleaned {$deleted} expired session(s) (older than 2 hours).",
+            ]);
+        } catch (\Throwable $e) {
+            return $this->respond(['status' => 'error', 'message' => 'Failed to clean sessions: ' . $e->getMessage()], 500);
+        }
+    }
+
+    private function getCacheInfo(): array
+    {
+        $cache = \Config\Services::cache();
+        $driver = get_class($cache);
+
+        $info = [
+            'driver' => $driver,
+            'path' => WRITEPATH . 'cache',
+            'exists' => is_dir(WRITEPATH . 'cache'),
+            'file_count' => 0,
+            'size_bytes' => 0,
         ];
 
-        foreach ($updates as $u) {
-            $db->table('tbl_Settings')->upsert($u);
+        if ($info['exists']) {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($info['path'], \FilesystemIterator::SKIP_DOTS)
+            );
+            foreach ($iterator as $file) {
+                if ($file->isFile()) {
+                    $info['file_count']++;
+                    $info['size_bytes'] += $file->getSize();
+                }
+            }
         }
 
-        return $this->response->setJSON([
-            'status' => 'success',
-            'message' => 'Maintenance schedule saved',
-        ]);
+        $info['size_human'] = $this->humanSize($info['size_bytes']);
+        return $info;
+    }
+
+    private function getSessionInfo(): array
+    {
+        $db = \Config\Database::connect();
+        $info = [
+            'handler' => ini_get('session.save_handler'),
+            'path' => WRITEPATH . 'session',
+            'file_count' => 0,
+            'size_bytes' => 0,
+            'db_sessions' => 0,
+            'expired_sessions' => 0,
+        ];
+
+        // File sessions
+        if (is_dir($info['path'])) {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($info['path'], \FilesystemIterator::SKIP_DOTS)
+            );
+            foreach ($iterator as $file) {
+                if ($file->isFile()) {
+                    $info['file_count']++;
+                    $info['size_bytes'] += $file->getSize();
+                }
+            }
+        }
+
+        // Database sessions
+        if ($db->tableExists('ci_sessions')) {
+            $info['db_sessions'] = (int) $db->table('ci_sessions')->countAllResults();
+            $cutoff = time() - 7200;
+            $info['expired_sessions'] = (int) $db->table('ci_sessions')
+                ->where('timestamp <', $cutoff)
+                ->countAllResults();
+        }
+
+        $info['size_human'] = $this->humanSize($info['size_bytes']);
+        return $info;
+    }
+
+    private function humanSize(int $bytes): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB'];
+        for ($i = 0; $bytes >= 1024 && $i < count($units) - 1; $i++) {
+            $bytes /= 1024;
+        }
+        return round($bytes, 2) . ' ' . $units[$i];
     }
 }

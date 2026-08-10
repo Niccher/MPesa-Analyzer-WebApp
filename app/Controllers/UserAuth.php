@@ -37,6 +37,11 @@ class UserAuth extends BaseController{
             $token = $userinfo->generateAccessToken("TokenName");
             $user_auth_token = $token->raw_token;
 
+            // Persist the raw token → user link so uploaded data stays
+            // attributable even after this Shield token is revoked.
+            $modUploads = new \App\Models\ModUploads();
+            $modUploads->linkDevice((int)$userinfo->id, $user_auth_token, 'Android App Device');
+
             return $this->respond(["status" => "Valid","token" => $user_auth_token]);
         }
     }
@@ -69,11 +74,7 @@ class UserAuth extends BaseController{
                 return $this->respond(["status" => "Invalid", "error" => "Unexpected error occurred.0"]);
             }else{
                 if (\App\Libraries\Notifier::isTriggerEnabled('signup')) {
-                    \App\Libraries\Notifier::send(
-                        $newUser->getEmail(),
-                        'Welcome to Mpesa Analyzer',
-                        'Welcome to Mpesa Analyzer! Your account has been created successfully.'
-                    );
+                    \App\Libraries\Notifier::sendTrigger($newUser->getEmail(), 'signup');
                 }
                 return $this->respond(["status" => "Valid", "message" => "New User added."]);
             }
@@ -197,7 +198,40 @@ class UserAuth extends BaseController{
             }
         }
 
-        $rawTokens = array_unique(array_filter($rawTokens));
+        // Capture the user's email (needed for the confirmation email after deletion).
+        $userEmail = '';
+        if ($user_id && $db->tableExists('auth_identities')) {
+            $emailRow = $db->table('auth_identities')
+                ->where('user_id', $user_id)
+                ->where('type', 'email_password')
+                ->get()
+                ->getRow();
+            $userEmail = $emailRow->secret ?? '';
+        }
+
+        // Count what will be removed so the confirmation email can report it.
+        $smsDeleted = 0;
+        $transactionsDeleted = 0;
+        $filesDeleted = 0;
+        if (!empty($rawTokens)) {
+            if ($db->tableExists('tbl_Sms')) {
+                $smsDeleted = (int)$db->table('tbl_Sms')->whereIn('sms_owner', $rawTokens)->countAllResults();
+            }
+            if ($db->tableExists('tbl_Loot')) {
+                $filesDeleted = (int)$db->table('tbl_Loot')->whereIn('loot_Owner', $rawTokens)->countAllResults();
+            }
+        }
+        if ($db->tableExists('tbl_Analyzed_Transactions') && $db->tableExists('tbl_Sms') && $db->tableExists('auth_identities')) {
+            $tokenType = \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN;
+            $row = $db->query("
+                SELECT COUNT(DISTINCT a.id) AS cnt
+                FROM tbl_Analyzed_Transactions a
+                INNER JOIN tbl_Sms s ON s.id = a.orig_sms_int_id OR s.sms__id = a.orig_sms_id
+                INNER JOIN auth_identities i ON i.secret = SHA2(s.sms_owner, 256)
+                WHERE i.user_id = ? AND i.type = ?
+            ", [$user_id, $tokenType])->getRow();
+            $transactionsDeleted = (int)($row->cnt ?? 0);
+        }
 
         $db->transStart();
 
@@ -266,12 +300,78 @@ class UserAuth extends BaseController{
             }
         }
 
-        if ($deleteAccount) {
-            // Delete user devices
+        // Safety net (web flow only): remove ORPHANED data whose owner no longer
+        // matches any registered token or linked device. This happens when a token
+        // was revoked before deletion — the auth_identities row is gone, so the
+        // token-based lookup above can't attribute the data. Without this,
+        // "Delete My Data" would silently do nothing for orphaned uploads.
+        $orphanSmsDeleted = 0;
+        if (!$isApi && $db->tableExists('auth_identities')) {
+            $registeredSub = "SELECT secret FROM auth_identities WHERE type = 'access_token'";
+            if ($db->tableExists('tbl_User_Devices')) {
+                $registeredSub .= " UNION SELECT SHA2(device_token, 256) FROM tbl_User_Devices";
+            }
+
+            if ($db->tableExists('tbl_Sms_Classification') && $db->tableExists('tbl_Sms')) {
+                $db->query("DELETE FROM tbl_Sms_Classification WHERE sms_id IN (
+                    SELECT id FROM tbl_Sms WHERE SHA2(sms_owner, 256) NOT IN ($registeredSub)
+                )");
+            }
+            if ($db->tableExists('tbl_Sms_Processing') && $db->tableExists('tbl_Sms')) {
+                $db->query("DELETE FROM tbl_Sms_Processing WHERE sms_id IN (
+                    SELECT id FROM tbl_Sms WHERE SHA2(sms_owner, 256) NOT IN ($registeredSub)
+                )");
+            }
+            if ($db->tableExists('tbl_Sender_Profiles')) {
+                $db->query("DELETE FROM tbl_Sender_Profiles WHERE SHA2(sp_owner, 256) NOT IN ($registeredSub)");
+            }
+            if ($db->tableExists('tbl_Analyzed_Transactions') && $db->tableExists('tbl_Sms')) {
+                $db->query("DELETE a FROM tbl_Analyzed_Transactions a
+                    INNER JOIN tbl_Sms s ON s.id = a.orig_sms_int_id OR s.sms__id = a.orig_sms_id
+                    WHERE SHA2(s.sms_owner, 256) NOT IN ($registeredSub)");
+            }
+            if ($db->tableExists('tbl_Sms')) {
+                $orphanSmsDeleted = (int)$db->query("SELECT COUNT(*) AS c FROM tbl_Sms WHERE SHA2(sms_owner, 256) NOT IN ($registeredSub)")->getRow()->c;
+                $db->query("DELETE FROM tbl_Sms WHERE SHA2(sms_owner, 256) NOT IN ($registeredSub)");
+            }
+            if ($db->tableExists('tbl_Loot_Summary') && $db->tableExists('tbl_Loot')) {
+                $db->query("DELETE FROM tbl_Loot_Summary WHERE loot_Uuid IN (
+                    SELECT loot_Uuid FROM tbl_Loot WHERE SHA2(loot_Owner, 256) NOT IN ($registeredSub)
+                )");
+            }
+            if ($db->tableExists('tbl_Loot')) {
+                $orphanLoots = $db->query("SELECT loot_Name FROM tbl_Loot WHERE SHA2(loot_Owner, 256) NOT IN ($registeredSub)")->getResult();
+                foreach ($orphanLoots as $loot) {
+                    $filePathTxt = WRITEPATH . 'uploads/txt_loot/' . ltrim($loot->loot_Name, '/');
+                    $filePathJson = str_replace('.txt', '.json', $filePathTxt);
+                    if (file_exists($filePathTxt)) @unlink($filePathTxt);
+                    if (file_exists($filePathJson)) @unlink($filePathJson);
+                }
+                $db->query("DELETE FROM tbl_Loot WHERE SHA2(loot_Owner, 256) NOT IN ($registeredSub)");
+            }
+        }
+
+        // Reset per-user data & settings so the DB looks like a freshly created account.
+        if ($user_id) {
+            foreach (['tbl_Transaction_Tags', 'tbl_Transaction_Notes', 'tbl_Spending_Goals', 'tbl_Budgets', 'tbl_Recurring_Transactions', 'tbl_User_Settings'] as $t) {
+                if ($db->tableExists($t)) {
+                    $db->table($t)->where('user_id', $user_id)->delete();
+                }
+            }
+            // Transaction tag maps are cascade-deleted with their tags, but clean them explicitly too.
+            if ($db->tableExists('tbl_Transaction_Tag_Map') && $db->tableExists('tbl_Transaction_Tags')) {
+                $db->table('tbl_Transaction_Tag_Map')
+                    ->whereIn('tag_id', function (\CodeIgniter\Database\BaseBuilder $b) use ($user_id) {
+                        return $b->select('id')->from('tbl_Transaction_Tags')->where('user_id', $user_id);
+                    })->delete();
+            }
+            // Unpair devices so the account is in a fresh state.
             if ($db->tableExists('tbl_User_Devices')) {
                 $db->table('tbl_User_Devices')->where('user_id', $user_id)->delete();
             }
+        }
 
+        if ($deleteAccount) {
             // Delete Shield User completely
             $db->table('auth_identities')->where('user_id', $user_id)->delete();
             $db->table('auth_logins')->where('user_id', $user_id)->delete();
@@ -289,6 +389,24 @@ class UserAuth extends BaseController{
             return redirect()->back()->with('error', 'Failed to perform operation. Database error.');
         }
 
+        // Send a confirmation email (HTML styled, includes an Email ID).
+        if (!empty($userEmail)) {
+            $notifyData = [
+                'smsDeleted'          => $smsDeleted,
+                'transactionsDeleted' => $transactionsDeleted,
+                'filesDeleted'        => $filesDeleted,
+                'orphanSmsDeleted'    => $orphanSmsDeleted,
+                'deletedAt'           => date('Y-m-d H:i:s T'),
+            ];
+            if ($deleteAccount) {
+                if (\App\Libraries\Notifier::isTriggerEnabled('user_account_deleted')) {
+                    \App\Libraries\Notifier::sendTrigger($userEmail, 'user_account_deleted', $notifyData);
+                }
+            } elseif (\App\Libraries\Notifier::isTriggerEnabled('user_deleted_data')) {
+                \App\Libraries\Notifier::sendTrigger($userEmail, 'user_deleted_data', $notifyData);
+            }
+        }
+
         if ($isApi) {
             return $this->respond(["status" => "1", "message" => "Operation successfully completed."]);
         }
@@ -297,6 +415,9 @@ class UserAuth extends BaseController{
             auth()->logout();
             return redirect()->to('login')->with('message', 'Your account has been deleted permanently.');
         } else {
+            if (($smsDeleted + $transactionsDeleted + $filesDeleted + $orphanSmsDeleted) === 0) {
+                return redirect()->back()->with('info', 'No data was found to delete. Your account was preserved.');
+            }
             return redirect()->back()->with('message', 'Your data has been successfully deleted. Your account was preserved.');
         }
     }

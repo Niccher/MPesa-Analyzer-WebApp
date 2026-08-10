@@ -263,6 +263,31 @@
                         <i class="fa-solid fa-envelope"></i> Email Notifications
                     </a>
                 </li>
+
+                <!-- System Section -->
+                <li class="nav-item px-3 mt-3 mb-1">
+                    <small class="text-uppercase fw-bold text-secondary" style="font-size: 0.65rem; letter-spacing: 1px;">System</small>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= strpos($currentURL, 'admin/logs') !== false ? 'active' : '' ?>" href="<?= base_url('admin/logs') ?>">
+                        <i class="fa-solid fa-file-lines"></i> Log Viewer
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= strpos($currentURL, 'admin/maintenance') !== false ? 'active' : '' ?>" href="<?= base_url('admin/maintenance') ?>">
+                        <i class="fa-solid fa-broom"></i> Cache & Sessions
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= strpos($currentURL, 'admin/backup') !== false ? 'active' : '' ?>" href="<?= base_url('admin/backup') ?>">
+                        <i class="fa-solid fa-database"></i> DB Backup
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= strpos($currentURL, 'admin/audit') !== false ? 'active' : '' ?>" href="<?= base_url('admin/audit') ?>">
+                        <i class="fa-solid fa-clipboard-list"></i> Audit Trail
+                    </a>
+                </li>
             </ul>
 
             <div class="sidebar-footer">
