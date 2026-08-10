@@ -21,12 +21,7 @@
 
 <div class="card settings-card">
     <div class="card-body p-4">
-        <ul class="nav nav-tabs mb-3" role="tablist">
-            <li class="nav-item"><a class="nav-link" href="<?= base_url('admin/ml') ?>">Status</a></li>
-            <li class="nav-item"><a class="nav-link" href="<?= base_url('admin/ml/models') ?>">Models</a></li>
-            <li class="nav-item"><a class="nav-link" href="<?= base_url('admin/ml/config') ?>">Config</a></li>
-            <li class="nav-item"><a class="nav-link active" href="<?= base_url('admin/ml/test') ?>">Test Prompt</a></li>
-        </ul>
+        <?= view('Admin/Ml/_nav', ['active' => 'test']) ?>
 
         <form id="testForm" class="row g-3 mb-4">
             <?= csrf_field() ?>

@@ -25,6 +25,11 @@ class CronRunner
                 'label' => 'Clean Orphaned Uploads',
                 'desc' => 'Removes orphaned upload files and old loot records (php spark uploads:cleanup).',
             ],
+            'data:retention' => [
+                'group' => 'Spark Commands',
+                'label' => 'Enforce Data Retention',
+                'desc' => 'Deletes uploaded files and DB rows older than the admin-set retention window (php spark data:retention).',
+            ],
             'reports:send' => [
                 'group' => 'Spark Commands',
                 'label' => 'Send Scheduled Reports',
@@ -67,6 +72,7 @@ class CronRunner
                 case 'llm:process':
                 case 'session:gc':
                 case 'uploads:cleanup':
+                case 'data:retention':
                 case 'reports:send':
                     return self::runSpark($type);
 

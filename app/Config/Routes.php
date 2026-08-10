@@ -80,6 +80,16 @@ $routes->get('/dashboard/settings/tags', 'Settings::tags', ['filter' => 'session
 $routes->post('/dashboard/settings/tags/save', 'Settings::saveTag', ['filter' => 'session']);
 $routes->post('/dashboard/settings/tags/delete', 'Settings::deleteTag', ['filter' => 'session']);
 
+// Blocklist
+$routes->get('/dashboard/blocklist', 'Blocklist::index', ['filter' => 'session']);
+$routes->get('/dashboard/blocklist/blocked', 'Blocklist::blocked', ['filter' => 'session']);
+$routes->get('/dashboard/blocklist/allowed', 'Blocklist::allowed', ['filter' => 'session']);
+$routes->get('/dashboard/blocklist/unknown', 'Blocklist::unknown', ['filter' => 'session']);
+$routes->post('/dashboard/blocklist/block', 'Blocklist::block', ['filter' => 'session']);
+$routes->post('/dashboard/blocklist/unblock', 'Blocklist::unblock', ['filter' => 'session']);
+$routes->post('/dashboard/blocklist/bulk-block', 'Blocklist::bulkBlock', ['filter' => 'session']);
+$routes->post('/dashboard/blocklist/bulk-unblock', 'Blocklist::bulkUnblock', ['filter' => 'session']);
+
 // Notes (AJAX)
 $routes->post('/dashboard/settings/notes/save', 'Settings::saveNote', ['filter' => 'session']);
 $routes->get('/dashboard/settings/notes/get/(:num)', 'Settings::getNote/$1', ['filter' => 'session']);
@@ -166,14 +176,22 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
     $routes->get('ml/models', 'Admin\Ml::models');
     $routes->get('ml/config', 'Admin\Ml::config');
     $routes->get('ml/test', 'Admin\Ml::test');
+    $routes->get('ml/senders', 'Admin\Ml::senders');
     $routes->post('ml/config/save', 'Admin\Ml::saveConfig');
     $routes->post('ml/models/activate', 'Admin\Ml::activateModel');
     $routes->post('ml/test/run', 'Admin\Ml::runTest');
+    $routes->post('ml/senders/set-finance', 'Admin\Ml::setSenderFinance');
+    $routes->get('ml/allowed', 'Admin\Ml::allowed');
+    $routes->get('ml/jobs', 'Admin\Ml::jobs');
+    $routes->post('ml/allowed/add', 'Admin\Ml::allowedAdd');
+    $routes->post('ml/allowed/remove', 'Admin\Ml::allowedRemove');
+    $routes->post('ml/allowed/reset', 'Admin\Ml::allowedReset');
 
     // Maintenance
     $routes->get('settings/maintenance', 'Admin\Maintenance::index');
     $routes->post('settings/maintenance/toggle', 'Admin\Maintenance::toggle');
     $routes->post('settings/maintenance/schedule', 'Admin\Maintenance::schedule');
+    $routes->post('maintenance/save-retention', 'Admin\Maintenance::saveRetention');
 
     // Database info
     $routes->get('db-info', 'Admin\DbInfo::index');

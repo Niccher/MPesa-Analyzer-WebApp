@@ -273,6 +273,11 @@
                         <i class="fa-solid fa-circle-info"></i> Info & Auth
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= strpos($currentURL, 'dashboard/blocklist') !== false ? 'active' : '' ?>" href="<?= base_url('dashboard/blocklist') ?>">
+                        <i class="fa-solid fa-ban"></i> Blocklist
+                    </a>
+                </li>
             </ul>
 
             <div class="sidebar-footer">

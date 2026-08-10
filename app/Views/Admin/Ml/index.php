@@ -19,12 +19,7 @@
 
 <div class="card settings-card">
     <div class="card-body p-4">
-        <ul class="nav nav-tabs mb-3" role="tablist">
-            <li class="nav-item"><a class="nav-link active" href="<?= base_url('admin/ml') ?>">Status</a></li>
-            <li class="nav-item"><a class="nav-link" href="<?= base_url('admin/ml/models') ?>">Models</a></li>
-            <li class="nav-item"><a class="nav-link" href="<?= base_url('admin/ml/config') ?>">Config</a></li>
-            <li class="nav-item"><a class="nav-link" href="<?= base_url('admin/ml/test') ?>">Test Prompt</a></li>
-        </ul>
+        <?= view('Admin/Ml/_nav', ['active' => 'status']) ?>
 
         <?php if ($status['reachable']): ?>
         <div class="row g-4">

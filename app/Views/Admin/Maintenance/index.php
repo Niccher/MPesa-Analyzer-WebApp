@@ -115,6 +115,34 @@
         </div>
     </div>
 
+    <!-- Data Retention Section -->
+    <div class="col-lg-12">
+        <div class="card settings-card">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-3" style="color: var(--primary);"><i class="fa-solid fa-calendar-minus me-2"></i> Data Retention</h5>
+                <p class="text-muted small mb-3">
+                    Automatically purge uploaded SMS files and database rows older than the configured number of days.
+                    This is enforced by the <code>data:retention</code> cron job — create one under
+                    <a href="<?= base_url('admin/crons') ?>">Cron Jobs</a> (type "Enforce Data Retention") to schedule it, or run it manually.
+                </p>
+                <form id="retentionForm" class="row g-3 align-items-end">
+                    <?= csrf_field() ?>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Retention Period (days)</label>
+                        <input type="number" class="form-control" name="retention_days" id="retentionDays" min="0" max="3650" value="<?= esc($retention_days) ?>" required>
+                        <small class="text-muted">0 disables automatic purge.</small>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-danger rounded-pill px-4 fw-semibold"><i class="fa-solid fa-floppy-disk me-1"></i> Save Retention</button>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="text-muted small" id="retentionStatus"></span>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Info Cards -->
     <div class="col-lg-12">
         <div class="card settings-card">
@@ -267,6 +295,24 @@ document.getElementById('clearSessionsBtn').addEventListener('click', async func
     } catch (e) {
         showStatus(status, 'Request failed: ' + e.message, 'error');
         Swal.fire('Error', 'Request failed: ' + e.message, 'error');
+    }
+    setLoading(btn, false);
+});
+
+document.getElementById('retentionForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const status = document.getElementById('retentionStatus');
+    const data = new FormData(this);
+    const btn = this.querySelector('button[type=submit]');
+    setLoading(btn, true);
+    showStatus(status, 'Saving retention period...', 'info');
+    try {
+        const res = await fetch('<?= base_url('admin/maintenance/save-retention') ?>', { method: 'POST', body: data });
+        const r = await res.json();
+        showStatus(status, r.message, r.status === 'success' ? 'success' : 'error');
+        Swal.fire(r.status === 'success' ? 'Saved!' : 'Error', r.message, r.status === 'success' ? 'success' : 'error');
+    } catch (err) {
+        showStatus(status, 'Request failed: ' + err.message, 'error');
     }
     setLoading(btn, false);
 });

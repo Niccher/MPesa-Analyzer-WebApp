@@ -19,7 +19,47 @@ class Maintenance extends BaseController
             'bg_color' => '#B1B8ED',
             'cache_info' => $cacheInfo,
             'session_info' => $sessionInfo,
+            'retention_days' => $this->getRetentionDays(),
         ]);
+    }
+
+    public function saveRetention()
+    {
+        $days = (int) $this->request->getPost('retention_days');
+
+        if ($days < 0) {
+            return $this->respond(['status' => 'error', 'message' => 'Retention days cannot be negative.'], 400);
+        }
+
+        $db = \Config\Database::connect();
+        $db->table('tbl_Settings')->upsert([
+            'key' => 'data_retention_days',
+            'value' => (string) $days,
+            'type' => 'int',
+            'description' => 'Number of days to keep uploaded data before it is purged (0 disables auto-purge).',
+        ]);
+
+        Audit::log('retention_update', 'system', 'Updated data retention window', [
+            'retention_days' => $days,
+        ]);
+
+        return $this->respond([
+            'status' => 'success',
+            'message' => $days > 0
+                ? "Data retention set to {$days} days. The data:retention cron job will purge older uploads."
+                : 'Data retention disabled. Uploaded data will be kept indefinitely unless purged manually.',
+        ]);
+    }
+
+    private function getRetentionDays(): int
+    {
+        $db = \Config\Database::connect();
+        $row = $db->table('tbl_Settings')
+            ->where('`key`', 'data_retention_days')
+            ->get()
+            ->getRow();
+
+        return $row ? (int) $row->value : 365;
     }
 
     public function clearCache()
