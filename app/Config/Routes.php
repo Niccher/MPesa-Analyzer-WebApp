@@ -49,6 +49,12 @@ $routes->get('/dashboard/info', 'Info::index', ['filter' => 'session']);
 $routes->post('/dashboard/info/generate-token', 'Info::generateToken', ['filter' => 'session']);
 $routes->post('/dashboard/info/revoke-token', 'Info::revokeToken', ['filter' => 'session']);
 
+// Devices
+$routes->get('/dashboard/devices', 'Devices::index', ['filter' => 'session']);
+$routes->get('/dashboard/devices/detail/(:any)', 'Devices::detail/$1', ['filter' => 'session']);
+$routes->get('/dashboard/devices/tokens', 'Devices::tokenUsage', ['filter' => 'session']);
+$routes->get('/dashboard/devices/activity', 'Devices::apiActivity', ['filter' => 'session']);
+
 // Settings
 $routes->get('/dashboard/settings', 'Settings::index', ['filter' => 'session']);
 $routes->get('/dashboard/settings/profile', 'Settings::profile', ['filter' => 'session']);
@@ -186,6 +192,10 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
     $routes->post('users/toggle', 'Admin\Users::toggle');
     $routes->post('users/change-group', 'Admin\Users::changeGroup');
     $routes->post('users/delete', 'Admin\Users::delete');
+
+    // Devices
+    $routes->get('devices', 'Admin\Devices::index');
+    $routes->get('devices/detail/(:any)', 'Admin\Devices::detail/$1');
 
     // Email notifications
     $routes->get('notifications', 'Admin\Notifications::index');

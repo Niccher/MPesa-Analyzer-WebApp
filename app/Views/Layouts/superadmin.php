@@ -239,6 +239,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link <?= strpos($currentURL, 'admin/devices') !== false ? 'active' : '' ?>" href="<?= base_url('admin/devices') ?>">
+                        <i class="fa-solid fa-mobile-screen-button"></i> Devices
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link <?= strpos($currentURL, 'admin/ml') !== false ? 'active' : '' ?>" href="<?= base_url('admin/ml') ?>">
                         <i class="fa-solid fa-microchip"></i> ML Backend
                     </a>

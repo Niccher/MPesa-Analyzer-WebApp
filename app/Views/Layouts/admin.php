@@ -254,6 +254,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link <?= strpos($currentURL, 'dashboard/devices') !== false ? 'active' : '' ?>" href="<?= base_url('dashboard/devices') ?>">
+                        <i class="fa-solid fa-mobile-screen-button"></i> Devices
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link <?= ($currentURL == 'dashboard/history') ? 'active' : '' ?>" href="<?= url_to('History::index') ?>">
                         <i class="fa-solid fa-clock-rotate-left"></i> History
                     </a>
