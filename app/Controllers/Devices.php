@@ -7,6 +7,11 @@ use App\Models\ModDevices;
 
 class Devices extends BaseController
 {
+    public function __construct()
+    {
+        helper('mpesa_date');
+    }
+
     public function index()
     {
         $userId = auth()->user()->id;

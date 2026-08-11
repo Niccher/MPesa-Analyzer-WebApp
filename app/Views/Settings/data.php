@@ -37,7 +37,7 @@
 
 <div class="row g-4">
     <div class="col-lg-6">
-        <div class="card settings-card h-100">
+        <div class="card settings-card">
             <div class="card-body p-4">
                 <h5 class="fw-bold mb-4" style="color: var(--primary);"><i class="fa-solid fa-download me-2"></i>Export Transactions</h5>
                 <p class="text-muted small mb-3">Download all your analyzed transactions for backup or external analysis.</p>
@@ -80,7 +80,7 @@
                         <tbody>
                             <?php foreach ($uploads as $upload): ?>
                             <tr>
-                                <td><small><?= $upload->loot_Created ?? 'N/A' ?></small></td>
+                                <td><small><?= format_date_display($upload->loot_Created ?? '') ?></small></td>
                                 <td><small><?= htmlspecialchars($upload->loot_Name ?? 'N/A') ?></small></td>
                                 <td>
                                     <form action="<?= base_url('dashboard/settings/data/delete-upload') ?>" method="POST"
@@ -102,6 +102,14 @@
                     <i class="fa-solid fa-circle-info me-1"></i> No uploads found.
                 </div>
                 <?php endif; ?>
+            </div>
+        </div>
+
+        <div class="card settings-card mt-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-4" style="color: var(--primary);"><i class="fa-solid fa-circle-info me-2"></i>Data Summary</h5>
+                <p class="text-muted small mb-0">Your account currently has <strong><?= $total_uploads ?? 0 ?></strong> upload batch(es) 
+                with the earliest record from <strong><?= $oldest_upload ?></strong>. Use the export feature above to download a backup before purging old data.</p>
             </div>
         </div>
     </div>
@@ -173,14 +181,6 @@
                         </button>
                     </form>
                 </div>
-            </div>
-        </div>
-
-        <div class="card settings-card mt-4">
-            <div class="card-body p-4">
-                <h5 class="fw-bold mb-4" style="color: var(--primary);"><i class="fa-solid fa-circle-info me-2"></i>Data Summary</h5>
-                <p class="text-muted small mb-0">Your account currently has <strong><?= $total_uploads ?? 0 ?></strong> upload batch(es) 
-                with the earliest record from <strong><?= $oldest_upload ?></strong>. Use the export feature above to download a backup before purging old data.</p>
             </div>
         </div>
     </div>

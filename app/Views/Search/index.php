@@ -104,9 +104,7 @@
                 <thead class="table-light">
                     <tr>
                         <th class="ps-4">Date &amp; Time</th>
-                        <th>Category</th>
-                        <th>Sender</th>
-                        <th>Recipient</th>
+                        <th>Category / Sender</th>
                         <th>Amount</th>
                         <th>Details</th>
                     </tr>
@@ -145,10 +143,9 @@
                                 <div class="d-flex flex-column gap-1">
                                     <span class="badge rounded-pill <?= $badgeClass ?> badge-dir w-auto"><?= $dirLabel ?></span>
                                     <span class="small text-secondary" style="font-size:0.7rem;"><?= htmlspecialchars($cat) ?></span>
+                                    <span class="font-monospace small text-primary" style="font-size:0.72rem;"><?= htmlspecialchars($tx->sms_number) ?></span>
                                 </div>
                             </td>
-                            <td class="font-monospace small"><?= htmlspecialchars($tx->sms_number) ?></td>
-                            <td class="fw-semibold small"><?= !empty($tx->analyzed_counterparty) ? htmlspecialchars($tx->analyzed_counterparty) : '<span class="text-muted fst-italic">—</span>' ?></td>
                             <td>
                                 <span class="fw-bold small <?= $dir === 'incoming' ? 'text-success' : ($dir === 'outgoing' ? 'text-danger' : 'text-muted') ?>">
                                     <?php if ($amt > 0): ?>
@@ -176,7 +173,7 @@
                     <?php endforeach; ?>
                     <?php if (empty($transactions)): ?>
                         <tr>
-                            <td colspan="6" class="text-center py-5 text-muted">
+                            <td colspan="4" class="text-center py-5 text-muted">
                                 <i class="fa-solid fa-inbox fa-2x mb-3 d-block opacity-25"></i>
                                 No transactions found matching your filters
                             </td>

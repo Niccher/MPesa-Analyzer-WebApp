@@ -13,10 +13,6 @@ class Analyse extends BaseController
             $mod_uploads = new ModUploads();
             $db = \Config\Database::connect();
 
-            // 1. Ensure output table exists
-            $this->ensureAnalysisTable($db);
-            $this->ensureCategoryRulesTable($db);
-
             // Fetch Custom Rules
             $categoryRules = [];
             $rulesQuery = $db->table('tbl_Category_Rules')->get()->getResultArray();
@@ -95,91 +91,6 @@ class Analyse extends BaseController
         return date('Y-m-d H:i:s', $timestamp ?: time());
     }
 
-    private function ensureAnalysisTable($db)
-    {
-        if ($db->tableExists('tbl_Analyzed_Transactions')) {
-            return;
-        }
-
-        $forge = \Config\Database::forge();
-        $forge->addField([
-            'id' => [
-                'type'           => 'INT',
-                'constraint'     => 11,
-                'unsigned'       => true,
-                'auto_increment' => true,
-            ],
-            'orig_sms_id' => [
-                'type'       => 'VARCHAR',
-                'constraint' => '50',
-                'null'       => true,
-            ],
-            'trans_id' => [
-                'type'       => 'VARCHAR',
-                'constraint' => '20',
-                'null'       => true,
-            ],
-            'amount' => [
-                'type'       => 'DECIMAL',
-                'constraint' => '10,2',
-                'default'    => 0.00,
-            ],
-            'counterparty' => [
-                'type'       => 'VARCHAR',
-                'constraint' => '255',
-                'null'       => true,
-            ],
-            'description' => [
-                'type' => 'TEXT',
-                'null' => true,
-            ],
-            'trans_date' => [
-                'type' => 'DATETIME',
-                'null' => true,
-            ],
-            'created_at' => [
-                'type' => 'DATETIME',
-                'null' => true,
-            ],
-        ]);
-        $forge->addKey('id', true);
-        $forge->addKey('orig_sms_id');
-        $forge->addKey('trans_date');
-        $forge->createTable('tbl_Analyzed_Transactions');
-    }
-
-    private function ensureCategoryRulesTable($db)
-    {
-        if ($db->tableExists('tbl_Category_Rules')) {
-            return;
-        }
-
-        $forge = \Config\Database::forge();
-        $forge->addField([
-            'id' => [
-                'type'           => 'INT',
-                'constraint'     => 11,
-                'unsigned'       => true,
-                'auto_increment' => true,
-            ],
-            'keyword' => [
-                'type'       => 'VARCHAR',
-                'constraint' => '255',
-                'unique'     => true
-            ],
-            'correct_category' => [
-                'type'       => 'VARCHAR',
-                'constraint' => '100',
-            ],
-            'created_at' => [
-                'type' => 'DATETIME',
-                'null' => true,
-            ],
-        ]);
-        $forge->addKey('id', true);
-        $forge->createTable('tbl_Category_Rules');
-    }
-
     private function deepParse($body, $category, $categoryRules = []): array
     {
         $data = [
@@ -244,7 +155,6 @@ class Analyse extends BaseController
         }
 
         $db = \Config\Database::connect();
-        $this->ensureCategoryRulesTable($db);
 
         // Upsert Rule
         $builder = $db->table('tbl_Category_Rules');

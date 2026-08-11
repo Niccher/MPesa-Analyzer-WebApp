@@ -32,8 +32,8 @@
 <?php endif; ?>
 
 <div class="row g-4">
-    <div class="col-lg-8">
-        <div class="card settings-card">
+    <div class="col-lg-6">
+        <div class="card settings-card h-100">
             <div class="card-body p-4">
                 <h5 class="fw-bold mb-4" style="color: var(--primary);">Display & Regional</h5>
                 <form action="<?= base_url('dashboard/settings/preferences/save') ?>" method="POST">
@@ -115,8 +115,10 @@
                 </form>
             </div>
         </div>
+    </div>
 
-        <div class="card settings-card mt-4">
+    <div class="col-lg-6">
+        <div class="card settings-card h-100">
             <div class="card-body p-4">
                 <h5 class="fw-bold mb-4" style="color: var(--primary);"><i class="fa-solid fa-grip me-2"></i>Dashboard Widgets</h5>
                 <p class="text-muted small mb-3">Choose which widgets appear on your home dashboard.</p>

@@ -188,9 +188,6 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
     $routes->post('ml/allowed/reset', 'Admin\Ml::allowedReset');
 
     // Maintenance
-    $routes->get('settings/maintenance', 'Admin\Maintenance::index');
-    $routes->post('settings/maintenance/toggle', 'Admin\Maintenance::toggle');
-    $routes->post('settings/maintenance/schedule', 'Admin\Maintenance::schedule');
     $routes->post('maintenance/save-retention', 'Admin\Maintenance::saveRetention');
 
     // Database info

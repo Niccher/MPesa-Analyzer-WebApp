@@ -50,9 +50,15 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Email Address</label>
-                        <input type="email" class="form-control" name="email"
-                               value="<?= old('email', $user->email ?? '') ?>"
-                               placeholder="your@email.com">
+                        <div class="input-group">
+                            <input type="email" class="form-control" name="email"
+                                   value="<?= old('email', $user->email ?? '') ?>"
+                                   placeholder="your@email.com" disabled>
+                            <span class="input-group-text" title="Email cannot be edited for now"><i class="fa-solid fa-lock text-muted"></i></span>
+                        </div>
+                        <div class="form-text text-muted mt-1">
+                            <i class="fa-solid fa-circle-info me-1"></i> Email cannot be edited for now. Contact support to change it.
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Member Since</label>

@@ -21,6 +21,27 @@ if (!function_exists('format_mpesa_date')) {
     }
 }
 
+if (!function_exists('format_date_display')) {
+    /**
+     * Standardizes date to: Day Abbr, Month Abbr, Day, Year - Time
+     * Example: Mon, Aug 10, 2026 08:04 AM
+     */
+    function format_date_display($time): string {
+        if (empty($time)) return 'N/A';
+
+        // Handle millisecond timestamp (common in M-Pesa JS uploads)
+        if (is_numeric($time) && $time > 1000000000000) {
+            $timestamp = (int)($time / 1000);
+        } else {
+            $timestamp = is_numeric($time) ? (int)$time : strtotime($time);
+        }
+
+        if (!$timestamp) return 'Invalid Date';
+
+        return date('D, M d, Y h:i A', $timestamp);
+    }
+}
+
 if (!function_exists('time_elapsed_string')) {
     function time_elapsed_string($datetime, $full = false): string {
         if (empty($datetime)) return 'N/A';

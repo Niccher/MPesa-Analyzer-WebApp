@@ -3,10 +3,33 @@
 <?= $this->section('styles') ?>
 <style>
     .settings-card { border: none; border-radius: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+    .section-head { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 1.25rem; }
+    .section-head .head-icon {
+        width: 42px; height: 42px; border-radius: 4px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(93, 95, 239, 0.12); color: var(--primary); font-size: 1.1rem;
+    }
+    .metric {
+        display: flex; align-items: center; gap: 0.75rem;
+        padding: 0.9rem 1rem; height: 100%;
+        background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 4px;
+    }
+    .metric-icon {
+        width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(93, 95, 239, 0.12); font-size: 0.95rem;
+    }
+    .metric-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+    .metric-value { font-weight: 700; color: var(--text-main); }
+    .metric-value.trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .stat-big { text-align: center; padding: 1rem 1rem; height: 100%; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 4px; }
+    .stat-big .stat-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); font-weight: 600; }
+    .stat-big .stat-value { font-weight: 700; font-size: 1.5rem; color: var(--text-main); line-height: 1.3; }
     .backup-row { cursor: pointer; }
-    .backup-row:hover { background: rgba(177,184,237,0.1); }
-    .stat-card { border-left: 4px solid var(--primary); }
-    .table-row:hover { background: rgba(177,184,237,0.05); }
+    .backup-row:hover { background: rgba(93, 95, 239, 0.06); }
+    .table-row:hover { background: rgba(93, 95, 239, 0.06); }
+    .path-box { background: var(--card-bg); border: 1px dashed var(--card-border); border-radius: 4px; }
+    [data-bs-theme="dark"] .settings-card { box-shadow: 0 4px 20px rgba(0,0,0,0.25); }
 </style>
 <?= $this->endSection() ?>
 <?= $this->section('page_header') ?>
@@ -22,38 +45,55 @@
 <div class="row g-4">
     <!-- Database Info Card -->
     <div class="col-lg-4">
-        <div class="card settings-card h-100">
+        <div class="card settings-card glass-card h-100">
             <div class="card-body p-4">
-                <h5 class="fw-bold mb-3" style="color: var(--primary);"><i class="fa-solid fa-server me-2"></i> Database Info</h5>
+                <div class="section-head">
+                    <div class="head-icon"><i class="fa-solid fa-server"></i></div>
+                    <div>
+                        <h5 class="fw-bold mb-0">Database Info</h5>
+                        <small class="text-secondary">Connection details</small>
+                    </div>
+                </div>
                 <div class="row g-3 mb-4">
                     <div class="col-6">
-                        <div class="stat-card p-3 bg-light rounded">
-                            <div class="text-muted small"><i class="fa-solid fa-database text-primary me-1"></i> Driver</div>
-                            <div class="fw-bold"><?= esc($db_info['driver']) ?></div>
+                        <div class="metric">
+                            <span class="metric-icon text-primary"><i class="fa-solid fa-gears"></i></span>
+                            <div class="min-w-0">
+                                <div class="metric-label">Driver</div>
+                                <div class="metric-value small"><?= esc($db_info['driver']) ?></div>
+                            </div>
                         </div>
                     </div>
                     <div class="col-6">
-                        <div class="stat-card p-3 bg-light rounded">
-                            <div class="text-muted small"><i class="fa-solid fa-server text-primary me-1"></i> Host</div>
-                            <div class="fw-bold small"><?= esc($db_info['host']) ?></div>
+                        <div class="metric">
+                            <span class="metric-icon text-primary"><i class="fa-solid fa-network-wired"></i></span>
+                            <div class="min-w-0">
+                                <div class="metric-label">Host</div>
+                                <div class="metric-value small trunc"><?= esc($db_info['host']) ?></div>
+                            </div>
                         </div>
                     </div>
                     <div class="col-6">
-                        <div class="stat-card p-3 bg-light rounded">
-                            <div class="text-muted small"><i class="fa-solid fa-cylinder text-primary me-1"></i> Database</div>
-                            <div class="fw-bold small"><?= esc($db_info['database']) ?></div>
+                        <div class="metric">
+                            <span class="metric-icon text-primary"><i class="fa-solid fa-database"></i></span>
+                            <div class="min-w-0">
+                                <div class="metric-label">Database</div>
+                                <div class="metric-value small trunc"><?= esc($db_info['database']) ?></div>
+                            </div>
                         </div>
                     </div>
                     <div class="col-6">
-                        <div class="stat-card p-3 bg-light rounded">
-                            <div class="text-muted small"><i class="fa-solid fa-database text-primary me-1"></i> Version</div>
-                            <div class="fw-bold small"><?= esc($db_info['version']) ?></div>
+                        <div class="metric">
+                            <span class="metric-icon text-primary"><i class="fa-solid fa-tag"></i></span>
+                            <div class="min-w-0">
+                                <div class="metric-label">Version</div>
+                                <div class="metric-value small trunc"><?= esc($db_info['version']) ?></div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <hr>
-                <div class="text-muted small">
-                    <strong><i class="fa-solid fa-folder text-primary me-1"></i> Backup directory:</strong> 
+                <div class="path-box p-3">
+                    <div class="text-secondary small fw-semibold mb-1"><i class="fa-solid fa-folder-open text-primary me-1"></i> Backup directory</div>
                     <code><?= WRITEPATH ?>backups/</code>
                 </div>
             </div>
@@ -62,26 +102,32 @@
 
     <!-- Table Statistics Card -->
     <div class="col-lg-8">
-        <div class="card settings-card h-100">
+        <div class="card settings-card glass-card h-100">
             <div class="card-body p-4">
-                <h5 class="fw-bold mb-3" style="color: var(--primary);"><i class="fa-solid fa-table me-2"></i> Table Statistics</h5>
+                <div class="section-head">
+                    <div class="head-icon"><i class="fa-solid fa-chart-simple"></i></div>
+                    <div>
+                        <h5 class="fw-bold mb-0">Table Statistics</h5>
+                        <small class="text-secondary">Overview of stored data</small>
+                    </div>
+                </div>
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
-                        <div class="stat-card p-3 bg-light rounded text-center">
-                            <div class="text-muted small"><i class="fa-solid fa-list text-primary me-1"></i> Total Tables</div>
-                            <div class="fw-bold fs-4"><?= $table_stats['total_tables'] ?></div>
+                        <div class="stat-big">
+                            <span class="stat-label"><i class="fa-solid fa-table-list me-1"></i> Total Tables</span>
+                            <div class="stat-value"><?= $table_stats['total_tables'] ?></div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="stat-card p-3 bg-light rounded text-center">
-                            <div class="text-muted small"><i class="fa-solid fa-list-ol text-primary me-1"></i> Total Rows</div>
-                            <div class="fw-bold fs-4"><?= number_format($table_stats['total_rows']) ?></div>
+                        <div class="stat-big">
+                            <span class="stat-label"><i class="fa-solid fa-layer-group me-1"></i> Total Rows</span>
+                            <div class="stat-value"><?= number_format($table_stats['total_rows']) ?></div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="stat-card p-3 bg-light rounded text-center">
-                            <div class="text-muted small"><i class="fa-solid fa-hdd text-primary me-1"></i> Total Size</div>
-                            <div class="fw-bold fs-4"><?= esc($table_stats['total_size_human']) ?></div>
+                        <div class="stat-big">
+                            <span class="stat-label"><i class="fa-solid fa-hard-drive me-1"></i> Total Size</span>
+                            <div class="stat-value"><?= esc($table_stats['total_size_human']) ?></div>
                         </div>
                     </div>
                 </div>
@@ -89,16 +135,16 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light sticky-top">
                             <tr>
-                                <th style="width: 50px;"><i class="fa-solid fa-hashtag text-muted"></i></th>
+                                <th style="width: 50px;"><i class="fa-solid fa-hashtag text-secondary"></i></th>
                                 <th>Table Name</th>
-                                <th class="text-end" style="width: 120px;"><i class="fa-solid fa-list-ol text-muted"></i> Rows</th>
-                                <th class="text-end" style="width: 120px;"><i class="fa-solid fa-hdd text-muted"></i> Size</th>
+                                <th class="text-end" style="width: 120px;"><i class="fa-solid fa-list-ol text-secondary"></i> Rows</th>
+                                <th class="text-end" style="width: 120px;"><i class="fa-solid fa-hard-drive text-secondary"></i> Size</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($table_stats['tables'] as $idx => $table): ?>
                                 <tr class="table-row">
-                                    <td class="text-muted small"><?= $idx + 1 ?></td>
+                                    <td class="text-secondary small"><?= $idx + 1 ?></td>
                                     <td>
                                         <code class="small"><?= esc($table['name']) ?></code>
                                     </td>
@@ -106,14 +152,14 @@
                                         <span class="fw-semibold"><?= number_format($table['rows']) ?></span>
                                     </td>
                                     <td class="text-end">
-                                        <span class="text-muted small"><?= esc($table['size_human']) ?></span>
+                                        <span class="text-secondary small"><?= esc($table['size_human']) ?></span>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
                         <tfoot class="table-light">
                             <tr class="fw-bold">
-                                <td colspan="2" class="text-end"><i class="fa-solid fa-sigma text-primary me-1"></i> Totals</td>
+                                <td colspan="2" class="text-end"><i class="fa-solid fa-calculator text-primary me-1"></i> Totals</td>
                                 <td class="text-end"><?= number_format($table_stats['total_rows']) ?></td>
                                 <td class="text-end"><?= esc($table_stats['total_size_human']) ?></td>
                             </tr>
@@ -126,29 +172,39 @@
 
     <!-- Create Backup -->
     <div class="col-lg-12">
-        <div class="card settings-card">
+        <div class="card settings-card glass-card">
             <div class="card-body p-4">
-                <h5 class="fw-bold mb-3" style="color: var(--primary);"><i class="fa-solid fa-download me-2"></i> Create New Backup</h5>
+                <div class="section-head">
+                    <div class="head-icon"><i class="fa-solid fa-file-export"></i></div>
+                    <div>
+                        <h5 class="fw-bold mb-0">Create New Backup</h5>
+                        <small class="text-secondary">Generate and download a fresh SQL dump</small>
+                    </div>
+                </div>
                 <form id="backupForm" class="row g-3">
                     <div class="col-md-6">
-                        <div class="form-check form-switch mb-2">
-                            <input class="form-check-input" type="checkbox" name="structure_only" id="structureOnly" value="1">
-                            <label class="form-check-label fw-semibold" for="structureOnly">Structure only (no data)</label>
+                        <div class="p-3 bg-body rounded border h-100">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="structure_only" id="structureOnly" value="1">
+                                <label class="form-check-label fw-semibold" for="structureOnly"><i class="fa-solid fa-table-columns text-primary me-1"></i> Structure only (no data)</label>
+                            </div>
+                            <small class="text-secondary">Creates schema-only dump (tables, indexes, views)</small>
                         </div>
-                        <small class="text-muted">Creates schema-only dump (tables, indexes, views)</small>
                     </div>
                     <div class="col-md-6">
-                        <div class="form-check form-switch mb-2">
-                            <input class="form-check-input" type="checkbox" name="compress" id="compress" value="1" checked>
-                            <label class="form-check-label fw-semibold" for="compress">Compress (gzip)</label>
+                        <div class="p-3 bg-body rounded border h-100">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="compress" id="compress" value="1" checked>
+                                <label class="form-check-label fw-semibold" for="compress"><i class="fa-solid fa-file-zipper text-primary me-1"></i> Compress (gzip)</label>
+                            </div>
+                            <small class="text-secondary">Reduces file size significantly</small>
                         </div>
-                        <small class="text-muted">Reduces file size significantly</small>
                     </div>
                     <div class="col-12">
                         <button type="submit" class="btn btn-primary btn-lg rounded-pill px-5 fw-semibold">
                             <i class="fa-solid fa-download me-1"></i> Download Backup
                         </button>
-                        <span id="backupStatus" class="ms-3 text-muted small"></span>
+                        <span id="backupStatus" class="ms-3 text-secondary small"></span>
                     </div>
                 </form>
             </div>
@@ -157,18 +213,23 @@
 
     <!-- Backup History -->
     <div class="col-lg-12">
-        <div class="card settings-card">
+        <div class="card settings-card glass-card">
             <div class="card-body p-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="fw-bold mb-0" style="color: var(--primary);"><i class="fa-solid fa-history me-2"></i> Backup History <span class="badge bg-secondary ms-1"><?= count($backup_history) ?></span></h5>
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                    <div class="section-head mb-0">
+                        <div class="head-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                        <div>
+                            <h5 class="fw-bold mb-0">Backup History <span class="badge bg-secondary ms-1"><?= count($backup_history) ?></span></h5>
+                        </div>
+                    </div>
                     <a href="<?= base_url('admin/audit') . '?category=system&action=db_backup_download' ?>" class="btn btn-outline-secondary btn-sm" target="_blank">
                         <i class="fa-solid fa-clipboard-list me-1"></i> Audit Log
                     </a>
                 </div>
 
                 <?php if (empty($backup_history)): ?>
-                    <div class="text-center text-muted p-5">
-                        <i class="fa-solid fa-inbox fs-1 d-block mb-2"></i>
+                    <div class="text-center text-secondary p-5">
+                        <i class="fa-solid fa-folder-open fs-1 d-block mb-2 opacity-50"></i>
                         No backups yet. Create one above to get started.
                     </div>
                 <?php else: ?>
@@ -176,19 +237,19 @@
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width: 50px;"><i class="fa-solid fa-hashtag text-muted"></i></th>
+                                    <th style="width: 50px;"><i class="fa-solid fa-hashtag text-secondary"></i></th>
                                     <th>Filename</th>
-                                    <th class="text-center" style="width: 100px;"><i class="fa-solid fa-hdd text-muted"></i> Size</th>
-                                    <th style="width: 180px;"><i class="fa-solid fa-clock text-muted"></i> Created</th>
+                                    <th class="text-center" style="width: 100px;"><i class="fa-solid fa-hard-drive text-secondary"></i> Size</th>
+                                    <th style="width: 180px;"><i class="fa-solid fa-clock text-secondary"></i> Created</th>
                                     <th style="width: 150px;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($backup_history as $idx => $backup): ?>
                                     <tr class="backup-row">
-                                        <td class="text-muted small"><?= $idx + 1 ?></td>
+                                        <td class="text-secondary small"><?= $idx + 1 ?></td>
                                         <td>
-                                            <code><?= esc($backup['name']) ?></code>
+                                            <i class="fa-solid fa-file-zipper text-secondary me-1"></i><code><?= esc($backup['name']) ?></code>
                                         </td>
                                         <td class="text-center"><?= esc($backup['human_size']) ?></td>
                                         <td><?= esc($backup['modified']) ?></td>

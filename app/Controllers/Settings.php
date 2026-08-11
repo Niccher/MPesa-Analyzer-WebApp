@@ -16,6 +16,7 @@ class Settings extends BaseController
 
     public function __construct()
     {
+        helper('mpesa_date');
         $this->settingsModel = new ModUserSettings();
         $this->uploadsModel  = new ModUploads();
     }
@@ -55,14 +56,11 @@ class Settings extends BaseController
         $data = [];
 
         $username = $this->request->getPost('username');
-        $email = $this->request->getPost('email');
 
         if (!empty($username) && $username !== $user->username) {
             $data['username'] = $username;
         }
-        if (!empty($email) && $email !== $user->email) {
-            $data['email'] = $email;
-        }
+        // Email is not editable for now; ignore any submitted value.
 
         if (!empty($data)) {
             $user->fill($data);
@@ -198,7 +196,7 @@ class Settings extends BaseController
 
         $data = [
             'total_uploads' => $totalUploads,
-            'oldest_upload' => $oldestUpload,
+            'oldest_upload' => format_date_display($oldestUpload),
             'bg_color'      => '#B1B8ED',
         ];
         return view('Settings/data', $data);
@@ -318,7 +316,6 @@ class Settings extends BaseController
         }
 
         $db = \Config\Database::connect();
-        $this->ensureCategoryRulesTable($db);
 
         $handle = fopen($file->getTempName(), 'r');
         $header = fgetcsv($handle);
@@ -356,21 +353,6 @@ class Settings extends BaseController
         fclose($handle);
 
         return redirect()->to('/dashboard/settings/data')->with('message', "Imported {$imported} category rules.");
-    }
-
-    private function ensureCategoryRulesTable($db): void
-    {
-        if ($db->tableExists('tbl_Category_Rules')) return;
-        $forge = \Config\Database::forge();
-        $forge->addField([
-            'id' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
-            'keyword' => ['type' => 'VARCHAR', 'constraint' => 255, 'unique' => true],
-            'correct_category' => ['type' => 'VARCHAR', 'constraint' => 100],
-            'created_by' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
-            'created_at' => ['type' => 'DATETIME', 'null' => true],
-        ]);
-        $forge->addKey('id', true);
-        $forge->createTable('tbl_Category_Rules');
     }
 
     public function exportCsv()

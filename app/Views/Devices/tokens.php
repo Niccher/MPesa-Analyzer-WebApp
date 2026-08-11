@@ -43,10 +43,10 @@
                     <tr>
                         <td class="token-mask"><?= esc($t['masked_token']) ?></td>
                         <td><?= esc($t['name'] ?? '-') ?></td>
-                        <td><small><?= esc($t['created_at'] ?? '-') ?></small></td>
-                        <td><small><?= esc($t['last_used_at'] ?? '-') ?></small></td>
+                        <td><small><?= format_date_display($t['created_at'] ?? '') ?></small></td>
+                        <td><small><?= format_date_display($t['last_used_at'] ?? '') ?></small></td>
                         <td><span class="fw-bold"><?= number_format((int) $t['upload_count']) ?></span></td>
-                        <td><small><?= esc($t['last_upload'] ?? '-') ?></small></td>
+                        <td><small><?= format_date_display($t['last_upload'] ?? '') ?></small></td>
                         <td><small><?= esc($t['device_model'] ?: '-') ?></small></td>
                     </tr>
                     <?php endforeach; ?>

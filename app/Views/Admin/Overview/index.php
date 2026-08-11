@@ -6,6 +6,21 @@
     .stat-card .stat-icon { width: 44px; height: 44px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
     .status-pill { padding: 0.35rem 0.9rem; border-radius: 50rem; font-weight: 600; font-size: 0.8rem; }
     .system-table td, .system-table th { font-size: 0.85rem; }
+    .metric {
+        display: flex; align-items: flex-start; gap: 0.85rem;
+        padding: 1rem; height: 100%;
+        background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 4px;
+    }
+    .metric-icon {
+        width: 46px; height: 46px; border-radius: 4px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+        background: rgba(93, 95, 239, 0.12); color: var(--primary);
+    }
+    .metric-value { font-weight: 700; font-size: 1.4rem; line-height: 1.2; }
+    .metric-label { font-size: 0.78rem; font-weight: 700; color: var(--text-main); }
+    .metric-desc { font-size: 0.75rem; color: var(--text-muted); }
+    .msgs-err { display: flex; flex-direction: column; gap: 0.3rem; }
+    [data-bs-theme="dark"] .stat-card { box-shadow: 0 4px 20px rgba(0,0,0,0.25); }
 </style>
 <?= $this->endSection() ?>
 <?= $this->section('page_header') ?>
@@ -79,34 +94,42 @@
 <!-- Platform Stats -->
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
-        <div class="card stat-card">
-            <div class="card-body p-4">
-                <div class="fw-bold fs-3" style="color: var(--primary);"><?= number_format($stats['users']) ?></div>
-                <div class="text-muted small">Users</div>
+        <div class="metric">
+            <span class="metric-icon"><i class="fa-solid fa-users"></i></span>
+            <div class="min-w-0">
+                <div class="metric-value" style="color: var(--primary);"><?= number_format($stats['users']) ?></div>
+                <div class="metric-label">Users</div>
+                <div class="metric-desc">Registered platform accounts</div>
             </div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="card stat-card">
-            <div class="card-body p-4">
-                <div class="fw-bold fs-3 text-success"><?= number_format($stats['uploads']) ?></div>
-                <div class="text-muted small">Uploads</div>
+        <div class="metric">
+            <span class="metric-icon" style="color:#2ED573; background:rgba(46,213,115,0.12);"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+            <div class="min-w-0">
+                <div class="metric-value text-success"><?= number_format($stats['uploads']) ?></div>
+                <div class="metric-label">Uploads</div>
+                <div class="metric-desc">SMS batches uploaded</div>
             </div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="card stat-card">
-            <div class="card-body p-4">
-                <div class="fw-bold fs-3 text-info"><?= number_format($stats['transactions']) ?></div>
-                <div class="text-muted small">Transactions</div>
+        <div class="metric">
+            <span class="metric-icon" style="color:#1e90ff; background:rgba(30,144,255,0.12);"><i class="fa-solid fa-money-bill-transfer"></i></span>
+            <div class="min-w-0">
+                <div class="metric-value" style="color:#1e90ff;"><?= number_format($stats['transactions']) ?></div>
+                <div class="metric-label">Transactions</div>
+                <div class="metric-desc">Analyzed records</div>
             </div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="card stat-card">
-            <div class="card-body p-4">
-                <div class="fw-bold fs-3 <?= $stats['queued_jobs'] > 0 ? 'text-warning' : 'text-secondary' ?>"><?= number_format($stats['processing_jobs']) ?></div>
-                <div class="text-muted small">Processing Jobs (<?= $stats['queued_jobs'] ?> queued)</div>
+        <div class="metric">
+            <span class="metric-icon" style="color:#FFA502; background:rgba(255,165,2,0.12);"><i class="fa-solid fa-list-check"></i></span>
+            <div class="min-w-0">
+                <div class="metric-value <?= $stats['queued_jobs'] > 0 ? 'text-warning' : 'text-secondary' ?>"><?= number_format($stats['processing_jobs']) ?></div>
+                <div class="metric-label">Processing Jobs</div>
+                <div class="metric-desc"><?= $stats['queued_jobs'] ?> queued</div>
             </div>
         </div>
     </div>
@@ -121,11 +144,11 @@
                 <div class="table-responsive">
                     <table class="table table-sm table-striped system-table">
                         <thead>
-                            <tr><th>ID</th><th>User</th><th>Status</th><th>Msgs</th><th>Errors</th><th>When</th></tr>
+                            <tr><th>ID</th><th>User</th><th>Status</th><th>Messages / Errors</th><th>When</th></tr>
                         </thead>
                         <tbody>
                             <?php if (empty($recent_jobs)): ?>
-                                <tr><td colspan="6" class="text-center text-muted py-3">No processing jobs yet.</td></tr>
+                                <tr><td colspan="5" class="text-center text-muted py-3">No processing jobs yet.</td></tr>
                             <?php endif; ?>
                             <?php foreach ($recent_jobs as $j): ?>
                             <tr>
@@ -142,8 +165,12 @@
                                     ?>
                                     <span class="badge bg-<?= $badge ?>"><?= esc($j['status']) ?></span>
                                 </td>
-                                <td><?= $j['messages_processed'] ?></td>
-                                <td><?= $j['errors'] ?></td>
+                                <td>
+                                    <div class="msgs-err">
+                                        <span><i class="fa-solid fa-message text-info me-1"></i> <?= number_format((int) $j['messages_processed']) ?></span>
+                                        <span><i class="fa-solid fa-triangle-exclamation text-danger me-1"></i> <?= number_format((int) $j['errors']) ?></span>
+                                    </div>
+                                </td>
                                 <td><small><?= esc($j['created_at'] ?? $j['started_at'] ?? '-') ?></small></td>
                             </tr>
                             <?php endforeach; ?>

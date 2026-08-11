@@ -209,34 +209,13 @@ class ModUploads extends Model
         return $this->db->table('tbl_Devices')->insert($print_dump);
     }
 
-    public function ensureUserDevicesTable()
-    {
-        $db = \Config\Database::connect();
-        if (!$db->tableExists('tbl_User_Devices')) {
-            $forge = \Config\Database::forge();
-            $forge->addField([
-                'id' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
-                'user_id' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
-                'device_token' => ['type' => 'VARCHAR', 'constraint' => 255],
-                'device_name' => ['type' => 'VARCHAR', 'constraint' => 100, 'null' => true],
-                'created_at' => ['type' => 'DATETIME', 'null' => true],
-            ]);
-            $forge->addKey('id', true);
-            $forge->addKey('user_id');
-            $forge->addKey('device_token');
-            $forge->createTable('tbl_User_Devices');
-        }
-    }
-
     public function getLinkedDevices(int $userId): array
     {
-        $this->ensureUserDevicesTable();
         return $this->db->table('tbl_User_Devices')->where('user_id', $userId)->get()->getResult();
     }
 
     public function linkDevice(int $userId, string $deviceToken, string $deviceName): bool
     {
-        $this->ensureUserDevicesTable();
         // Check if already linked
         $exists = $this->db->table('tbl_User_Devices')
             ->where(['user_id' => $userId, 'device_token' => $deviceToken])

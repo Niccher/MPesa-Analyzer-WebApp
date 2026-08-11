@@ -57,8 +57,8 @@
                         </td>
                         <td><?= esc($d->device_AppVersion ?: '-') ?></td>
                         <td><span class="fw-bold"><?= number_format((int) $d->upload_count) ?></span></td>
-                        <td><small><?= esc($d->first_upload ?? '-') ?></small></td>
-                        <td><small><?= esc($d->last_upload ?? '-') ?></small></td>
+                        <td><small><?= $d->first_upload ? format_date_display($d->first_upload) : '-' ?></small></td>
+                        <td><small><?= $d->last_upload ? format_date_display($d->last_upload) : '-' ?></small></td>
                         <td><small class="text-muted"><?= esc($d->ips ?? '-') ?></small></td>
                         <td><a class="btn btn-sm btn-outline-primary" href="<?= base_url('dashboard/devices/detail/' . esc($d->device_Uuid, 'url')) ?>"><i class="fa-solid fa-eye"></i></a></td>
                     </tr>

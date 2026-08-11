@@ -249,11 +249,6 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?= strpos($currentURL, 'admin/settings/maintenance') !== false ? 'active' : '' ?>" href="<?= base_url('admin/settings/maintenance') ?>">
-                        <i class="fa-solid fa-tools"></i> Maintenance
-                    </a>
-                </li>
-                <li class="nav-item">
                     <a class="nav-link <?= strpos($currentURL, 'admin/db-info') !== false ? 'active' : '' ?>" href="<?= base_url('admin/db-info') ?>">
                         <i class="fa-solid fa-database"></i> DB Info
                     </a>

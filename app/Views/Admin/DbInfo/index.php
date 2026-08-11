@@ -3,7 +3,28 @@
 <?= $this->section('styles') ?>
 <style>
     .settings-card { border: none; border-radius: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
-    .stat-tile { border-radius: 4px; }
+    .section-head { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 1.25rem; }
+    .section-head .head-icon {
+        width: 42px; height: 42px; border-radius: 4px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(93, 95, 239, 0.12); color: var(--primary); font-size: 1.1rem;
+    }
+    .metric {
+        display: flex; align-items: center; gap: 0.75rem;
+        padding: 0.9rem 1rem; height: 100%;
+        background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 4px;
+    }
+    .metric-icon {
+        width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(93, 95, 239, 0.12); font-size: 0.95rem;
+    }
+    .metric-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+    .metric-value { font-weight: 700; color: var(--text-main); }
+    .metric-value.trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .stat-tile .card-body { padding: 1.25rem 1.25rem; }
+    .stat-tile .tile-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); font-weight: 600; }
+    [data-bs-theme="dark"] .settings-card { box-shadow: 0 4px 20px rgba(0,0,0,0.25); }
 </style>
 <?= $this->endSection() ?>
 <?= $this->section('page_header') ?>
@@ -19,38 +40,58 @@
 <!-- Overview stat tiles -->
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-lg-3">
-        <div class="card settings-card">
-            <div class="card-body p-3">
-                <div class="text-secondary small fw-semibold text-uppercase mb-1"><i class="fa-solid fa-server me-1"></i> Database</div>
-                <div class="fw-bold fs-5 text-truncate" title="<?= esc($server['database']) ?>"><?= esc($server['database']) ?></div>
-                <small class="text-muted"><?= esc($server['driver']) ?> driver</small>
+        <div class="card settings-card glass-card stat-tile">
+            <div class="card-body">
+                <div class="metric">
+                    <span class="metric-icon text-primary"><i class="fa-solid fa-server"></i></span>
+                    <div class="min-w-0">
+                        <div class="metric-label">Database</div>
+                        <div class="metric-value trunc" title="<?= esc($server['database']) ?>"><?= esc($server['database']) ?></div>
+                        <small class="text-secondary"><?= esc($server['driver']) ?> driver</small>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
-        <div class="card settings-card">
-            <div class="card-body p-3">
-                <div class="text-secondary small fw-semibold text-uppercase mb-1"><i class="fa-solid fa-hard-drive me-1"></i> Total Size</div>
-                <div class="fw-bold fs-5"><?= esc($stats['size_mb'] ?? '0') ?> MB</div>
-                <small class="text-muted"><?= esc($total_size_human) ?></small>
+        <div class="card settings-card glass-card stat-tile">
+            <div class="card-body">
+                <div class="metric">
+                    <span class="metric-icon text-primary"><i class="fa-solid fa-hard-drive"></i></span>
+                    <div class="min-w-0">
+                        <div class="metric-label">Total Size</div>
+                        <div class="metric-value"><?= esc($stats['size_mb'] ?? '0') ?> MB</div>
+                        <small class="text-secondary"><?= esc($total_size_human) ?></small>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
-        <div class="card settings-card">
-            <div class="card-body p-3">
-                <div class="text-secondary small fw-semibold text-uppercase mb-1"><i class="fa-solid fa-table-list me-1"></i> Tables</div>
-                <div class="fw-bold fs-5"><?= (int)($stats['table_count'] ?? 0) ?></div>
-                <small class="text-muted">Data: <?= esc($stats['data_mb'] ?? '0') ?> MB · Index: <?= esc($stats['index_mb'] ?? '0') ?> MB</small>
+        <div class="card settings-card glass-card stat-tile">
+            <div class="card-body">
+                <div class="metric">
+                    <span class="metric-icon text-primary"><i class="fa-solid fa-table-list"></i></span>
+                    <div class="min-w-0">
+                        <div class="metric-label">Tables</div>
+                        <div class="metric-value"><?= (int)($stats['table_count'] ?? 0) ?></div>
+                        <small class="text-secondary">Data: <?= esc($stats['data_mb'] ?? '0') ?> MB · Index: <?= esc($stats['index_mb'] ?? '0') ?> MB</small>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
-        <div class="card settings-card">
-            <div class="card-body p-3">
-                <div class="text-secondary small fw-semibold text-uppercase mb-1"><i class="fa-solid fa-layer-group me-1"></i> Approx Rows</div>
-                <div class="fw-bold fs-5"><?= esc($total_rows) ?></div>
-                <small class="text-muted">Estimated (InnoDB)</small>
+        <div class="card settings-card glass-card stat-tile">
+            <div class="card-body">
+                <div class="metric">
+                    <span class="metric-icon text-primary"><i class="fa-solid fa-layer-group"></i></span>
+                    <div class="min-w-0">
+                        <div class="metric-label">Approx Rows</div>
+                        <div class="metric-value"><?= esc($total_rows) ?></div>
+                        <small class="text-secondary">Estimated (InnoDB)</small>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -59,44 +100,68 @@
 <!-- Server info + Storage engines -->
 <div class="row g-4">
     <div class="col-lg-7">
-        <div class="card settings-card h-100">
+        <div class="card settings-card glass-card h-100">
             <div class="card-body p-4">
-                <h5 class="fw-bold mb-3" style="color: var(--primary);"><i class="fa-solid fa-circle-info me-2"></i> Server Information</h5>
+                <div class="section-head">
+                    <div class="head-icon"><i class="fa-solid fa-server"></i></div>
+                    <div>
+                        <h5 class="fw-bold mb-0">Server Information</h5>
+                        <small class="text-secondary">Configuration of the database server</small>
+                    </div>
+                </div>
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <div class="p-3 bg-light rounded">
-                            <small class="text-muted text-uppercase fw-semibold">Version</small>
-                            <div class="fw-semibold"><?= esc($server['version']) ?></div>
+                        <div class="metric">
+                            <span class="metric-icon text-primary"><i class="fa-solid fa-tag"></i></span>
+                            <div class="min-w-0">
+                                <div class="metric-label">Version</div>
+                                <div class="metric-value"><?= esc($server['version']) ?></div>
+                            </div>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="p-3 bg-light rounded">
-                            <small class="text-muted text-uppercase fw-semibold">Host</small>
-                            <div class="fw-semibold"><?= esc($server['host']) ?>:<?= esc($server['port']) ?></div>
+                        <div class="metric">
+                            <span class="metric-icon text-primary"><i class="fa-solid fa-network-wired"></i></span>
+                            <div class="min-w-0">
+                                <div class="metric-label">Host</div>
+                                <div class="metric-value"><?= esc($server['host']) ?>:<?= esc($server['port']) ?></div>
+                            </div>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="p-3 bg-light rounded">
-                            <small class="text-muted text-uppercase fw-semibold">Driver</small>
-                            <div class="fw-semibold"><?= esc($server['driver']) ?></div>
+                        <div class="metric">
+                            <span class="metric-icon text-primary"><i class="fa-solid fa-gears"></i></span>
+                            <div class="min-w-0">
+                                <div class="metric-label">Driver</div>
+                                <div class="metric-value"><?= esc($server['driver']) ?></div>
+                            </div>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="p-3 bg-light rounded">
-                            <small class="text-muted text-uppercase fw-semibold">Charset</small>
-                            <div class="fw-semibold"><?= esc($server['charset'] ?: '—') ?></div>
+                        <div class="metric">
+                            <span class="metric-icon text-primary"><i class="fa-solid fa-font"></i></span>
+                            <div class="min-w-0">
+                                <div class="metric-label">Charset</div>
+                                <div class="metric-value"><?= esc($server['charset'] ?: '—') ?></div>
+                            </div>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="p-3 bg-light rounded">
-                            <small class="text-muted text-uppercase fw-semibold">Collation</small>
-                            <div class="fw-semibold"><?= esc($server['collation'] ?: '—') ?></div>
+                        <div class="metric">
+                            <span class="metric-icon text-primary"><i class="fa-solid fa-arrow-down-short-wide"></i></span>
+                            <div class="min-w-0">
+                                <div class="metric-label">Collation</div>
+                                <div class="metric-value"><?= esc($server['collation'] ?: '—') ?></div>
+                            </div>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="p-3 bg-light rounded">
-                            <small class="text-muted text-uppercase fw-semibold">Server Comment</small>
-                            <div class="fw-semibold text-truncate" title="<?= esc($server['comment']) ?>"><?= esc($server['comment'] ?: '—') ?></div>
+                        <div class="metric">
+                            <span class="metric-icon text-primary"><i class="fa-solid fa-comment"></i></span>
+                            <div class="min-w-0">
+                                <div class="metric-label">Server Comment</div>
+                                <div class="metric-value trunc" title="<?= esc($server['comment']) ?>"><?= esc($server['comment'] ?: '—') ?></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -104,11 +169,17 @@
         </div>
     </div>
     <div class="col-lg-5">
-        <div class="card settings-card h-100">
+        <div class="card settings-card glass-card h-100">
             <div class="card-body p-4">
-                <h5 class="fw-bold mb-3" style="color: var(--primary);"><i class="fa-solid fa-gears me-2"></i> Storage Engines</h5>
+                <div class="section-head">
+                    <div class="head-icon"><i class="fa-solid fa-microchip"></i></div>
+                    <div>
+                        <h5 class="fw-bold mb-0">Storage Engines</h5>
+                        <small class="text-secondary">Engine breakdown by usage</small>
+                    </div>
+                </div>
                 <?php if (empty($engines)): ?>
-                    <div class="text-muted">No engine data.</div>
+                    <div class="text-secondary">No engine data.</div>
                 <?php else: ?>
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0">
@@ -141,11 +212,19 @@
 </div>
 
 <!-- Tables -->
-<div class="card settings-card mt-4">
+<div class="card settings-card glass-card mt-4">
     <div class="card-header bg-white border-0 pt-3 pb-0 px-4">
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <h5 class="fw-bold mb-0" style="color: var(--primary);"><i class="fa-solid fa-table-list me-2"></i> Tables <span class="text-secondary fs-6 fw-normal">(<?= count($tables) ?>)</span></h5>
-            <input type="text" id="tableSearch" class="form-control form-control-sm" placeholder="Filter tables..." style="max-width: 240px;">
+            <div class="section-head mb-0">
+                <div class="head-icon"><i class="fa-solid fa-table-list"></i></div>
+                <div>
+                    <h5 class="fw-bold mb-0">Tables <span class="text-secondary fs-6 fw-normal">(<?= count($tables) ?>)</span></h5>
+                </div>
+            </div>
+            <div class="input-group input-group-sm" style="max-width: 260px;">
+                <span class="input-group-text"><i class="fa-solid fa-magnifying-glass text-secondary"></i></span>
+                <input type="text" id="tableSearch" class="form-control" placeholder="Filter tables...">
+            </div>
         </div>
     </div>
     <div class="card-body p-0">
@@ -171,21 +250,21 @@
                             <td>
                                 <div class="d-flex align-items-center gap-2 flex-wrap">
                                     <strong><i class="fa-solid fa-table-columns me-1 text-secondary"></i><?= $t['field_count'] ?> fields</strong>
-                                    <span class="badge bg-info text-dark"><i class="fa-solid fa-rows me-1"></i><?= number_format((int) $t['row_count']) ?> rows</span>
+                                    <span class="badge bg-info text-dark"><i class="fa-solid fa-list me-1"></i><?= number_format((int) $t['row_count']) ?> rows</span>
                                 </div>
-                                <em class="text-muted d-block mt-1" style="font-size: 0.8rem; white-space: normal; word-break: break-word;"><?= htmlspecialchars($t['field_list']) ?></em>
+                                <em class="text-secondary d-block mt-1" style="font-size: 0.8rem; white-space: normal; word-break: break-word;"><?= htmlspecialchars($t['field_list']) ?></em>
                             </td>
                             <td>
                                 <div class="d-flex align-items-baseline">
-                                    <small class="text-muted fw-semibold text-uppercase" style="font-size: 0.7rem; width: 44px; flex-shrink: 0;">Total</small>
+                                    <small class="text-secondary fw-semibold text-uppercase" style="font-size: 0.7rem; width: 44px; flex-shrink: 0;">Total</small>
                                     <strong class="ms-1"><i class="fa-solid fa-database me-1 text-secondary"></i><?= esc($t['size_human']) ?></strong>
                                 </div>
                                 <div class="d-flex align-items-baseline mt-1">
-                                    <small class="text-muted" style="font-size: 0.75rem; width: 44px; flex-shrink: 0;">Data</small>
+                                    <small class="text-secondary" style="font-size: 0.75rem; width: 44px; flex-shrink: 0;">Data</small>
                                     <small class="ms-1"><?= esc($t['data_human']) ?></small>
                                 </div>
                                 <div class="d-flex align-items-baseline mt-1">
-                                    <small class="text-muted" style="font-size: 0.75rem; width: 44px; flex-shrink: 0;">Index</small>
+                                    <small class="text-secondary" style="font-size: 0.75rem; width: 44px; flex-shrink: 0;">Index</small>
                                     <small class="ms-1"><?= esc($t['index_human']) ?></small>
                                 </div>
                             </td>

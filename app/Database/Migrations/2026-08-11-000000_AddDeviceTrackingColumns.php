@@ -5,39 +5,28 @@ namespace App\Database\Migrations;
 use CodeIgniter\Database\Migration;
 
 /**
- * Adds IP capture so uploads and device registrations record the caller's IP
- * for audit / device tracking. Historical rows stay NULL (forward-fill only).
+ * LEGACY NO-OP STUB.
+ *
+ * This file originally added an IP column to two tables (tbl_Loot and
+ * tbl_Devices) in a single migration. It has been split into one file per
+ * table to satisfy the "one migration file per table" convention:
+ *
+ *   2026-08-11-000001_AddIpToTblLoot
+ *   2026-08-11-000002_AddIpToTblDevices
+ *
+ * The class name and filename are kept unchanged so the recorded migration
+ * history (UID) and rollback behaviour remain intact. This stub is now a
+ * no-op; ownership of the schema changes moved to the split files above.
  */
 class AddDeviceTrackingColumns extends Migration
 {
     public function up()
     {
-        $this->forge->addColumn('tbl_Loot', [
-            'loot_ip' => [
-                'type'       => 'VARCHAR',
-                'constraint' => 45,
-                'null'       => true,
-                'after'      => 'loot_user_id',
-            ],
-        ]);
-        $this->forge->addKey('loot_ip', false, false, 'idx_loot_ip');
-        $this->forge->processIndexes('tbl_Loot');
-
-        $this->forge->addColumn('tbl_Devices', [
-            'device_ip' => [
-                'type'       => 'VARCHAR',
-                'constraint' => 45,
-                'null'       => true,
-                'after'      => 'device_user_id',
-            ],
-        ]);
-        $this->forge->addKey('device_ip', false, false, 'idx_device_ip');
-        $this->forge->processIndexes('tbl_Devices');
+        // No-op: schema changes are applied by the split per-table migrations.
     }
 
     public function down()
     {
-        $this->db->query('ALTER TABLE tbl_Loot DROP INDEX idx_loot_ip, DROP COLUMN loot_ip');
-        $this->db->query('ALTER TABLE tbl_Devices DROP INDEX idx_device_ip, DROP COLUMN device_ip');
+        // No-op: schema changes are reverted by the split per-table migrations.
     }
 }
