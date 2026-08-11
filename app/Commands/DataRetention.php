@@ -83,20 +83,11 @@ class DataRetention extends BaseCommand
             $db->transStart();
 
             if (!empty($smsIds)) {
-                if ($db->tableExists('tbl_Sms_Classification')) {
-                    $db->table('tbl_Sms_Classification')->whereIn('sms_id', $smsIds)->delete();
-                }
                 if ($db->tableExists('tbl_Sms_Processing')) {
                     $db->table('tbl_Sms_Processing')->whereIn('sms_id', $smsIds)->delete();
                 }
-                if ($db->tableExists('tbl_Analyzed_Transactions')) {
-                    $db->table('tbl_Analyzed_Transactions')
-                        ->groupStart()
-                        ->whereIn('orig_sms_int_id', $smsIds)
-                        ->orWhereIn('orig_sms_id', $smsIds)
-                        ->groupEnd()
-                        ->delete();
-                }
+                // tbl_Sms_Classification & tbl_Analyzed_Transactions are now
+                // views derived from tbl_Sms — deleting the SMS row removes them.
                 $db->table('tbl_Sms')->whereIn('id', $smsIds)->delete();
                 $stats['sms'] += count($smsIds);
             }

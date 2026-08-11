@@ -59,9 +59,9 @@ This web app is the **storage and presentation layer** of a three-part stack:
 |------|------------|-------------|------------|
 | **1. Capture** | Reads SMS, encrypts with AES-128-CBC | — | — |
 | **2. Upload** | Sends encrypted file via `POST /process/upload` | Decrypts payload, parses JSON, inserts SMS into `tbl_Sms`, updates `tbl_Loot_Summary` | — |
-| **3. Trigger** | — | Inserts job in `tbl_Processing_Jobs`, calls `POST /process/for-user/{id}` on LLM service | Polls `tbl_Sms` (background) or receives trigger from web app |
-| **4. Classify & Extract** | — | — | Classifies senders (known-dict or LLM), extracts amounts/counterparties/directions, writes to `tbl_Sms`, `tbl_Analyzed_Transactions`, `tbl_Sender_Profiles` |
-| **5. Visualise** | Fetches summaries via `get/my_uploads`, `get/my_summary_calculations` | Dashboard shows classified transactions, budgets, reports, analytics | — |
+| **3. Trigger** | — | Inserts job in `tbl_Processing_Jobs`, calls `POST /process/for-user/{id}` on LLM service | Polls `tbl_Sms` (background, gated by admin auto-jobs toggle) or receives trigger from web app |
+| **4. Classify & Extract** | — | — | Classifies senders (known-dict or LLM), extracts amounts/counterparties/directions, writes **one canonical row** per SMS in `tbl_Sms`; `tbl_Analyzed_Transactions` and `tbl_Sms_Classification` are views over it |
+| **5. Visualise** | Fetches summaries via `get/my_uploads`, `get/my_summary_calculations` | Dashboard shows classified transactions, budgets, reports, analytics, per-job ML run summaries | — |
 
 ---
 
@@ -95,6 +95,7 @@ This ecosystem uses a **hybrid approach**:
 - A full **web dashboard** with transaction search, analytics, budgets, and reports
 - **CodeIgniter Shield** authentication (session + access tokens) for both web and mobile
 - **Trigger mechanism** for the Docker LLM service to classify and enrich transactions
+- A dedicated **admin ML console** to manage models, prompts, configuration, jobs, and allowed senders
 - Fully **Dockerized** deployment with MySQL 8.4 and phpMyAdmin
 
 ---
@@ -127,20 +128,38 @@ This ecosystem uses a **hybrid approach**:
 | **Analytics (Graph)** | 30-day chart data with toggleable views, AI-generated observations, recent transaction list |
 | **Transactions** | Paginated list with category filters (finances/money_in/money_out/notifications), CSV export |
 | **Search** | Full-text search with date range, category, sender, keyword, and amount range filters |
-| **History** | Per-batch upload history with totals, LLM-classified counts, category breakdowns |
+| **History** | Tabbed view — **Upload History** (per-batch totals, classification, category breakdowns) and **ML Jobs** (every job run with a click-through summary modal showing SMS/sender/category/direction breakdowns, model & backend config) |
 | **Reports** | Monthly reports with daily inflow/outflow, category breakdown, top counterparties, trends, recurring payments; print-friendly view |
 | **Budget** | Create/edit/delete budgets per category with spend-vs-limit progress tracking (monthly/weekly periods) |
 | **Analyse** | Regex-based SMS parsing interface, keyword-to-category rule management with retroactive application |
+| **Blocklist** | Blocked / Allowed / Unknown sender tabs; the Allowed tab merges the ML hardcoded default finance senders so every preselected good sender appears even without matching data |
+| **Data Management** | Export (CSV/JSON/settings/rules), purge old data, delete upload batches, and **Delete Non-Finance SMS** (type `DELETE` to confirm) |
 | **Info** | Account details, active device tokens, generate/revoke access tokens |
+
+### Admin ML Console (`/admin/ml`)
+
+| Page | Features |
+|---|---|
+| **Status** | Backend health, current configuration with icons, available models with GGUF metadata |
+| **Models** | Upload `.gguf`/`.bin` models (streamed), activate, delete, and inspect metadata (params, quantization, context, architecture) via expandable rows |
+| **Config** | Edit LLM model, max tokens, temperature, context size, prompt batch, GPU layers, SMS batch, retries, poll interval — each field shows its fallback default |
+| **Test Prompt** | Send sample messages to the live LLM and inspect classification + extraction output |
+| **Prompts** | Versioned prompt management — create/edit (new version), activate, delete; per-key "current vs hardcoded default" comparison |
+| **Jobs** | **Start/Stop Auto Jobs** toggle (blocks the ML poller when off), aggregate stats, per-job metadata drill-down |
+| **Senders** | View senders and override their finance flag |
+| **Allowed** | Manage the global DB allowlist (add/remove/reset); falls back to hardcoded defaults when empty |
 
 ### LLM / AI Integration
 
 | Feature | Detail |
 |---|---|
-| **LLM microservice** | FastAPI container at `http://mpesa-analyser-docker:9050/process/for-user/{id}` |
+| **LLM microservice** | FastAPI container at `http://ml-mpesa-analyzer:9050` |
+| **Canonical SMS record** | Classification + parsed fields live on one `tbl_Sms` row per SMS; `tbl_Sms_Classification` and `tbl_Analyzed_Transactions` are views derived from it |
 | **Rescan** | Triggers AI re-analysis of all transactions for a user (`/dashboard/rescan`) |
-| **Full rescan** | Clears all processing flags, classifications, transactions, and sender profiles then re-runs LLM (`/dashboard/rescan/all`) |
+| **Full rescan** | Clears processing flags and LLM-derived columns, then re-runs LLM (`/dashboard/rescan/all`) |
 | **Progress tracking** | Real-time job progress via `/dashboard/rescan/progress` (total/processed/classified counts) |
+| **Job metadata** | Each ML job records rich JSON metadata (sender/SMS breakdowns, model, LLM tuning, duration, errors), surfaced to the user in the ML Jobs tab |
+| **Auto-jobs control** | Admin can stop/start the background ML poller; when off, no ML jobs run |
 | **Classification rules** | Custom keyword-to-category mappings via Analyse page; retroactively applied |
 
 ### Authentication
@@ -235,13 +254,18 @@ php spark serve
 ```
 .
 ├── app/
-│   ├── Config/          # Routes, Database, Auth, Filters, Logger, Encryption, etc.
-│   ├── Controllers/     # Home, Dash, Graph, Search, Transactions, History, Info,
-│   │                    # Reports, Budget, Analyse, Upload, UserAuth, Auths, Testar, Debug
+│   ├── Config/          # Routes, Database, Auth, Filters, Logger, Encryption, MlBackend, etc.
+│   ├── Controllers/     # Home, Dash, Graph, Search, Transactions, History, Reports, Budget,
+│   │                    # Analyse, Upload, UserAuth, Auths, Settings, Blocklist, Debug, Api,
+│   │                    # Admin/* (Ml, Overview, Users, Logs, Crons, ...)
+│   ├── Commands/        # Spark CLI commands (LlmProcess, CronRun, DataRetention, UploadsCleanup)
 │   ├── Database/        # Migrations (created by php spark migrate)
 │   ├── Helpers/         # Custom helpers (mpesa_date_helper)
-│   ├── Models/          # ModUploads, ModUser, ModBudget, ModCryption, ModInsights
-│   └── Views/           # landing, Dash/*, Search/*, Reports/*, Budget/*, Layouts/*
+│   ├── Libraries/       # Audit, Notifier, CronRunner, CronLogger, ModNotes, ...
+│   ├── Models/          # ModUploads, ModUser, ModBudget, ModCryption, ModInsights, ...
+│   └── Views/           # landing, Dash/* (+ _ml_jobs partial), Blocklist/*, Settings/*,
+│                        # Admin/Ml/* (models, config, prompts, jobs, senders, allowed),
+│                        # Reports/*, Budget/*, Layouts/*
 ├── public/              # Document root (index.php, assets)
 ├── writable/            # Cache, logs, sessions, uploads
 ├── docker-compose.yml   # 3-service orchestration (web + mysql + phpmyadmin)
@@ -256,14 +280,18 @@ php spark serve
 | Table | Purpose |
 |---|---|
 | `tbl_Loot` | Uploaded file records (per-batch) |
-| `tbl_Sms` | All parsed individual SMS messages |
+| `tbl_Sms` | All parsed individual SMS messages — **canonical record** holding both classification and parsed financial fields |
 | `tbl_Loot_Summary` | Per-upload summary stats |
 | `tbl_Devices` | Registered Android device fingerprints |
-| `tbl_Analyzed_Transactions` | Parsed financial transactions (LLM + regex) |
-| `tbl_Sms_Classification` | AI/human classifications per SMS |
-| `tbl_Sms_Processing` | LLM processing status per SMS |
-| `tbl_Processing_Jobs` | Job-level processing tracking |
+| `tbl_Analyzed_Transactions` | **VIEW** over `tbl_Sms` (transactional SMS) — read-only, derived |
+| `tbl_Sms_Classification` | **VIEW** over `tbl_Sms` — read-only, derived |
+| `tbl_Sms_Processing` | LLM processing status per SMS (idempotency / retries) |
+| `tbl_Processing_Jobs` | Job-level processing tracking + `metadata` JSON column (sender/SMS/model breakdowns per run) |
 | `tbl_Sender_Profiles` | Counterparty sender profiles (built by LLM) |
+| `tbl_Allowed_Senders` | Global DB allowlist — always treated as finance; falls back to hardcoded defaults when empty |
+| `tbl_Blocked_Senders` | Per-user blocked senders |
+| `tbl_ML_Controls` | Admin toggles (e.g. `auto_jobs_enabled`) |
+| `tbl_LLM_Prompts` | Versioned prompt overrides (create/edit = new version, activate, delete) |
 | `tbl_Category_Rules` | Keyword-to-category mapping rules |
 | `tbl_User_Devices` | User-device linking |
 | `tbl_Budgets` | Spending budgets (monthly/weekly) |

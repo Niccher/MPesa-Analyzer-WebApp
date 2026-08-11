@@ -60,8 +60,8 @@
 <?= $this->section('page_header') ?>
 <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4">
     <div>
-        <h2 class="fw-bold mb-1" style="color: var(--primary);">Upload History</h2>
-        <p class="text-secondary mb-0">All data imports from your linked devices, with LLM classification status.</p>
+        <h2 class="fw-bold mb-1" style="color: var(--primary);"><i class="fa-solid fa-timeline me-2"></i>Data &amp; ML History</h2>
+        <p class="text-secondary mb-0">Your upload history and ML job runs.</p>
     </div>
     <div>
         <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">
@@ -76,7 +76,137 @@
 
 <?php $cs = currency_symbol(); ?>
 
+<!-- Top nav (shared across History sub-pages, like the Blocklist page) -->
+<div class="card glass-card border-0 shadow-sm mb-4">
+    <div class="card-body py-2 px-4">
+        <ul class="nav nav-tabs border-0" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link <?= ($active_tab ?? 'uploads') === 'uploads' ? 'active' : '' ?>" href="<?= base_url('dashboard/history') ?>">
+                    <i class="fa-solid fa-cloud-arrow-up me-1"></i> Upload History
+                    <span class="badge bg-secondary ms-1"><?= count($batches) ?></span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link <?= ($active_tab ?? 'uploads') === 'jobs' ? 'active' : '' ?>" href="<?= base_url('dashboard/history/jobs') ?>">
+                    <i class="fa-solid fa-microchip me-1"></i> ML Jobs
+                    <span class="badge bg-info ms-1"><?= count($jobs ?? []) ?></span>
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<?php if (($active_tab ?? 'uploads') === 'jobs'): ?>
+    <?php include __DIR__ . '/_ml_jobs.php'; ?>
+<?php else: ?>
+
 <?php if (!empty($batches)) : ?>
+
+<!-- ML Summary Row -->
+<div class="card glass-card border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+                <h5 class="fw-bold mb-0" style="color: var(--primary);"><i class="fa-solid fa-microchip me-2"></i>ML Analysis Summary</h5>
+                <div class="text-muted small">Stats across all your uploads, produced by the ML job.</div>
+            </div>
+            <?php if (!empty($stats['newest']) || !empty($stats['oldest'])): ?>
+                <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">
+                    <i class="fa-solid fa-calendar me-1"></i>
+                    <?= esc($stats['oldest'] ?? '—') ?> → <?= esc($stats['newest'] ?? '—') ?>
+                </span>
+            <?php endif; ?>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-6 col-lg-2">
+                <div class="summary-stat text-center">
+                    <div class="fw-bold fs-4"><?= number_format($stats['all_sms']) ?></div>
+                    <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">All SMS</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-2">
+                <div class="summary-stat text-center">
+                    <div class="fw-bold fs-4 text-success"><?= number_format($stats['finance_sms']) ?></div>
+                    <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">Good SMS</div>
+                    <div class="text-muted small">finance-related</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-2">
+                <div class="summary-stat text-center">
+                    <div class="fw-bold fs-4 text-danger"><?= number_format($stats['non_finance_sms']) ?></div>
+                    <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">Bad SMS</div>
+                    <div class="text-muted small">non-finance</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-2">
+                <div class="summary-stat text-center">
+                    <div class="fw-bold fs-4 text-warning"><?= number_format($stats['unclassified']) ?></div>
+                    <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">Unclassified</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-2">
+                <div class="summary-stat text-center">
+                    <div class="fw-bold fs-4 text-info"><?= number_format($stats['transactions']) ?></div>
+                    <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">Transactions</div>
+                    <div class="text-muted small"><?= $cs ?><?= number_format($stats['total_value'], 0) ?></div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-2">
+                <div class="summary-stat text-center">
+                    <div class="fw-bold fs-4" style="color:#6f42c1;"><?= number_format($stats['banks']) ?></div>
+                    <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">Banks</div>
+                    <div class="text-muted small">distinct</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mt-1">
+            <div class="col-md-4">
+                <div class="summary-stat">
+                    <div class="text-muted small text-uppercase mb-2" style="font-weight:600; letter-spacing:0.5px;">Senders</div>
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span>All senders</span><span class="fw-bold"><?= number_format($stats['all_senders']) ?></span>
+                    </div>
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span class="text-success">Finance senders</span><span class="fw-bold text-success"><?= number_format($stats['finance_senders']) ?></span>
+                    </div>
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-danger">Non-finance senders</span><span class="fw-bold text-danger"><?= number_format($stats['non_finance_senders']) ?></span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="summary-stat">
+                    <div class="text-muted small text-uppercase mb-2" style="font-weight:600; letter-spacing:0.5px;">Direction</div>
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span>Outgoing (sent)</span><span class="fw-bold"><?= number_format($stats['sent']) ?></span>
+                    </div>
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span>Incoming (received)</span><span class="fw-bold"><?= number_format($stats['received']) ?></span>
+                    </div>
+                    <div class="d-flex justify-content-between small">
+                        <span>Undetermined</span><span class="fw-bold"><?= number_format($stats['none']) ?></span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="summary-stat">
+                    <div class="text-muted small text-uppercase mb-2" style="font-weight:600; letter-spacing:0.5px;">Totals</div>
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span>Total SMS value</span><span class="fw-bold"><?= $cs ?><?= number_format($stats['total_value'], 2) ?></span>
+                    </div>
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span>Batches uploaded</span><span class="fw-bold"><?= count($batches) ?></span>
+                    </div>
+                    <div class="d-flex justify-content-between small">
+                        <span>Banks</span><span class="fw-bold"><?= number_format($stats['banks']) ?></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Summary Row -->
 <div class="row g-3 mb-4">
@@ -232,6 +362,8 @@
         </a>
     </div>
 </div>
+<?php endif; ?>
+
 <?php endif; ?>
 
 <?= $this->endSection() ?>

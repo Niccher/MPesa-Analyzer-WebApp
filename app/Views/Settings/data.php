@@ -107,6 +107,51 @@
 
         <div class="card settings-card mt-4">
             <div class="card-body p-4">
+                <h5 class="fw-bold mb-4" style="color: var(--primary);"><i class="fa-solid fa-trash-can me-2"></i>Delete Non-Finance SMS</h5>
+                <p class="text-muted small mb-3">
+                    Permanently remove all SMS from senders <strong>not</strong> related to finance
+                    (marketing, promos, social media, service notifications, etc.).
+                    Finance-related SMS (banks, M-PESA, SACCOs, fintechs…) are <strong>never</strong> touched.
+                </p>
+
+                <div class="alert alert-danger small mb-3">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                    <strong>Warning:</strong> this is irreversible. These messages and their classifications
+                    will be permanently deleted and cannot be recovered.
+                </div>
+
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <span class="fw-semibold text-dark">Will delete:</span>
+                    <span class="badge bg-danger rounded-pill">
+                        <i class="fa-solid fa-envelope me-1"></i>
+                        <?= number_format($non_finance_count ?? 0) ?> SMS
+                    </span>
+                    <span class="badge bg-secondary rounded-pill">
+                        <i class="fa-solid fa-address-book me-1"></i>
+                        <?= number_format($non_finance_senders ?? 0) ?> senders
+                    </span>
+                </div>
+
+                <form action="<?= base_url('dashboard/settings/data/delete-non-finance') ?>" method="POST"
+                      onsubmit="return confirm('This permanently deletes <?= number_format($non_finance_count ?? 0) ?> non-finance SMS. This cannot be undone. Continue?');">
+                    <?= csrf_field() ?>
+                    <label class="form-label small fw-bold text-danger">Type <code>DELETE</code> to confirm</label>
+                    <div class="input-group mb-2">
+                        <input type="text" class="form-control" name="confirm" placeholder="DELETE" autocomplete="off" required>
+                        <button type="submit" class="btn btn-danger rounded-end fw-semibold"
+                                <?= empty($non_finance_count) ? 'disabled' : '' ?>>
+                            <i class="fa-solid fa-trash-can me-1"></i> Delete Non-Finance SMS
+                        </button>
+                    </div>
+                    <?php if (empty($non_finance_count)): ?>
+                        <div class="form-text text-success">No non-finance SMS found — nothing to delete.</div>
+                    <?php endif; ?>
+                </form>
+            </div>
+        </div>
+
+        <div class="card settings-card mt-4">
+            <div class="card-body p-4">
                 <h5 class="fw-bold mb-4" style="color: var(--primary);"><i class="fa-solid fa-circle-info me-2"></i>Data Summary</h5>
                 <p class="text-muted small mb-0">Your account currently has <strong><?= $total_uploads ?? 0 ?></strong> upload batch(es) 
                 with the earliest record from <strong><?= $oldest_upload ?></strong>. Use the export feature above to download a backup before purging old data.</p>

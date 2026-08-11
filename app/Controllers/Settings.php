@@ -194,10 +194,14 @@ class Settings extends BaseController
             ->getRow()
             ->oldest ?? 'N/A';
 
+        $nonFinance = $this->nonFinanceCount();
+
         $data = [
-            'total_uploads' => $totalUploads,
-            'oldest_upload' => format_date_display($oldestUpload),
-            'bg_color'      => '#B1B8ED',
+            'total_uploads'     => $totalUploads,
+            'oldest_upload'     => format_date_display($oldestUpload),
+            'non_finance_count' => (int) ($nonFinance['count'] ?? 0),
+            'non_finance_senders' => (int) ($nonFinance['senders'] ?? 0),
+            'bg_color'          => '#B1B8ED',
         ];
         return view('Settings/data', $data);
     }
@@ -439,18 +443,11 @@ class Settings extends BaseController
         foreach ($smsRows as $r) $smsIds[] = $r->id;
 
         if (!empty($smsIds)) {
-            if ($db->tableExists('tbl_Sms_Classification')) {
-                $db->table('tbl_Sms_Classification')->whereIn('sms_id', $smsIds)->delete();
-            }
             if ($db->tableExists('tbl_Sms_Processing')) {
                 $db->table('tbl_Sms_Processing')->whereIn('sms_id', $smsIds)->delete();
             }
-            if ($db->tableExists('tbl_Analyzed_Transactions')) {
-                $db->table('tbl_Analyzed_Transactions')
-                    ->whereIn('orig_sms_int_id', $smsIds)
-                    ->orWhereIn('orig_sms_id', $smsIds)
-                    ->delete();
-            }
+            // tbl_Sms_Classification & tbl_Analyzed_Transactions are now views
+            // derived from tbl_Sms — deleting the SMS row removes their data.
             $db->table('tbl_Sms')->whereIn('id', $smsIds)->delete();
         }
 
@@ -492,18 +489,11 @@ class Settings extends BaseController
         foreach ($smsRows as $r) $smsIds[] = $r->id;
 
         if (!empty($smsIds)) {
-            if ($db->tableExists('tbl_Sms_Classification')) {
-                $db->table('tbl_Sms_Classification')->whereIn('sms_id', $smsIds)->delete();
-            }
             if ($db->tableExists('tbl_Sms_Processing')) {
                 $db->table('tbl_Sms_Processing')->whereIn('sms_id', $smsIds)->delete();
             }
-            if ($db->tableExists('tbl_Analyzed_Transactions')) {
-                $db->table('tbl_Analyzed_Transactions')
-                    ->whereIn('orig_sms_int_id', $smsIds)
-                    ->orWhereIn('orig_sms_id', $smsIds)
-                    ->delete();
-            }
+            // tbl_Sms_Classification & tbl_Analyzed_Transactions are now views
+            // derived from tbl_Sms — deleting the SMS row removes their data.
             $db->table('tbl_Sms')->whereIn('id', $smsIds)->delete();
         }
         $db->table('tbl_Loot_Summary')->where('loot_Uuid', $uuid)->delete();
@@ -511,6 +501,109 @@ class Settings extends BaseController
         $db->transComplete();
 
         return redirect()->to('/dashboard/settings/data')->with('message', 'Upload deleted successfully.');
+    }
+
+    /**
+     * Resolve the raw access-token strings that own this user's SMS data.
+     */
+    private function getRawTokens(): array
+    {
+        $userId = auth()->user()->id;
+        $db = \Config\Database::connect();
+        $tokenType = \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN;
+
+        $tokenRows = $db->query("
+            SELECT DISTINCT s.sms_owner AS tk FROM tbl_Sms s
+            INNER JOIN auth_identities i ON i.secret = SHA2(s.sms_owner, 256)
+            WHERE i.user_id = ? AND i.type = ?
+            UNION
+            SELECT DISTINCT l.loot_Owner AS tk FROM tbl_Loot l
+            INNER JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256)
+            WHERE i.user_id = ? AND i.type = ?
+        ", [$userId, $tokenType, $userId, $tokenType])->getResult();
+
+        return array_values(array_filter(array_map(fn($r) => $r->tk ?? '', $tokenRows)));
+    }
+
+    /**
+     * Count non-finance SMS owned by the current user (for the delete preview).
+     */
+    public function nonFinanceCount(): array
+    {
+        $db = \Config\Database::connect();
+        $tokens = $this->getRawTokens();
+        if (empty($tokens)) {
+            return ['status' => 'success', 'count' => 0, 'senders' => 0];
+        }
+
+        $row = $db->table('tbl_Sms')
+            ->select("COUNT(*) AS sms, COUNT(DISTINCT sms_number) AS senders")
+            ->whereIn('sms_owner', $tokens)
+            ->where('(sms_is_finance IS NULL OR sms_is_finance = 0)')
+            ->get()
+            ->getRow();
+
+        return [
+            'status'  => 'success',
+            'count'   => (int) ($row->sms ?? 0),
+            'senders' => (int) ($row->senders ?? 0),
+        ];
+    }
+
+    /**
+     * Permanently delete SMS whose sender is not finance-related.
+     * User-initiated, with an explicit confirmation. Finance SMS and all other
+     * account data are untouched.
+     */
+    public function deleteNonFinance()
+    {
+        $confirm = strtoupper(trim((string) $this->request->getPost('confirm') ?? ''));
+        if ($confirm !== 'DELETE') {
+            return redirect()->back()->with('error', 'Deletion cancelled — type DELETE to confirm.');
+        }
+
+        $db = \Config\Database::connect();
+        $tokens = $this->getRawTokens();
+        if (empty($tokens)) {
+            return redirect()->to('/dashboard/settings/data')->with('error', 'No data found for this account.');
+        }
+
+        // Count what will be removed (for the message).
+        $counts = $this->nonFinanceCount();
+        $toDelete = (int) ($counts['count'] ?? 0);
+        if ($toDelete <= 0) {
+            return redirect()->to('/dashboard/settings/data')->with('message', 'No non-finance SMS to delete.');
+        }
+
+        $smsIds = [];
+        $rows = $db->table('tbl_Sms')
+            ->select('id')
+            ->whereIn('sms_owner', $tokens)
+            ->where('(sms_is_finance IS NULL OR sms_is_finance = 0)')
+            ->get()
+            ->getResult();
+        foreach ($rows as $r) {
+            $smsIds[] = $r->id;
+        }
+
+        $db->transStart();
+
+        if ($db->tableExists('tbl_Sms_Processing')) {
+            $db->table('tbl_Sms_Processing')->whereIn('sms_id', $smsIds)->delete();
+        }
+        // tbl_Sms_Classification & tbl_Analyzed_Transactions are views derived
+        // from tbl_Sms — deleting the SMS rows removes their derived data too.
+        $db->table('tbl_Sms')->whereIn('id', $smsIds)->delete();
+
+        $db->transComplete();
+
+        \App\Libraries\Audit::log('user_delete_non_finance', 'data', 'User deleted non-finance SMS', [
+            'user_id' => auth()->user()->id,
+            'sms_deleted' => count($smsIds),
+        ]);
+
+        return redirect()->to('/dashboard/settings/data')
+            ->with('message', count($smsIds) . " non-finance SMS deleted (" . (int) ($counts['senders'] ?? 0) . " senders).");
     }
 
     // ─── Tags ─────────────────────────────────────────────────────

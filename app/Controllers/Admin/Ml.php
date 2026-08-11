@@ -73,6 +73,7 @@ class Ml extends BaseController
                 'jobs' => [],
                 'totals' => ['jobs' => 0, 'msgs' => 0, 'errors' => 0, 'time' => 0],
                 'status_counts' => [],
+                'auto' => $this->fetchAutoState(),
             ]);
         }
 
@@ -89,14 +90,31 @@ class Ml extends BaseController
             $usernames[(string) $r->id] = $r->username;
         }
 
-        $totals = ['jobs' => 0, 'msgs' => 0, 'errors' => 0, 'time' => 0];
+        $totals = [
+            'jobs' => 0, 'msgs' => 0, 'errors' => 0, 'time' => 0,
+            'senders' => 0, 'senders_finance' => 0, 'senders_unwanted' => 0,
+            'sms_total' => 0, 'sms_finance' => 0, 'sms_unwanted' => 0, 'sms_skipped' => 0,
+            'transactional' => 0,
+        ];
         $statusCounts = [];
         foreach ($jobs as $key => $j) {
+            $md = $this->decodeMetadata($j['metadata'] ?? null);
+
             $totals['jobs']++;
-            $totals['msgs'] += (int) $j['messages_processed'];
-            $totals['errors'] += (int) $j['errors'];
-            $totals['time'] += (int) $j['duration_seconds'];
+            $totals['msgs'] += (int) ($md['messages_processed'] ?? $j['messages_processed']);
+            $totals['errors'] += (int) ($md['errors'] ?? $j['errors']);
+            $totals['time'] += (int) ($md['duration_seconds'] ?? $j['duration_seconds']);
+            $totals['senders'] += (int) ($md['senders_total'] ?? 0);
+            $totals['senders_finance'] += (int) ($md['senders_finance'] ?? 0);
+            $totals['senders_unwanted'] += (int) ($md['senders_unwanted'] ?? 0);
+            $totals['sms_total'] += (int) ($md['sms_total'] ?? 0);
+            $totals['sms_finance'] += (int) ($md['sms_finance'] ?? 0);
+            $totals['sms_unwanted'] += (int) ($md['sms_unwanted'] ?? 0);
+            $totals['sms_skipped'] += (int) ($md['sms_skipped'] ?? 0);
+            $totals['transactional'] += (int) ($md['transactional_inserted'] ?? 0);
             $statusCounts[$j['status']] = ($statusCounts[$j['status']] ?? 0) + 1;
+
+            $j['metadata'] = $md;
             $j['username'] = $usernames[(string) $j['user_id']] ?? ($j['user_id'] ? substr((string) $j['user_id'], 0, 8) . '…' : '—');
             $jobs[$key] = $j;
         }
@@ -107,9 +125,66 @@ class Ml extends BaseController
             'jobs' => $jobs,
             'totals' => $totals,
             'status_counts' => $statusCounts,
+            'auto' => $this->fetchAutoState(),
         ];
 
         return view('Admin/Ml/jobs', $data);
+    }
+
+    /**
+     * Toggle the ML backend's auto-processing poller on/off.
+     */
+    public function toggleAuto()
+    {
+        $enabled = (int) $this->request->getPost('enabled') === 1;
+
+        try {
+            $resp = $this->client()->post($this->baseUrl() . '/admin/jobs/auto', [
+                'json' => ['enabled' => $enabled],
+                'timeout' => 15,
+            ]);
+            $respBody = json_decode($resp->getBody(), true);
+
+            return $this->response->setJSON([
+                'status' => $respBody['status'] ?? 'error',
+                'message' => $respBody['message'] ?? 'Unknown response',
+                'auto_enabled' => $respBody['auto_enabled'] ?? $enabled,
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Failed to reach ML backend: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function decodeMetadata($raw): array
+    {
+        if (is_array($raw)) {
+            return $raw;
+        }
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+        return [];
+    }
+
+    private function fetchAutoState(): array
+    {
+        try {
+            $resp = $this->client()->get($this->baseUrl() . '/admin/jobs/status', ['timeout' => 8]);
+            $body = json_decode($resp->getBody(), true);
+            return [
+                'reachable' => true,
+                'auto_enabled' => (bool) ($body['auto_enabled'] ?? true),
+                'totals' => $body['totals'] ?? [],
+            ];
+        } catch (\Throwable $e) {
+            return ['reachable' => false, 'auto_enabled' => null, 'totals' => [], 'error' => $e->getMessage()];
+        }
     }
 
     /**
@@ -155,10 +230,10 @@ class Ml extends BaseController
         }
 
         $updatedClassifications = 0;
-        if ($db->tableExists('tbl_Sms_Classification')) {
-            $updatedClassifications = $db->table('tbl_Sms_Classification')
-                ->where('sender', $number)
-                ->update(['is_finance' => $isFinance ? 1 : 0]);
+        if ($db->tableExists('tbl_Sms')) {
+            $updatedClassifications = $db->table('tbl_Sms')
+                ->where('sms_number', $number)
+                ->update(['sms_is_finance' => $isFinance ? 1 : 0]);
         }
 
         $db->transComplete();
@@ -339,10 +414,14 @@ class Ml extends BaseController
     {
         $payload = [
             'llm_model' => $this->request->getPost('llm_model') ?: null,
-            'llm_max_tokens' => $this->request->getPost('llm_max_tokens') ? (int)$this->request->getPost('llm_max_tokens') : null,
-            'batch_size' => $this->request->getPost('batch_size') ? (int)$this->request->getPost('batch_size') : null,
-            'max_retries' => $this->request->getPost('max_retries') ? (int)$this->request->getPost('max_retries') : null,
-            'poll_interval' => $this->request->getPost('poll_interval') ? (int)$this->request->getPost('poll_interval') : null,
+            'llm_max_tokens' => $this->request->getPost('llm_max_tokens') !== '' ? (int)$this->request->getPost('llm_max_tokens') : null,
+            'llm_temperature' => $this->request->getPost('llm_temperature') !== '' ? (float)$this->request->getPost('llm_temperature') : null,
+            'llm_ctx_size' => $this->request->getPost('llm_ctx_size') !== '' ? (int)$this->request->getPost('llm_ctx_size') : null,
+            'llm_batch_size' => $this->request->getPost('llm_batch_size') !== '' ? (int)$this->request->getPost('llm_batch_size') : null,
+            'n_gpu_layers' => $this->request->getPost('n_gpu_layers') !== '' ? (int)$this->request->getPost('n_gpu_layers') : null,
+            'batch_size' => $this->request->getPost('batch_size') !== '' ? (int)$this->request->getPost('batch_size') : null,
+            'max_retries' => $this->request->getPost('max_retries') !== '' ? (int)$this->request->getPost('max_retries') : null,
+            'poll_interval' => $this->request->getPost('poll_interval') !== '' ? (int)$this->request->getPost('poll_interval') : null,
         ];
 
         try {
@@ -393,6 +472,74 @@ class Ml extends BaseController
         }
     }
 
+    public function uploadModel()
+    {
+        $file = $this->request->getFile('model');
+        if (!$file || !$file->isValid()) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'No model file selected.']);
+        }
+
+        $ext = strtolower(pathinfo($file->getName(), PATHINFO_EXTENSION));
+        if (!in_array($ext, ['gguf', 'bin'], true)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Only .gguf and .bin model files are allowed.']);
+        }
+
+        if ($file->getSize() > 8 * 1024 * 1024 * 1024) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Model too large (max 8 GB).']);
+        }
+
+        try {
+            $resp = $this->client()->post($this->baseUrl() . '/admin/models/upload', [
+                'multipart' => [
+                    [
+                        'name'     => 'file',
+                        'contents' => fopen($file->getTempName(), 'r'),
+                        'filename' => $file->getName(),
+                    ],
+                ],
+                'timeout'        => 0,
+                'connect_timeout' => 30,
+            ]);
+            $body = json_decode($resp->getBody(), true);
+
+            return $this->response->setJSON([
+                'status' => $body['status'] ?? 'error',
+                'message' => $body['message'] ?? 'Unknown response',
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Upload failed: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function deleteModel()
+    {
+        $filename = $this->request->getPost('filename');
+        if (empty($filename)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'No model selected']);
+        }
+
+        try {
+            $resp = $this->client()->post($this->baseUrl() . '/admin/models/delete', [
+                'json' => ['filename' => $filename],
+                'timeout' => 10,
+            ]);
+            $body = json_decode($resp->getBody(), true);
+
+            return $this->response->setJSON([
+                'status' => $body['status'] ?? 'error',
+                'message' => $body['message'] ?? 'Unknown response',
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Failed to reach ML backend: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
     public function runTest()
     {
         $sender = $this->request->getPost('sender') ?: 'MPESA';
@@ -419,6 +566,107 @@ class Ml extends BaseController
                 'status' => 'error',
                 'message' => 'LLM request failed: ' . $e->getMessage(),
             ]);
+        }
+    }
+
+    public function prompts()
+    {
+        $data = [
+            'bg_color' => '#B1B8ED',
+            'status' => $this->fetchStatus(),
+            'prompts' => $this->fetchPrompts(),
+        ];
+
+        return view('Admin/Ml/prompts', $data);
+    }
+
+    public function promptSave()
+    {
+        $key = trim((string) $this->request->getPost('prompt_key'));
+        $title = (string) $this->request->getPost('title');
+        $body = (string) $this->request->getPost('body');
+
+        if ($key === '' || trim($body) === '') {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Prompt key and body are required.']);
+        }
+
+        try {
+            $resp = $this->client()->post($this->baseUrl() . '/admin/prompts', [
+                'json' => ['prompt_key' => $key, 'body' => $body, 'title' => $title],
+                'timeout' => 15,
+            ]);
+            $respBody = json_decode($resp->getBody(), true);
+
+            return $this->response->setJSON([
+                'status' => $respBody['status'] ?? 'error',
+                'message' => $respBody['message'] ?? 'Unknown response',
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Failed to save prompt: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function promptActivate()
+    {
+        $id = (int) $this->request->getPost('id');
+        if ($id <= 0) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Invalid prompt id']);
+        }
+
+        try {
+            $resp = $this->client()->post($this->baseUrl() . "/admin/prompts/{$id}/activate", [
+                'timeout' => 15,
+            ]);
+            $respBody = json_decode($resp->getBody(), true);
+
+            return $this->response->setJSON([
+                'status' => $respBody['status'] ?? 'error',
+                'message' => $respBody['message'] ?? 'Unknown response',
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Failed to activate prompt: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function promptDelete()
+    {
+        $id = (int) $this->request->getPost('id');
+        if ($id <= 0) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Invalid prompt id']);
+        }
+
+        try {
+            $resp = $this->client()->post($this->baseUrl() . "/admin/prompts/{$id}/delete", [
+                'timeout' => 15,
+            ]);
+            $respBody = json_decode($resp->getBody(), true);
+
+            return $this->response->setJSON([
+                'status' => $respBody['status'] ?? 'error',
+                'message' => $respBody['message'] ?? 'Unknown response',
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Failed to delete prompt: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function fetchPrompts(): array
+    {
+        try {
+            $resp = $this->client()->get($this->baseUrl() . '/admin/prompts', ['timeout' => 10]);
+            $body = json_decode($resp->getBody(), true);
+            return is_array($body) ? $body : ['keys' => [], 'prompts' => [], 'resolved' => []];
+        } catch (\Throwable $e) {
+            return ['keys' => [], 'prompts' => [], 'resolved' => [], 'error' => $e->getMessage()];
         }
     }
 

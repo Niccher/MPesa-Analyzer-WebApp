@@ -959,7 +959,6 @@ class ModUploads extends Model
     ): array {
         // Process ALL SMS equally — no MPESA-specific filter or pattern matching
         $inserted = 0;
-        $smsIds = [];
         $total = count($smsData);
 
         foreach (array_chunk($smsData, 100) as $chunk) {
@@ -979,44 +978,17 @@ class ModUploads extends Model
                     'sms_loot_source' => $uuid,
                     'sms_owner' => $owner,
                     'sms_device' => $device,
-                    'sms_user_id' => $userId
+                    'sms_user_id' => $userId,
+                    'sms_category' => 'Unclassified',
+                    'sms_direction' => 'none',
+                    'sms_is_finance' => 0,
+                    'sms_method' => 'upload',
+                    'sms_confidence' => 0.5000,
                 ];
             }
 
             $this->db->table('tbl_Sms')->ignore(true)->insertBatch($batch);
             $inserted += count($chunk);
-
-            $firstId = $this->db->insertID();
-            for ($i = 0; $i < count($chunk); $i++) {
-                $smsIds[] = $firstId + $i;
-            }
-        }
-
-        // Write a default classification for each inserted SMS (pending LLM analysis)
-        $classBatch = [];
-        $idx = 0;
-        foreach ($smsIds as $smsId) {
-            if ($idx >= count($smsData)) break;
-            $sms = $smsData[$idx];
-            $number = isset($sms->Number) ? strtoupper(trim((string) $sms->Number)) : '';
-            $classBatch[] = [
-                'sms_id'     => $smsId,
-                'sender'     => $number,
-                'category'   => 'Unclassified',
-                'direction'  => 'none',
-                'is_finance' => 0,
-                'method'     => 'upload',
-                'confidence' => 0.5000,
-                'user_id'    => $userId,
-                'created_at' => date('Y-m-d H:i:s'),
-            ];
-            $idx++;
-        }
-
-        if (!empty($classBatch)) {
-            $this->db->table('tbl_Sms_Classification')
-                ->ignore(true)
-                ->insertBatch($classBatch);
         }
 
         return [

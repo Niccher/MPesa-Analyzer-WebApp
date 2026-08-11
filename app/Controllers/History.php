@@ -30,9 +30,93 @@ class History extends BaseController
         $totalClassifiedAll = 0;
         $totalAmountAll = 0;
 
+        // ── Overall ML stats summary (all uploads) ─────────────
+        $stats = [
+            'all_sms'        => 0,
+            'finance_sms'    => 0,
+            'non_finance_sms'=> 0,
+            'unclassified'   => 0,
+            'all_senders'    => 0,
+            'finance_senders'=> 0,
+            'non_finance_senders' => 0,
+            'banks'          => 0,
+            'sent'           => 0,
+            'received'       => 0,
+            'none'           => 0,
+            'transactions'   => 0,
+            'total_value'    => 0.0,
+            'oldest'         => null,
+            'newest'         => null,
+        ];
+
         if (!empty($rawTokens)) {
             $escapedTokens = array_map(fn($t) => $db->escape($t), $rawTokens);
             $inClause = implode(',', $escapedTokens);
+
+            // ── Global SMS/sender breakdown from tbl_Sms (canonical) ──
+            if ($db->tableExists('tbl_Sms')) {
+                $g = $db->query("
+                    SELECT
+                        COUNT(*) AS all_sms,
+                        COALESCE(SUM(CASE WHEN sms_is_finance = 1 THEN 1 ELSE 0 END), 0) AS finance_sms,
+                        COALESCE(SUM(CASE WHEN sms_is_finance IS NULL OR sms_is_finance = 0 THEN 1 ELSE 0 END), 0) AS non_finance_sms,
+                        COUNT(DISTINCT sms_number) AS all_senders,
+                        COUNT(DISTINCT CASE WHEN sms_is_finance = 1 THEN sms_number END) AS finance_senders,
+                        COUNT(DISTINCT CASE WHEN sms_is_finance IS NULL OR sms_is_finance = 0 THEN sms_number END) AS non_finance_senders,
+                        COALESCE(SUM(CASE WHEN sms_direction = 'incoming' THEN 1 ELSE 0 END), 0) AS received,
+                        COALESCE(SUM(CASE WHEN sms_direction = 'outgoing' THEN 1 ELSE 0 END), 0) AS sent,
+                        COALESCE(SUM(CASE WHEN sms_direction IS NULL OR sms_direction = 'none' THEN 1 ELSE 0 END), 0) AS none,
+                        COALESCE(SUM(CASE WHEN sms_is_transactional = 1 AND sms_amount IS NOT NULL THEN 1 ELSE 0 END), 0) AS transactions,
+                        COALESCE(SUM(sms_amount), 0) AS total_value,
+                        MIN(sms_time) AS oldest,
+                        MAX(sms_time) AS newest
+                    FROM tbl_Sms
+                    WHERE sms_owner IN ($inClause)
+                ")->getRow();
+
+                if ($g) {
+                    $stats['all_sms']        = (int)$g->all_sms;
+                    $stats['finance_sms']    = (int)$g->finance_sms;
+                    $stats['non_finance_sms'] = (int)$g->non_finance_sms;
+                    $stats['all_senders']    = (int)$g->all_senders;
+                    $stats['finance_senders']= (int)$g->finance_senders;
+                    $stats['non_finance_senders'] = (int)$g->non_finance_senders;
+                    $stats['sent']           = (int)$g->sent;
+                    $stats['received']       = (int)$g->received;
+                    $stats['none']           = (int)$g->none;
+                    $stats['transactions']   = (int)$g->transactions;
+                    $stats['total_value']    = (float)$g->total_value;
+                    $stats['oldest']         = $g->oldest;
+                    $stats['newest']         = $g->newest;
+                }
+            }
+
+            // ── Bank sender count ──
+            // Category is "Bank", or the sender name obviously looks like a bank.
+            if ($db->tableExists('tbl_Sender_Profiles')) {
+                $b = $db->query("
+                    SELECT COUNT(DISTINCT sp_number) AS banks
+                    FROM tbl_Sender_Profiles
+                    WHERE sp_owner IN ($inClause)
+                      AND sp_is_finance = 1
+                      AND (
+                          sp_category = 'Bank'
+                          OR sp_name LIKE '%BANK%'
+                          OR sp_name LIKE '%KCB%'
+                          OR sp_name LIKE '%EQUITY%'
+                          OR sp_name LIKE '%NCBA%'
+                          OR sp_name LIKE '%COOP%'
+                          OR sp_name LIKE '%ABSA%'
+                          OR sp_name LIKE '%STANBIC%'
+                          OR sp_name LIKE '%DTB%'
+                          OR sp_name LIKE '%I%M%'
+                      )
+                ")->getRow();
+                $stats['banks'] = (int)($b->banks ?? 0);
+            }
+
+            // Unclassified = all SMS minus those with an llm classification
+            $stats['unclassified'] = max(0, $stats['all_sms'] - $stats['finance_sms'] - $stats['non_finance_sms']);
 
             // Get upload batches that belong to this user's tokens
             $summaries = $db->query("
@@ -60,20 +144,11 @@ class History extends BaseController
                     $classified = (int)$cr->cnt;
                 }
 
-                // Category breakdown (latest classification per SMS)
+                // Category breakdown (canonical: category lives on tbl_Sms)
                 $catRows = $db->query("
-                    SELECT COALESCE(latest.cat, 'Unclassified') as cat, COUNT(*) as cnt
-                    FROM tbl_Sms s
-                    LEFT JOIN (
-                        SELECT sc1.sms_id, sc1.category as cat
-                        FROM tbl_Sms_Classification sc1
-                        INNER JOIN (
-                            SELECT sms_id, MAX(created_at) as max_created
-                            FROM tbl_Sms_Classification
-                            GROUP BY sms_id
-                        ) sc2 ON sc1.sms_id = sc2.sms_id AND sc1.created_at = sc2.max_created
-                    ) latest ON latest.sms_id = s.id
-                    WHERE s.sms_loot_source = ?
+                    SELECT COALESCE(sms_category, 'Unclassified') as cat, COUNT(*) as cnt
+                    FROM tbl_Sms
+                    WHERE sms_loot_source = ?
                     GROUP BY cat
                     ORDER BY cnt DESC
                 ", [$uuid])->getResult();
@@ -118,9 +193,80 @@ class History extends BaseController
             'total_sms_all'     => $totalSmsAll,
             'total_classified_all' => $totalClassifiedAll,
             'total_amount_all'  => $totalAmountAll,
+            'stats'             => $stats,
+            'active_tab'        => 'uploads',
+            'jobs'              => $this->fetchUserJobs(),
             'bg_color'          => '#B1B8ED'
         ];
 
         return view('Dash/history', $data);
+    }
+
+    /**
+     * ML Jobs tab: this user's processing jobs with full metadata.
+     */
+    public function jobs()
+    {
+        helper('mpesa_date');
+        $db = \Config\Database::connect();
+        $userId = auth()->user()->id;
+
+        $data = [
+            'batches'           => [],
+            'total_sms_all'     => 0,
+            'total_classified_all' => 0,
+            'total_amount_all'  => 0,
+            'stats'             => $this->computeStats([]),
+            'active_tab'        => 'jobs',
+            'jobs'              => $this->fetchUserJobs(),
+            'bg_color'          => '#B1B8ED'
+        ];
+
+        return view('Dash/history', $data);
+    }
+
+    /**
+     * Fetch the current user's ML processing jobs with decoded metadata.
+     */
+    private function fetchUserJobs(): array
+    {
+        $db = \Config\Database::connect();
+        $userId = auth()->user()->id;
+
+        if (!$db->tableExists('tbl_Processing_Jobs')) {
+            return [];
+        }
+
+        $jobs = $db->table('tbl_Processing_Jobs')
+            ->where('user_id', $userId)
+            ->orderBy('id', 'DESC')
+            ->limit(100)
+            ->get()
+            ->getResultArray();
+
+        foreach ($jobs as $key => $j) {
+            $md = $j['metadata'] ?? null;
+            if (is_string($md) && $md !== '') {
+                $md = json_decode($md, true);
+            }
+            $md = is_array($md) ? $md : [];
+            $jobs[$key]['metadata'] = $md;
+        }
+
+        return $jobs;
+    }
+
+    /**
+     * Default stats (empty) used by the Jobs tab before any summary is loaded.
+     */
+    private function computeStats(array $tokens): array
+    {
+        return [
+            'all_sms' => 0, 'finance_sms' => 0, 'non_finance_sms' => 0,
+            'unclassified' => 0, 'all_senders' => 0, 'finance_senders' => 0,
+            'non_finance_senders' => 0, 'banks' => 0, 'sent' => 0,
+            'received' => 0, 'none' => 0, 'transactions' => 0,
+            'total_value' => 0.0, 'oldest' => null, 'newest' => null,
+        ];
     }
 }

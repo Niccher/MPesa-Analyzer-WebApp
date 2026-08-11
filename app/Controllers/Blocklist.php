@@ -188,15 +188,15 @@ class Blocklist extends BaseController
         $profilesUpdated = 0;
 
         if (!empty($tokens)) {
-            if ($db->tableExists('tbl_Sms_Classification') && $db->tableExists('tbl_Sms')) {
+            if ($db->tableExists('tbl_Sms')) {
                 $ownedSms = $db->table('tbl_Sms')
                     ->select('id')
                     ->whereIn('sms_owner', $tokens);
 
-                $smsUpdated = $db->table('tbl_Sms_Classification')
-                    ->whereIn('sender', $senders)
-                    ->whereIn('sms_id', $ownedSms)
-                    ->set('is_finance', 0)
+                $smsUpdated = $db->table('tbl_Sms')
+                    ->whereIn('sms_number', $senders)
+                    ->whereIn('id', $ownedSms)
+                    ->set('sms_is_finance', 0)
                     ->update();
             }
 
@@ -252,20 +252,55 @@ class Blocklist extends BaseController
 
     /**
      * Global allowed-sender set (the ML allowlist), keyed by sender.
+     *
+     * Combines:
+     *  1. The DB allowlist (tbl_Allowed_Senders) — takes precedence.
+     *  2. The ML backend's hardcoded default finance senders (fallback list).
+     * This way "preselected good senders" from the ML code show up as allowed
+     * even if the user has never uploaded SMS from them.
      */
     private function getGlobalAllowedMap(): array
     {
         $db = \Config\Database::connect();
         $rows = $db->table('tbl_Allowed_Senders')
-            ->select('sender')
+            ->select('sender, category')
             ->get()
             ->getResultArray();
 
         $map = [];
         foreach ($rows as $row) {
-            $map[$row['sender']] = true;
+            $map[$row['sender']] = $row['category'] ?? '';
         }
+
+        // Merge the hardcoded defaults (they never override an explicit DB entry).
+        foreach ($this->getHardcodedDefaults() as $sender => $category) {
+            if (!isset($map[$sender])) {
+                $map[$sender] = $category;
+            }
+        }
+
         return $map;
+    }
+
+    /**
+     * The ML backend's hardcoded default finance senders, keyed by sender.
+     * Returns [] if the backend is unreachable.
+     */
+    private function getHardcodedDefaults(): array
+    {
+        try {
+            $base = rtrim((string) config('MlBackend')->baseUrl, '/');
+            $resp = \Config\Services::curlrequest()->get($base . '/admin/allowed/defaults', ['timeout' => 5]);
+            $body = json_decode($resp->getBody(), true);
+            $defaults = $body['defaults'] ?? [];
+            $map = [];
+            foreach ($defaults as $d) {
+                $map[$d['sender']] = $d['category'] ?? '';
+            }
+            return $map;
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
     /**
@@ -284,7 +319,6 @@ class Blocklist extends BaseController
         $globalAllowed = $this->getGlobalAllowedMap();
 
         $bySender = [];
-
         if ($db->tableExists('tbl_Sender_Profiles')) {
             $profiles = $db->table('tbl_Sender_Profiles')
                 ->select('sp_number, sp_name, sp_category, sp_is_finance')
@@ -329,15 +363,32 @@ class Blocklist extends BaseController
 
         $senders = [];
         foreach ($bySender as $s) {
+            $allowed = (bool) $s['is_finance'] || isset($globalAllowed[$s['sender']]);
             $senders[] = [
                 'sender' => $s['sender'],
                 'name' => $s['name'],
-                'category' => $s['category'],
+                'category' => $s['category'] ?: ($globalAllowed[$s['sender']] ?? ''),
                 'is_finance' => (bool) $s['is_finance'],
-                'allowed' => (bool) $s['is_finance'] || isset($globalAllowed[$s['sender']]),
+                'allowed' => $allowed,
                 'blocked' => isset($blockedMap[$s['sender']]),
                 'blocked_at' => $blockedMap[$s['sender']] ?? null,
             ];
+        }
+
+        // Add hardcoded default finance senders that the user has no data for,
+        // so the Allowed tab lists every "preselected good sender".
+        foreach ($globalAllowed as $sender => $category) {
+            if (!isset($bySender[$sender])) {
+                $senders[] = [
+                    'sender' => $sender,
+                    'name' => '',
+                    'category' => $category ?? '',
+                    'is_finance' => true,
+                    'allowed' => true,
+                    'blocked' => isset($blockedMap[$sender]),
+                    'blocked_at' => $blockedMap[$sender] ?? null,
+                ];
+            }
         }
 
         usort($senders, static fn ($a, $b) => strcasecmp($a['sender'], $b['sender']));

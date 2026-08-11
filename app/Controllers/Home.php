@@ -227,22 +227,31 @@ class Home extends BaseController
             $db->table('tbl_Sms_Processing')->whereIn('sms_id', $smsIds)->delete();
         }
 
-        // Remove LLM classifications (keep upload-method ones as fallback)
-        if (!empty($smsIds) && $db->tableExists('tbl_Sms_Classification')) {
-            $db->table('tbl_Sms_Classification')
-               ->whereIn('sms_id', $smsIds)
-               ->where('method', 'llm')
-               ->delete();
+        // Reset LLM classifications (keep upload-method ones as fallback).
+        // Classification now lives on tbl_Sms, so reset the LLM-derived columns.
+        if (!empty($smsIds)) {
+            $db->table('tbl_Sms')
+               ->whereIn('id', $smsIds)
+               ->where('sms_method', 'llm')
+               ->update([
+                   'sms_category'    => 'Unclassified',
+                   'sms_is_finance'  => 0,
+                   'sms_confidence'  => null,
+                   'sms_method'      => null,
+               ]);
         }
 
-        // Remove analyzed transactions
-        if ($db->tableExists('tbl_Analyzed_Transactions') && $db->tableExists('tbl_Sms')) {
-            $db->query("
-                DELETE a FROM tbl_Analyzed_Transactions a
-                INNER JOIN tbl_Sms s ON s.id = a.orig_sms_int_id OR s.sms__id = a.orig_sms_id
-                INNER JOIN auth_identities i ON i.secret = SHA2(s.sms_owner, 256)
-                WHERE i.user_id = ? AND i.type = ?
-            ", [$userId, $tokenType]);
+        // Reset analyzed transactions (they are derived from tbl_Sms)
+        if (!empty($smsIds) && $db->tableExists('tbl_Sms')) {
+            $db->table('tbl_Sms')
+                ->whereIn('id', $smsIds)
+                ->set('sms_is_transactional', 0)
+                ->set('sms_amount', null)
+                ->set('sms_balance', null)
+                ->set('sms_counterparty', null)
+                ->set('sms_transaction_type', null)
+                ->set('sms_trans_date', null)
+                ->update();
         }
 
         // Remove sender profiles

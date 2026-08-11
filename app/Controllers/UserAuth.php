@@ -248,13 +248,9 @@ class UserAuth extends BaseController{
         $db->transStart();
 
         if (!empty($rawTokens)) {
-            // Also delete classifications, processing, and jobs tables
-            if ($db->tableExists('tbl_Sms_Classification') && $db->tableExists('tbl_Sms')) {
-                $db->table('tbl_Sms_Classification')
-                   ->whereIn('sms_id', function(\CodeIgniter\Database\BaseBuilder $builder) use ($rawTokens) {
-                       return $builder->select('id')->from('tbl_Sms')->whereIn('sms_owner', $rawTokens);
-                   })->delete();
-            }
+            // Processing tracking, jobs, and sender profiles are real tables.
+            // tbl_Sms_Classification & tbl_Analyzed_Transactions are now views
+            // derived from tbl_Sms — the raw SMS delete below removes them.
             if ($db->tableExists('tbl_Sms_Processing') && $db->tableExists('tbl_Sms')) {
                 $db->table('tbl_Sms_Processing')
                    ->whereIn('sms_id', function(\CodeIgniter\Database\BaseBuilder $builder) use ($rawTokens) {
@@ -283,18 +279,7 @@ class UserAuth extends BaseController{
                 }
             }
 
-            // Delete analyzed transactions — JOIN through tbl_Sms → auth_identities
-            if ($db->tableExists('tbl_Analyzed_Transactions') && $db->tableExists('tbl_Sms') && $db->tableExists('auth_identities')) {
-                $tokenType = \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN;
-                $db->query("
-                    DELETE a FROM tbl_Analyzed_Transactions a
-                    INNER JOIN tbl_Sms s ON s.id = a.orig_sms_int_id OR s.sms__id = a.orig_sms_id
-                    INNER JOIN auth_identities i ON i.secret = SHA2(s.sms_owner, 256)
-                    WHERE i.user_id = ? AND i.type = ?
-                ", [$user_id, $tokenType]);
-            }
-
-            // Delete raw SMS
+            // Delete raw SMS (also removes derived classification/transactions views)
             if ($db->tableExists('tbl_Sms')) {
                 $db->table('tbl_Sms')->whereIn('sms_owner', $rawTokens)->delete();
             }
@@ -324,11 +309,6 @@ class UserAuth extends BaseController{
                 $registeredSub .= " UNION SELECT SHA2(device_token, 256) FROM tbl_User_Devices";
             }
 
-            if ($db->tableExists('tbl_Sms_Classification') && $db->tableExists('tbl_Sms')) {
-                $db->query("DELETE FROM tbl_Sms_Classification WHERE sms_id IN (
-                    SELECT id FROM tbl_Sms WHERE SHA2(sms_owner, 256) NOT IN ($registeredSub)
-                )");
-            }
             if ($db->tableExists('tbl_Sms_Processing') && $db->tableExists('tbl_Sms')) {
                 $db->query("DELETE FROM tbl_Sms_Processing WHERE sms_id IN (
                     SELECT id FROM tbl_Sms WHERE SHA2(sms_owner, 256) NOT IN ($registeredSub)
@@ -337,12 +317,9 @@ class UserAuth extends BaseController{
             if ($db->tableExists('tbl_Sender_Profiles')) {
                 $db->query("DELETE FROM tbl_Sender_Profiles WHERE SHA2(sp_owner, 256) NOT IN ($registeredSub)");
             }
-            if ($db->tableExists('tbl_Analyzed_Transactions') && $db->tableExists('tbl_Sms')) {
-                $db->query("DELETE a FROM tbl_Analyzed_Transactions a
-                    INNER JOIN tbl_Sms s ON s.id = a.orig_sms_int_id OR s.sms__id = a.orig_sms_id
-                    WHERE SHA2(s.sms_owner, 256) NOT IN ($registeredSub)");
-            }
             if ($db->tableExists('tbl_Sms')) {
+                // Derived views (classification & analyzed transactions) are
+                // removed together with the orphaned SMS rows.
                 $orphanSmsDeleted = (int)$db->query("SELECT COUNT(*) AS c FROM tbl_Sms WHERE SHA2(sms_owner, 256) NOT IN ($registeredSub)")->getRow()->c;
                 $db->query("DELETE FROM tbl_Sms WHERE SHA2(sms_owner, 256) NOT IN ($registeredSub)");
             }

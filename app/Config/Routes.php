@@ -44,7 +44,8 @@ $routes->post('/dashboard/analyse/rule', 'Analyse::saveRule', ['filter' => 'sess
 $routes->get('/dashboard/errors/test/(:num)', 'Debug::error/$1');
 $routes->get('/dashboard/transactions', 'Transactions::index', ['filter' => 'session']);
 $routes->get('/dashboard/transactions/export', 'Transactions::export', ['filter' => 'session']);
-$routes->get('/dashboard/history', 'History::index', ['filter' => 'session']);
+    $routes->get('/dashboard/history', 'History::index', ['filter' => 'session']);
+    $routes->get('/dashboard/history/jobs', 'History::jobs', ['filter' => 'session']);
 $routes->get('/dashboard/info', 'Info::index', ['filter' => 'session']);
 $routes->post('/dashboard/info/generate-token', 'Info::generateToken', ['filter' => 'session']);
 $routes->post('/dashboard/info/revoke-token', 'Info::revokeToken', ['filter' => 'session']);
@@ -68,6 +69,7 @@ $routes->post('/dashboard/settings/security/revoke-device', 'Settings::revokeDev
 $routes->get('/dashboard/settings/data', 'Settings::data', ['filter' => 'session']);
 $routes->post('/dashboard/settings/data/purge', 'Settings::purgeData', ['filter' => 'session']);
 $routes->post('/dashboard/settings/data/delete-upload', 'Settings::deleteUpload', ['filter' => 'session']);
+    $routes->post('/dashboard/settings/data/delete-non-finance', 'Settings::deleteNonFinance', ['filter' => 'session']);
 $routes->get('/dashboard/settings/export/csv', 'Settings::exportCsv', ['filter' => 'session']);
 $routes->get('/dashboard/settings/export/json', 'Settings::exportJson', ['filter' => 'session']);
 $routes->get('/dashboard/settings/data/export-settings', 'Settings::exportSettings', ['filter' => 'session']);
@@ -176,13 +178,20 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
     $routes->get('ml/models', 'Admin\Ml::models');
     $routes->get('ml/config', 'Admin\Ml::config');
     $routes->get('ml/test', 'Admin\Ml::test');
+    $routes->get('ml/prompts', 'Admin\Ml::prompts');
+    $routes->post('ml/prompts/save', 'Admin\Ml::promptSave');
+    $routes->post('ml/prompts/activate', 'Admin\Ml::promptActivate');
+    $routes->post('ml/prompts/delete', 'Admin\Ml::promptDelete');
     $routes->get('ml/senders', 'Admin\Ml::senders');
     $routes->post('ml/config/save', 'Admin\Ml::saveConfig');
     $routes->post('ml/models/activate', 'Admin\Ml::activateModel');
+    $routes->post('ml/models/upload', 'Admin\Ml::uploadModel');
+    $routes->post('ml/models/delete', 'Admin\Ml::deleteModel');
     $routes->post('ml/test/run', 'Admin\Ml::runTest');
     $routes->post('ml/senders/set-finance', 'Admin\Ml::setSenderFinance');
     $routes->get('ml/allowed', 'Admin\Ml::allowed');
     $routes->get('ml/jobs', 'Admin\Ml::jobs');
+    $routes->post('ml/jobs/auto', 'Admin\Ml::toggleAuto');
     $routes->post('ml/allowed/add', 'Admin\Ml::allowedAdd');
     $routes->post('ml/allowed/remove', 'Admin\Ml::allowedRemove');
     $routes->post('ml/allowed/reset', 'Admin\Ml::allowedReset');

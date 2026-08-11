@@ -2,7 +2,8 @@
 <?= $this->section('title') ?> ML Backend - Mpesa Analyzer <?= $this->endSection() ?>
 <?= $this->section('styles') ?>
 <style>
-    .settings-card { border: none; border-radius: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+    .settings-card { border: none; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); }
+    .cfg-icon { width: 30px; height: 30px; border-radius: 7px; display:inline-flex; align-items:center; justify-content:center; font-size:.78rem; background:#f4f6fb; color:var(--primary); flex-shrink:0; }
 </style>
 <?= $this->endSection() ?>
 <?= $this->section('page_header') ?>
@@ -25,16 +26,39 @@
         <div class="row g-4">
             <div class="col-lg-6">
                 <h6 class="fw-bold text-uppercase text-secondary mb-3" style="font-size:0.75rem; letter-spacing:1px;">Current Configuration</h6>
+                <?php
+                $cfgIcons = [
+                    'llm_provider'   => 'fa-plug',
+                    'llm_model'      => 'fa-microchip',
+                    'llm_max_tokens' => 'fa-note-sticky',
+                    'llm_temperature'=> 'fa-thermometer-half',
+                    'llm_ctx_size'   => 'fa-arrows-left-right',
+                    'llm_batch_size' => 'fa-layer-group',
+                    'n_gpu_layers'   => 'fa-memory',
+                    'llm_base_url'   => 'fa-link',
+                    'batch_size'     => 'fa-bolt',
+                    'max_retries'    => 'fa-rotate',
+                    'poll_interval'  => 'fa-clock',
+                    'model_path'     => 'fa-folder-open',
+                    'uptime'         => 'fa-server',
+                ];
+                ?>
                 <table class="table table-sm table-striped system-table">
                     <tbody>
                         <?php foreach ($status['app'] as $key => $value): ?>
                         <tr>
-                            <td class="fw-semibold w-50"><?= esc(str_replace('_', ' ', $key)) ?></td>
+                            <td class="fw-semibold w-50">
+                                <span class="cfg-icon me-2"><i class="fa-solid <?= esc($cfgIcons[$key] ?? 'fa-gear') ?>"></i></span>
+                                <?= esc(str_replace('_', ' ', $key)) ?>
+                            </td>
                             <td><code><?= esc((string)$value) ?></code></td>
                         </tr>
                         <?php endforeach; ?>
                         <tr>
-                            <td class="fw-semibold">Uptime</td>
+                            <td class="fw-semibold">
+                                <span class="cfg-icon me-2"><i class="fa-solid fa-server"></i></span>
+                                Uptime
+                            </td>
                             <td><code><?= $status['uptime'] !== null ? round($status['uptime'] / 3600, 1) . ' hours' : 'unknown' ?></code></td>
                         </tr>
                     </tbody>

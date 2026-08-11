@@ -120,8 +120,15 @@ app_auth_tokens.sql
 Vagrantfile
 node_modules/
 
+# Python / tooling caches (if any)
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
 #-------------------------
 # Local Debug / Scratch Scripts
 #-------------------------
 ipcheck.php
 test_upsert.php
+*.bak
+*.orig

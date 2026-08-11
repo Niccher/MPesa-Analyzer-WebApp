@@ -46,18 +46,28 @@ class Analyse extends BaseController
 
                 $results[] = [
                     'orig_sms_id'  => $sms->sms__id,
-                    'trans_id'     => $parsed['trans_id'],
                     'amount'       => $parsed['amount'],
                     'counterparty' => $parsed['counterparty'],
                     'description'  => $parsed['description'],
                     'trans_date'   => $transDate,
-                    'created_at'   => date('Y-m-d H:i:s')
                 ];
                 $processed++;
             }
 
             if (!empty($results)) {
-                $db->table('tbl_Analyzed_Transactions')->insertBatch($results);
+                // Canonical record: write parsed data onto tbl_Sms (the old
+                // tbl_Analyzed_Transactions is now a view derived from it).
+                foreach ($results as $r) {
+                    $db->table('tbl_Sms')
+                        ->where('sms__id', $r['orig_sms_id'])
+                        ->update([
+                            'sms_amount'           => $r['amount'],
+                            'sms_counterparty'     => $r['counterparty'],
+                            'sms_transaction_type' => $r['description'],
+                            'sms_is_transactional' => 1,
+                            'sms_trans_date'       => $r['trans_date'],
+                        ]);
+                }
             }
 
             @session_write_close();
@@ -170,26 +180,26 @@ class Analyse extends BaseController
             ]);
         }
 
-        // Apply immediately to the analyzed table
+        // Apply immediately to the analyzed data (canonical: update tbl_Sms)
         if (!empty($transId)) {
-            $db->table('tbl_Analyzed_Transactions')->where('orig_sms_id', $transId)->update(['description' => $category]);
+            $db->table('tbl_Sms')->where('sms__id', $transId)->update(['sms_transaction_type' => $category]);
         }
 
         // Retroactively apply to past transactions with the same counterparty
-        $db->table('tbl_Analyzed_Transactions')->where('counterparty', $keyword)->update(['description' => $category]);
+        $db->table('tbl_Sms')->where('sms_counterparty', $keyword)->update(['sms_transaction_type' => $category]);
 
-        // Also update tbl_Sms_Classification for matching SMS (aligns with LLM categories)
-        if ($db->tableExists('tbl_Sms_Classification')) {
-            $smsIds = $db->table('tbl_Analyzed_Transactions')
-                ->select('orig_sms_id')
-                ->where('counterparty', $keyword)
+        // Also update the category for matching SMS (aligns with LLM categories)
+        if ($db->tableExists('tbl_Sms')) {
+            $smsRows = $db->table('tbl_Sms')
+                ->select('id')
+                ->where('sms_counterparty', $keyword)
                 ->get()
                 ->getResultArray();
-            $ids = array_filter(array_column($smsIds, 'orig_sms_id'));
+            $ids = array_filter(array_column($smsRows, 'id'));
             if (!empty($ids)) {
-                $db->table('tbl_Sms_Classification')
-                    ->whereIn('sms_id', $ids)
-                    ->update(['category' => $category]);
+                $db->table('tbl_Sms')
+                    ->whereIn('id', $ids)
+                    ->update(['sms_category' => $category]);
             }
         }
 

@@ -210,19 +210,11 @@ class Users extends BaseController
         if (!empty($secretList)) {
             $sub = "SELECT secret FROM auth_identities WHERE user_id = " . (int)$id;
 
-            // Child tables that reference tbl_Sms / tbl_Loot (deleted first).
-            if ($db->tableExists('tbl_Analyzed_Transactions') && $db->tableExists('tbl_Sms')) {
-                $q = "DELETE a FROM tbl_Analyzed_Transactions a
-                      INNER JOIN tbl_Sms s ON s.id = a.orig_sms_int_id OR s.sms__id = a.orig_sms_id
-                      WHERE SHA2(s.sms_owner, 256) IN ($sub)";
-                if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
-            }
+            // Child tables that reference tbl_Sms (deleted first).
+            // tbl_Analyzed_Transactions & tbl_Sms_Classification are now views
+            // derived from tbl_Sms — the raw SMS delete below removes them.
             if ($db->tableExists('tbl_Sms_Processing') && $db->tableExists('tbl_Sms')) {
                 $q = "DELETE FROM tbl_Sms_Processing WHERE sms_id IN (SELECT id FROM tbl_Sms WHERE SHA2(sms_owner, 256) IN ($sub))";
-                if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
-            }
-            if ($db->tableExists('tbl_Sms_Classification') && $db->tableExists('tbl_Sms')) {
-                $q = "DELETE FROM tbl_Sms_Classification WHERE sms_id IN (SELECT id FROM tbl_Sms WHERE SHA2(sms_owner, 256) IN ($sub))";
                 if ($db->query($q) === false) $failedQuery = $q . ' → ' . json_encode($db->error());
             }
 
