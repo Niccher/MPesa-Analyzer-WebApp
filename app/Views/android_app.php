@@ -78,10 +78,10 @@
                     </span>
                     <h1 class="fw-800 mb-3" style="font-size: 2.75rem; font-weight: 800; letter-spacing: -0.5px;">Android App</h1>
                     <p class="lead text-muted mb-4" style="line-height: 1.7;">
-                        The Mpesa Analyzer Android app runs quietly on your phone, reading incoming SMS in real time. It uses on-device heuristics — and server-side ML — to identify financial messages, then encrypts and forwards them to the backend. Non-financial SMS are never transmitted.
+                        The Mpesa Analyzer Android app runs quietly on your phone, reading incoming SMS in real time. It pre-filters messages on-device, then encrypts and forwards them to the backend, where the ML engine classifies each sender and extracts structured financial data. Every message is kept — finance-related ones feed your analytics, and the rest can be reviewed or deleted from Data Management.
                     </p>
-                    <a href="#" class="btn btn-primary btn-lg px-4">
-                        <i class="fa-brands fa-android me-2"></i>Download APK
+                    <a href="<?= base_url('setup') ?>" class="btn btn-primary btn-lg px-4">
+                        <i class="fa-brands fa-android me-2"></i>Get the Android App
                     </a>
                 </div>
                 <div class="col-lg-6">
@@ -112,21 +112,21 @@
                     <div class="glass-card text-center">
                         <div class="icon-box mx-auto"><i class="fa-solid fa-filter"></i></div>
                         <h5 class="fw-bold">2. Pre-Filter</h5>
-                        <p class="text-muted small mb-0">On-device rules pre-screen incoming SMS. Messages from known financial senders (e.g., M-Pesa, banks) are flagged for upload.</p>
+                        <p class="text-muted small mb-0">On-device rules pre-screen incoming SMS. Senders already known as financial (M-Pesa, banks) are flagged for priority handling.</p>
                     </div>
                 </div>
                 <div class="col-lg-3 col-md-6">
                     <div class="glass-card text-center">
                         <div class="icon-box mx-auto"><i class="fa-solid fa-lock"></i></div>
                         <h5 class="fw-bold">3. Encrypt & Send</h5>
-                        <p class="text-muted small mb-0">Flagged SMS are encrypted using the device token and sent via HTTPS to the backend API at <code>/process/upload</code>.</p>
+                        <p class="text-muted small mb-0">SMS are encrypted using the device token and sent via HTTPS to the backend API at <code>/process/upload</code>.</p>
                     </div>
                 </div>
                 <div class="col-lg-3 col-md-6">
                     <div class="glass-card text-center">
-                        <div class="icon-box mx-auto"><i class="fa-solid fa-check"></i></div>
-                        <h5 class="fw-bold">4. Confirm & Sync</h5>
-                        <p class="text-muted small mb-0">The backend acknowledges receipt. The app marks messages as synced to avoid duplicates. Status is visible on the dashboard.</p>
+                        <div class="icon-box mx-auto"><i class="fa-solid fa-microchip"></i></div>
+                        <h5 class="fw-bold">4. ML Classification</h5>
+                        <p class="text-muted small mb-0">The ML backend classifies each sender (known-finance or LLM) and extracts transactions. Good vs bad SMS are tracked per job.</p>
                     </div>
                 </div>
             </div>
@@ -143,14 +143,14 @@
                         <div class="icon-box" style="width: 48px; height: 48px; font-size: 1.1rem;"><i class="fa-solid fa-envelope"></i></div>
                         <div>
                             <h6 class="fw-bold mb-1">SMS Reading</h6>
-                            <p class="text-muted small mb-0">Required to read incoming SMS. Only messages identified as financial are processed; all others are ignored.</p>
+                            <p class="text-muted small mb-0">Required to read incoming SMS. Only messages you choose to sync are uploaded; the ML decides their financial status server-side.</p>
                         </div>
                     </div>
                     <div class="d-flex gap-3 mb-4">
                         <div class="icon-box" style="width: 48px; height: 48px; font-size: 1.1rem;"><i class="fa-solid fa-globe"></i></div>
                         <div>
                             <h6 class="fw-bold mb-1">Internet</h6>
-                            <p class="text-muted small mb-0">Required to upload encrypted financial SMS to the backend. No data is shared with third parties.</p>
+                            <p class="text-muted small mb-0">Required to upload encrypted SMS to the backend. No data is shared with third parties.</p>
                         </div>
                     </div>
                     <div class="d-flex gap-3">
@@ -170,9 +170,10 @@
                             <li class="d-flex gap-2 mb-3"><i class="fa-solid fa-check-circle text-primary mt-1"></i><span><strong>Duplicate prevention</strong> — each SMS is synced exactly once using a unique message ID</span></li>
                             <li class="d-flex gap-2 mb-3"><i class="fa-solid fa-check-circle text-primary mt-1"></i><span><strong>Device linking</strong> — connect multiple devices to one account via unique tokens</span></li>
                             <li class="d-flex gap-2 mb-3"><i class="fa-solid fa-check-circle text-primary mt-1"></i><span><strong>Bulk history upload</strong> — on first install, previously received SMS can be scanned and uploaded</span></li>
+                            <li class="d-flex gap-2 mb-3"><i class="fa-solid fa-check-circle text-primary mt-1"></i><span><strong>Full financial picture</strong> — every SMS is kept and classified (good vs bad), so no transaction is ever missed</span></li>
                             <li class="d-flex gap-2"><i class="fa-solid fa-check-circle text-primary mt-1"></i><span><strong>Dark mode</strong> — follows Android system theme</span></li>
                         </ul>
-                        <a href="#" class="btn btn-primary w-100 mt-3"><i class="fa-brands fa-android me-2"></i>Download APK</a>
+                        <a href="<?= base_url('setup') ?>" class="btn btn-primary w-100 mt-3"><i class="fa-brands fa-android me-2"></i>Get the Android App</a>
                     </div>
                 </div>
             </div>

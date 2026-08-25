@@ -22,7 +22,7 @@
 
 <div class="card settings-card">
     <div class="card-body p-4">
-        <?= view('Admin/Ml/_nav', ['active' => 'prompts']) ?>
+        <?= view('Admin/Ml/_nav', ['active' => 'prompts', 'status' => $status]) ?>
 
         <?php if (!empty($prompts['error'])): ?>
             <div class="alert alert-warning mb-0">

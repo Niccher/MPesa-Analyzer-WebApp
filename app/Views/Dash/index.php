@@ -281,44 +281,74 @@ usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
             <div class="card-header bg-white border-0 py-4 d-flex justify-content-between align-items-center">
                 <div>
-                    <h4 class="fw-bold mb-0 text-dark">Top Spending & Receiving Entities</h4>
+                    <h4 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-users me-2 text-primary"></i>Top Spending &amp; Receiving Entities</h4>
                     <p class="text-secondary small mb-0">Your most frequent transaction partners and their total volumes.</p>
                 </div>
                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2">
-                    <i class="fa-solid fa-bolt me-1"></i> Smart Insights
+                    <i class="fa-solid fa-bolt me-1"></i> Interactive Insights
                 </span>
             </div>
-            <div class="card-body px-4 pb-4">
-                <?php 
-                $maxVolume = !empty($top_counterparties) ? $top_counterparties[0]->total_amount : 1; 
-                $colors = ['#5D5FEF', '#2ED573', '#FFA502', '#FF4757', '#1E90FF'];
-                foreach ($top_counterparties as $index => $entity): 
-                    $percentage = ($entity->total_amount / $maxVolume) * 100;
-                    $color = $colors[$index % count($colors)];
-                ?>
-                <div class="mb-4">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div class="d-flex align-items-center">
-                            <div class="rounded-circle d-flex align-items-center justify-content-center me-3" 
-                                 style="width: 48px; height: 48px; background-color: <?= $color ?>20; border: 1px solid <?= $color ?>40;">
-                                <i class="fa-solid <?= strpos(strtolower($entity->counterparty), 'bank') !== false ? 'fa-building-columns' : 'fa-user' ?>" style="color: <?= $color ?>;"></i>
-                            </div>
-                            <div>
-                                <h6 class="fw-bold mb-0 text-dark"><?= htmlspecialchars($entity->counterparty) ?></h6>
-                                <small class="text-muted"><i class="fa-solid fa-repeat me-1"></i> <?= $entity->trans_count ?> transactions</small>
-                            </div>
-                        </div>
-                        <div class="text-end">
-                            <span class="h6 fw-bold mb-0" style="color: <?= $color ?>;"><?= $cs ?> <?= number_format($entity->total_amount, 2) ?></span>
-                        </div>
-                    </div>
-                    <div class="progress rounded-pill shadow-none" style="height: 8px; background-color: #f0f0f0;">
-                        <div class="progress-bar rounded-pill" role="progressbar" 
-                             style="width: <?= $percentage ?>%; background: <?= $color ?>;" 
-                             aria-valuenow="<?= $percentage ?>" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
+            <div class="card-body px-4 pb-4 pt-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px;">
+                                <th>Entity Partner</th>
+                                <th>Direction Flow</th>
+                                <th class="text-center">Transactions</th>
+                                <th class="text-end">Total Volume</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php 
+                            $colors = ['#5D5FEF', '#2ED573', '#FFA502', '#FF4757', '#1E90FF'];
+                            foreach ($top_counterparties as $index => $entity): 
+                                $color = $colors[$index % count($colors)];
+                                $isIncoming = in_array(strtolower($entity->sms_direction ?? ''), ['incoming', 'received', 'money_in', 'in']);
+                            ?>
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center me-3" 
+                                             style="width: 40px; height: 40px; background-color: <?= $color ?>15; border: 1px solid <?= $color ?>30;">
+                                            <i class="fa-solid <?= strpos(strtolower($entity->counterparty), 'bank') !== false ? 'fa-building-columns' : 'fa-user' ?>" style="color: <?= $color ?>;"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold mb-0 text-dark small"><?= htmlspecialchars($entity->counterparty) ?></h6>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <?php if ($isIncoming): ?>
+                                        <span class="badge bg-success-subtle text-success rounded-pill px-2 py-1" style="font-size:0.7rem;">
+                                            <i class="fa-solid fa-arrow-down-long me-1"></i> Money In
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="badge bg-danger-subtle text-danger rounded-pill px-2 py-1" style="font-size:0.7rem;">
+                                            <i class="fa-solid fa-arrow-up-long me-1"></i> Money Out
+                                        </span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-center small fw-semibold text-secondary">
+                                    <?= $entity->trans_count ?> transactions
+                                </td>
+                                <td class="text-end fw-bold">
+                                    <span class="<?= $isIncoming ? 'text-success' : 'text-danger' ?>">
+                                        <?= $isIncoming ? '+' : '-' ?><?= $cs ?> <?= number_format($entity->total_amount, 2) ?>
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <a href="<?= base_url('dashboard/transactions?search=' . urlencode($entity->counterparty)) ?>" 
+                                       class="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 fw-bold" style="font-size: 0.75rem;">
+                                        <i class="fa-solid fa-magnifying-glass me-1"></i> Trace
+                                    </a>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
-                <?php endforeach; ?>
             </div>
         </div>
     </div>

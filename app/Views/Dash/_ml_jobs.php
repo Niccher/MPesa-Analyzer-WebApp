@@ -29,12 +29,13 @@
                         <th>Job</th>
                         <th>Date</th>
                         <th>Status</th>
-                        <th>SMS Total</th>
-                        <th>Good SMS</th>
-                        <th>Bad SMS</th>
+                        <th>Finance SMS</th>
+                        <th>Non-Finance SMS</th>
+                        <th>Raw Total</th>
                         <th>Senders</th>
                         <th>Time</th>
                         <th>Model</th>
+                        <th>Cost</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -46,6 +47,7 @@
                         $smsUnwanted = (int) ($md['sms_unwanted'] ?? 0);
                         $sendersTotal = (int) ($md['senders_total'] ?? 0);
                         $dur = (int) ($md['duration_seconds'] ?? $j['duration_seconds'] ?? 0);
+                        $isExt = ($md['llm_engine'] ?? '') === 'external';
                         $badge = match ($j['status']) {
                             'completed', 'done' => 'success',
                             'failed', 'error' => 'danger',
@@ -59,12 +61,23 @@
                         <td class="fw-semibold">#<?= (int) $j['id'] ?></td>
                         <td><small><?= esc($j['created_at'] ?? '—') ?></small></td>
                         <td><span class="badge bg-<?= $badge ?>"><?= esc($j['status']) ?></span></td>
-                        <td class="fw-semibold"><?= number_format($smsTotal) ?></td>
-                        <td class="fw-semibold text-success"><?= number_format($smsFinance) ?></td>
+                        <td class="fw-bold text-success" style="font-size:1.02rem;"><?= number_format($smsFinance) ?></td>
                         <td class="fw-semibold text-danger"><?= number_format($smsUnwanted) ?></td>
+                        <td class="text-muted"><small><?= number_format($smsTotal) ?></small></td>
                         <td><?= number_format($sendersTotal) ?></td>
                         <td><small><?= $dur > 0 ? gmdate('i:s', $dur) : '—' ?></small></td>
                         <td><small class="text-muted"><?= esc($md['model'] ?? '—') ?></small></td>
+                        <td>
+                            <?php if ($isExt && isset($j['cost']) && $j['cost'] > 0): ?>
+                                <span class="text-primary fw-bold">$<?= number_format($j['cost'], 4) ?></span>
+                                <div class="text-muted" style="font-size:0.62rem;">
+                                    In: <?= number_format($j['tokens']['prompt'] ?? 0) ?><br>
+                                    Out: <?= number_format($j['tokens']['reply'] ?? 0) ?>
+                                </div>
+                            <?php else: ?>
+                                <span class="text-muted" style="font-size:0.8rem;">$0.0000</span>
+                            <?php endif; ?>
+                        </td>
                         <td><button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#jobModal<?= (int) $j['id'] ?>"><i class="fa-solid fa-eye"></i></button></td>
                     </tr>
                     <?php endforeach; ?>
@@ -105,27 +118,27 @@
 
                 <div class="row g-3 mb-3">
                     <div class="col-6 col-md-3">
-                        <div class="border rounded p-3 text-center">
-                            <div class="fw-bold fs-4"><?= number_format($smsTotal) ?></div>
-                            <div class="text-muted small">All SMS</div>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="border rounded p-3 text-center">
+                        <div class="border rounded p-3 text-center bg-success-subtle border-success">
                             <div class="fw-bold fs-4 text-success"><?= number_format($smsFinance) ?></div>
-                            <div class="text-muted small">Good SMS</div>
+                            <div class="text-success small fw-semibold">Total Finance SMS</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
                         <div class="border rounded p-3 text-center">
                             <div class="fw-bold fs-4 text-danger"><?= number_format($smsUnwanted) ?></div>
-                            <div class="text-muted small">Bad SMS</div>
+                            <div class="text-muted small">Non-Finance SMS</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
                         <div class="border rounded p-3 text-center">
-                            <div class="fw-bold fs-4 text-warning"><?= number_format($smsSkipped) ?></div>
-                            <div class="text-muted small">Skipped SMS</div>
+                            <div class="fw-bold fs-4 text-muted"><?= number_format($smsTotal) ?></div>
+                            <div class="text-muted small">Raw Total SMS</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="border rounded p-3 text-center">
+                            <div class="fw-bold fs-4 text-info"><?= esc($md['processing_rate_sms_per_sec'] ?? '—') ?></div>
+                            <div class="text-muted small">Speed (SMS/s)</div>
                         </div>
                     </div>
                 </div>
@@ -158,6 +171,40 @@
                         </table>
                     </div>
                 </div>
+
+                <?php $agg = $md['aggregation'] ?? null; if (!empty($agg)): ?>
+                <div class="card bg-light border-0 mb-3">
+                    <div class="card-body p-3">
+                        <div class="fw-semibold small text-primary mb-2"><i class="fa-solid fa-chart-line me-1"></i>Financial Insights Summary</div>
+                        <div class="row g-2 text-center">
+                            <div class="col-6 col-md-3">
+                                <div class="bg-white rounded p-2 border">
+                                    <div class="fw-bold text-danger"><?= $cs ?> <?= number_format((float)($agg['total_sent_money'] ?? 0), 2) ?></div>
+                                    <div class="text-muted small">Total Sent</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="bg-white rounded p-2 border">
+                                    <div class="fw-bold text-success"><?= $cs ?> <?= number_format((float)($agg['total_received_money'] ?? 0), 2) ?></div>
+                                    <div class="text-muted small">Total Received</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="bg-white rounded p-2 border">
+                                    <div class="fw-bold text-primary"><?= $cs ?> <?= number_format((float)($agg['total_transaction_volume'] ?? 0), 2) ?></div>
+                                    <div class="text-muted small">Total Volume</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="bg-white rounded p-2 border">
+                                    <div class="fw-bold text-info"><?= esc($md['processing_rate_sms_per_sec'] ?? '—') ?> SMS/s</div>
+                                    <div class="text-muted small">Throughput Speed</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
 
                 <?php $cc = $md['category_counts'] ?? []; if (!empty($cc)): ?>
                 <div class="fw-semibold small text-secondary mb-1">SMS by Category</div>
@@ -228,6 +275,11 @@
                 <?php endif; ?>
             </div>
             <div class="modal-footer border-0 pt-0">
+                <?php if (in_array($j['status'], ['queued', 'processing', 'starting'])): ?>
+                    <button type="button" class="btn btn-danger rounded-pill px-4 me-auto btn-stop-job" data-job-id="<?= (int)$j['id'] ?>">
+                        <i class="fa-solid fa-stop me-1"></i> Stop Job
+                    </button>
+                <?php endif; ?>
                 <button type="button" class="btn btn-primary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
@@ -240,4 +292,42 @@
     <strong>Good SMS</strong> = from finance senders. <strong>Bad SMS</strong> = from non-finance/unwanted senders.
     <strong>Skipped SMS</strong> = all SMS minus unwanted senders' SMS. Click any row for the full run summary.
 </div>
+
+<script>
+document.querySelectorAll('.btn-stop-job').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const jobId = this.getAttribute('data-job-id');
+        if (!confirm('Are you sure you want to stop/cancel this ML job?')) {
+            return;
+        }
+        
+        this.disabled = true;
+        const formData = new FormData();
+        formData.append('job_id', jobId);
+        
+        fetch('<?= base_url('dashboard/history/jobs/stop') ?>', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('Error: ' + data.message);
+                this.disabled = false;
+            }
+        })
+        .catch(err => {
+            alert('Failed to send request: ' + err.message);
+            this.disabled = false;
+        });
+    });
+});
+</script>
 <?php endif; ?>

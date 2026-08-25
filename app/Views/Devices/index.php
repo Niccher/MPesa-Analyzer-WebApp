@@ -26,6 +26,8 @@
 <?= $this->endSection() ?>
 <?= $this->section('content') ?>
 
+<?= $this->include('Layouts/_control_center_nav', ['activeTab' => 'devices']) ?>
+
 <div class="card stat-card">
     <div class="card-body p-4">
         <h5 class="fw-bold mb-3" style="color: var(--primary);"><i class="fa-solid fa-list me-2"></i> Connected Devices</h5>

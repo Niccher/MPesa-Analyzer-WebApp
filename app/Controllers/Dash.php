@@ -32,6 +32,9 @@ class Dash extends BaseController
         $modBudget   = new ModBudget();
         $modInsights = new ModInsights();
 
+        // Refresh budget threshold values
+        $mod_uploads->evaluate_budgets_for_user($userId);
+
         $userBudgets = $modBudget->getBudgets($userId);
 
         $data = [

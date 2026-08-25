@@ -102,105 +102,118 @@
 
 <?php if (!empty($batches)) : ?>
 
-<!-- ML Summary Row -->
-<div class="card glass-card border-0 shadow-sm mb-4">
-    <div class="card-body p-4">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-            <div>
-                <h5 class="fw-bold mb-0" style="color: var(--primary);"><i class="fa-solid fa-microchip me-2"></i>ML Analysis Summary</h5>
-                <div class="text-muted small">Stats across all your uploads, produced by the ML job.</div>
-            </div>
-            <?php if (!empty($stats['newest']) || !empty($stats['oldest'])): ?>
-                <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">
-                    <i class="fa-solid fa-calendar me-1"></i>
-                    <?= esc($stats['oldest'] ?? '—') ?> → <?= esc($stats['newest'] ?? '—') ?>
-                </span>
-            <?php endif; ?>
-        </div>
+<!-- ML Summary Row Accordion -->
+<div class="accordion mb-4" id="mlSummaryAccordion">
+    <div class="accordion-item border-0 shadow-sm glass-card">
+        <h2 class="accordion-header" id="headingSummary">
+            <button class="accordion-button collapsed fw-bold px-4 py-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSummary" aria-expanded="false" aria-controls="collapseSummary" style="background: transparent; color: var(--primary); outline: none; box-shadow: none;">
+                <div class="d-flex justify-content-between align-items-center w-100 pe-3 flex-wrap gap-2">
+                    <div>
+                        <i class="fa-solid fa-microchip me-2"></i>ML Analysis Summary
+                        <span class="text-secondary fw-normal small ms-2 d-none d-sm-inline">Stats across all your uploads, produced by the ML job.</span>
+                    </div>
+                    <?php if (!empty($stats['newest']) || !empty($stats['oldest'])): ?>
+                        <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-1 font-monospace" style="font-size:0.75rem;">
+                            <i class="fa-solid fa-calendar me-1"></i>
+                            <?= !empty($stats['oldest']) ? esc(format_date_display($stats['oldest'])) : '—' ?> &rarr; <?= !empty($stats['newest']) ? esc(format_date_display($stats['newest'])) : '—' ?>
+                        </span>
+                    <?php endif; ?>
+                </div>
+            </button>
+        </h2>
+        <div id="collapseSummary" class="accordion-collapse collapse" aria-labelledby="headingSummary" data-bs-parent="#mlSummaryAccordion">
+            <div class="accordion-body p-4 border-top" style="border-color: rgba(0,0,0,0.05) !important;">
+                <div class="row g-3">
+                    <div class="col-6 col-lg-2">
+                        <div class="summary-stat text-center">
+                            <i class="fa-solid fa-message text-muted mb-2 fs-5"></i>
+                            <div class="fw-bold fs-4"><?= number_format($stats['all_sms']) ?></div>
+                            <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">All SMS</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-2">
+                        <div class="summary-stat text-center">
+                            <i class="fa-solid fa-circle-check text-success mb-2 fs-5"></i>
+                            <div class="fw-bold fs-4 text-success"><?= number_format($stats['finance_sms']) ?></div>
+                            <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">Good SMS</div>
+                            <div class="text-muted small">finance-related</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-2">
+                        <div class="summary-stat text-center">
+                            <i class="fa-solid fa-circle-xmark text-danger mb-2 fs-5"></i>
+                            <div class="fw-bold fs-4 text-danger"><?= number_format($stats['non_finance_sms']) ?></div>
+                            <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">Bad SMS</div>
+                            <div class="text-muted small">non-finance</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-2">
+                        <div class="summary-stat text-center">
+                            <i class="fa-solid fa-circle-question text-warning mb-2 fs-5"></i>
+                            <div class="fw-bold fs-4 text-warning"><?= number_format($stats['unclassified']) ?></div>
+                            <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">Unclassified</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-2">
+                        <div class="summary-stat text-center">
+                            <i class="fa-solid fa-money-bill-transfer text-info mb-2 fs-5"></i>
+                            <div class="fw-bold fs-4 text-info"><?= number_format($stats['transactions']) ?></div>
+                            <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">Transactions</div>
+                            <div class="text-muted small"><?= $cs ?><?= number_format($stats['total_value'], 0) ?></div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-2">
+                        <div class="summary-stat text-center">
+                            <i class="fa-solid fa-building-columns mb-2 fs-5" style="color:#6f42c1;"></i>
+                            <div class="fw-bold fs-4" style="color:#6f42c1;"><?= number_format($stats['banks']) ?></div>
+                            <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">Banks</div>
+                            <div class="text-muted small">distinct</div>
+                        </div>
+                    </div>
+                </div>
 
-        <div class="row g-3">
-            <div class="col-6 col-lg-2">
-                <div class="summary-stat text-center">
-                    <div class="fw-bold fs-4"><?= number_format($stats['all_sms']) ?></div>
-                    <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">All SMS</div>
-                </div>
-            </div>
-            <div class="col-6 col-lg-2">
-                <div class="summary-stat text-center">
-                    <div class="fw-bold fs-4 text-success"><?= number_format($stats['finance_sms']) ?></div>
-                    <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">Good SMS</div>
-                    <div class="text-muted small">finance-related</div>
-                </div>
-            </div>
-            <div class="col-6 col-lg-2">
-                <div class="summary-stat text-center">
-                    <div class="fw-bold fs-4 text-danger"><?= number_format($stats['non_finance_sms']) ?></div>
-                    <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">Bad SMS</div>
-                    <div class="text-muted small">non-finance</div>
-                </div>
-            </div>
-            <div class="col-6 col-lg-2">
-                <div class="summary-stat text-center">
-                    <div class="fw-bold fs-4 text-warning"><?= number_format($stats['unclassified']) ?></div>
-                    <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">Unclassified</div>
-                </div>
-            </div>
-            <div class="col-6 col-lg-2">
-                <div class="summary-stat text-center">
-                    <div class="fw-bold fs-4 text-info"><?= number_format($stats['transactions']) ?></div>
-                    <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">Transactions</div>
-                    <div class="text-muted small"><?= $cs ?><?= number_format($stats['total_value'], 0) ?></div>
-                </div>
-            </div>
-            <div class="col-6 col-lg-2">
-                <div class="summary-stat text-center">
-                    <div class="fw-bold fs-4" style="color:#6f42c1;"><?= number_format($stats['banks']) ?></div>
-                    <div class="text-muted small text-uppercase" style="font-weight:600; letter-spacing:0.5px;">Banks</div>
-                    <div class="text-muted small">distinct</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row g-3 mt-1">
-            <div class="col-md-4">
-                <div class="summary-stat">
-                    <div class="text-muted small text-uppercase mb-2" style="font-weight:600; letter-spacing:0.5px;">Senders</div>
-                    <div class="d-flex justify-content-between small mb-1">
-                        <span>All senders</span><span class="fw-bold"><?= number_format($stats['all_senders']) ?></span>
+                <div class="row g-3 mt-1">
+                    <div class="col-md-4">
+                        <div class="summary-stat">
+                            <div class="text-muted small text-uppercase mb-2" style="font-weight:600; letter-spacing:0.5px;"><i class="fa-solid fa-users me-2"></i>Senders</div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span><i class="fa-solid fa-address-book text-muted me-1 small"></i>All senders</span><span class="fw-bold"><?= number_format($stats['all_senders']) ?></span>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span class="text-success"><i class="fa-solid fa-circle-check text-success me-1 small"></i>Finance senders</span><span class="fw-bold text-success"><?= number_format($stats['finance_senders']) ?></span>
+                            </div>
+                            <div class="d-flex justify-content-between small">
+                                <span class="text-danger"><i class="fa-solid fa-circle-xmark text-danger me-1 small"></i>Non-finance senders</span><span class="fw-bold text-danger"><?= number_format($stats['non_finance_senders']) ?></span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="d-flex justify-content-between small mb-1">
-                        <span class="text-success">Finance senders</span><span class="fw-bold text-success"><?= number_format($stats['finance_senders']) ?></span>
+                    <div class="col-md-4">
+                        <div class="summary-stat">
+                            <div class="text-muted small text-uppercase mb-2" style="font-weight:600; letter-spacing:0.5px;"><i class="fa-solid fa-right-left me-2"></i>Direction</div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span><i class="fa-solid fa-arrow-up-from-bracket text-muted me-1 small"></i>Outgoing (sent)</span><span class="fw-bold"><?= number_format($stats['sent']) ?></span>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span><i class="fa-solid fa-arrow-down-to-bracket text-muted me-1 small"></i>Incoming (received)</span><span class="fw-bold"><?= number_format($stats['received']) ?></span>
+                            </div>
+                            <div class="d-flex justify-content-between small">
+                                <span><i class="fa-solid fa-question text-muted me-1 small"></i>Undetermined</span><span class="fw-bold"><?= number_format($stats['none']) ?></span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="d-flex justify-content-between small">
-                        <span class="text-danger">Non-finance senders</span><span class="fw-bold text-danger"><?= number_format($stats['non_finance_senders']) ?></span>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="summary-stat">
-                    <div class="text-muted small text-uppercase mb-2" style="font-weight:600; letter-spacing:0.5px;">Direction</div>
-                    <div class="d-flex justify-content-between small mb-1">
-                        <span>Outgoing (sent)</span><span class="fw-bold"><?= number_format($stats['sent']) ?></span>
-                    </div>
-                    <div class="d-flex justify-content-between small mb-1">
-                        <span>Incoming (received)</span><span class="fw-bold"><?= number_format($stats['received']) ?></span>
-                    </div>
-                    <div class="d-flex justify-content-between small">
-                        <span>Undetermined</span><span class="fw-bold"><?= number_format($stats['none']) ?></span>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="summary-stat">
-                    <div class="text-muted small text-uppercase mb-2" style="font-weight:600; letter-spacing:0.5px;">Totals</div>
-                    <div class="d-flex justify-content-between small mb-1">
-                        <span>Total SMS value</span><span class="fw-bold"><?= $cs ?><?= number_format($stats['total_value'], 2) ?></span>
-                    </div>
-                    <div class="d-flex justify-content-between small mb-1">
-                        <span>Batches uploaded</span><span class="fw-bold"><?= count($batches) ?></span>
-                    </div>
-                    <div class="d-flex justify-content-between small">
-                        <span>Banks</span><span class="fw-bold"><?= number_format($stats['banks']) ?></span>
+                    <div class="col-md-4">
+                        <div class="summary-stat">
+                            <div class="text-muted small text-uppercase mb-2" style="font-weight:600; letter-spacing:0.5px;"><i class="fa-solid fa-chart-pie me-2"></i>Totals</div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span><i class="fa-solid fa-wallet text-muted me-1 small"></i>Total SMS value</span><span class="fw-bold"><?= $cs ?><?= number_format($stats['total_value'], 2) ?></span>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span><i class="fa-solid fa-upload text-muted me-1 small"></i>Batches uploaded</span><span class="fw-bold"><?= count($batches) ?></span>
+                            </div>
+                            <div class="d-flex justify-content-between small">
+                                <span><i class="fa-solid fa-building-columns text-muted me-1 small"></i>Banks</span><span class="fw-bold"><?= number_format($stats['banks']) ?></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -212,25 +225,29 @@
 <div class="row g-3 mb-4">
     <div class="col-md-3 col-6">
         <div class="summary-stat text-center">
+            <i class="fa-solid fa-message text-muted mb-2"></i>
             <div class="fw-bold fs-4"><?= number_format($total_sms_all) ?></div>
             <div class="text-muted small text-uppercase" style="font-weight: 600; letter-spacing: 0.5px;">Total SMS</div>
         </div>
     </div>
     <div class="col-md-3 col-6">
         <div class="summary-stat text-center">
+            <i class="fa-solid fa-brain text-success mb-2"></i>
             <div class="fw-bold fs-4 text-success"><?= number_format($total_classified_all) ?></div>
             <div class="text-muted small text-uppercase" style="font-weight: 600; letter-spacing: 0.5px;">Classified</div>
         </div>
     </div>
     <div class="col-md-3 col-6">
         <div class="summary-stat text-center">
+            <i class="fa-solid fa-wallet text-primary mb-2"></i>
             <div class="fw-bold fs-4 text-primary"><?= $cs ?> <?= number_format($total_amount_all, 0) ?></div>
             <div class="text-muted small text-uppercase" style="font-weight: 600; letter-spacing: 0.5px;">Total Value</div>
         </div>
     </div>
     <div class="col-md-3 col-6">
         <div class="summary-stat text-center">
-            <div class="fw-bold fs-4"><?= $total_sms_all > 0 ? round(($total_classified_all / $total_sms_all) * 100) : 0 ?>%</div>
+            <i class="fa-solid fa-chart-line mb-2" style="color:#6f42c1;"></i>
+            <div class="fw-bold fs-4" style="color:#6f42c1;"><?= $total_sms_all > 0 ? round(($total_classified_all / $total_sms_all) * 100) : 0 ?>%</div>
             <div class="text-muted small text-uppercase" style="font-weight: 600; letter-spacing: 0.5px;">LLM Coverage</div>
         </div>
     </div>
@@ -243,38 +260,38 @@
             <table class="table history-table mb-0">
                 <thead>
                     <tr>
-                        <th>Date</th>
-                        <th style="min-width: 100px;">SMS</th>
-                        <th style="min-width: 120px;">Classification</th>
-                        <th>Categories</th>
-                        <th>Amount</th>
-                        <th>Parties</th>
+                        <th><i class="fa-solid fa-calendar me-1"></i>Date</th>
+                        <th style="min-width: 100px;"><i class="fa-solid fa-message me-1"></i>SMS</th>
+                        <th style="min-width: 120px;"><i class="fa-solid fa-brain me-1"></i>Classification</th>
+                        <th><i class="fa-solid fa-tags me-1"></i>Categories</th>
+                        <th><i class="fa-solid fa-coins me-1"></i>Amount</th>
+                        <th><i class="fa-solid fa-handshake me-1"></i>Parties</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php
                     $catPalette = [
-                        'Unclassified'    => ['bg' => '#e9ecef', 'text' => '#6c757d'],
-                        'Mobile Money'    => ['bg' => '#d1e7dd', 'text' => '#0f5132'],
-                        'Payments/Govt'   => ['bg' => '#cfe2ff', 'text' => '#084298'],
-                        'Bank Transfer'   => ['bg' => '#cff4fc', 'text' => '#055160'],
-                        'Fintech'         => ['bg' => '#fff3cd', 'text' => '#664d03'],
-                        'Airtime'         => ['bg' => '#f8d7da', 'text' => '#842029'],
-                        'Notification'    => ['bg' => '#e2e3e5', 'text' => '#41464b'],
-                        'Salary'          => ['bg' => '#d1e7dd', 'text' => '#0f5132'],
-                        'Shopping'        => ['bg' => '#f8d7da', 'text' => '#842029'],
-                        'Food & Drink'    => ['bg' => '#fff3cd', 'text' => '#664d03'],
-                        'Transport'         => ['bg' => '#cff4fc', 'text' => '#055160'],
-                        'Utilities'       => ['bg' => '#e2e3e5', 'text' => '#41464b'],
-                        'Entertainment'   => ['bg' => '#f0d6ff', 'text' => '#5a189a'],
+                        'Unclassified'    => ['bg' => '#e9ecef', 'text' => '#6c757d', 'icon' => 'fa-question'],
+                        'Mobile Money'    => ['bg' => '#d1e7dd', 'text' => '#0f5132', 'icon' => 'fa-mobile-screen-button'],
+                        'Payments/Govt'   => ['bg' => '#cfe2ff', 'text' => '#084298', 'icon' => 'fa-landmark'],
+                        'Bank Transfer'   => ['bg' => '#cff4fc', 'text' => '#055160', 'icon' => 'fa-building-columns'],
+                        'Fintech'         => ['bg' => '#fff3cd', 'text' => '#664d03', 'icon' => 'fa-bolt'],
+                        'Airtime'         => ['bg' => '#f8d7da', 'text' => '#842029', 'icon' => 'fa-phone'],
+                        'Notification'    => ['bg' => '#e2e3e5', 'text' => '#41464b', 'icon' => 'fa-bell'],
+                        'Salary'          => ['bg' => '#d1e7dd', 'text' => '#0f5132', 'icon' => 'fa-money-bill-wave'],
+                        'Shopping'        => ['bg' => '#f8d7da', 'text' => '#842029', 'icon' => 'fa-cart-shopping'],
+                        'Food & Drink'    => ['bg' => '#fff3cd', 'text' => '#664d03', 'icon' => 'fa-utensils'],
+                        'Transport'       => ['bg' => '#cff4fc', 'text' => '#055160', 'icon' => 'fa-car'],
+                        'Utilities'       => ['bg' => '#e2e3e5', 'text' => '#41464b', 'icon' => 'fa-plug'],
+                        'Entertainment'   => ['bg' => '#f0d6ff', 'text' => '#5a189a', 'icon' => 'fa-film'],
                     ];
                     ?>
                     <?php foreach ($batches as $b) : 
-                        $ts = strtotime($b->created_at);
+                        $ts = strtotime($b['created_at']);
                         $dateStr = $ts ? date('M j, Y', $ts) : 'N/A';
                         $timeStr = $ts ? date('h:i A', $ts) : '';
-                        $classifyPct = $b->total > 0 ? round(($b->classified / $b->total) * 100) : 0;
+                        $classifyPct = $b['total'] > 0 ? round(($b['classified'] / $b['total']) * 100) : 0;
                         $barColor = $classifyPct >= 100 ? '#198754' : ($classifyPct > 0 ? '#ffc107' : '#e9ecef');
                     ?>
                     <tr>
@@ -283,8 +300,8 @@
                             <div class="text-muted small"><?= $timeStr ?></div>
                         </td>
                         <td>
-                            <div class="fw-semibold"><?= number_format($b->total) ?></div>
-                            <div class="batch-uuid"><?= htmlspecialchars(substr($b->uuid, 0, 12)) ?>…</div>
+                            <div class="fw-semibold"><?= number_format($b['total']) ?></div>
+                            <div class="batch-uuid"><?= htmlspecialchars(substr($b['uuid'], 0, 12)) ?>…</div>
                         </td>
                         <td>
                             <div class="d-flex align-items-center gap-2">
@@ -292,7 +309,7 @@
                                     <div class="classify-bar-fill" style="width: <?= $classifyPct ?>%; background: <?= $barColor ?>;"></div>
                                 </div>
                                 <span class="small fw-semibold text-nowrap" style="font-size: 0.75rem;">
-                                    <?= $b->classified ?>/<?= $b->total ?>
+                                    <?= $b['classified'] ?>/<?= $b['total'] ?>
                                 </span>
                             </div>
                             <?php if ($classifyPct > 0 && $classifyPct < 100) : ?>
@@ -311,16 +328,16 @@
                         </td>
                         <td>
                             <?php 
-                            $cats = $b->categories;
+                            $cats = $b['categories'];
                             arsort($cats);
                             $shown = 0;
                             foreach ($cats as $name => $count) : 
                                 if ($shown >= 3) break;
-                                $pal = $catPalette[$name] ?? ['bg' => '#f8f9fa', 'text' => '#212529'];
+                                $pal = $catPalette[$name] ?? ['bg' => '#f8f9fa', 'text' => '#212529', 'icon' => 'fa-tag'];
                                 $shown++;
                             ?>
                                 <span class="cat-badge me-1 mb-1" style="background: <?= $pal['bg'] ?>; color: <?= $pal['text'] ?>;">
-                                    <?= $name ?> <?= $count ?>
+                                    <i class="fa-solid <?= $pal['icon'] ?> me-1"></i><?= $name ?> <?= $count ?>
                                 </span>
                             <?php endforeach; ?>
                             <?php if (count($cats) > 3) : ?>
@@ -328,10 +345,10 @@
                             <?php endif; ?>
                         </td>
                         <td class="fw-semibold text-nowrap">
-                            <?= $cs ?> <?= number_format($b->total_amount, 2) ?>
+                            <?= $cs ?> <?= number_format($b['amount'], 2) ?>
                         </td>
                         <td class="text-nowrap">
-                            <?= number_format($b->counterparties) ?>
+                            <?= number_format($b['counterparties'] ?? 0) ?>
                         </td>
                         <td>
                             <a href="<?= base_url('dashboard/transactions') ?>"

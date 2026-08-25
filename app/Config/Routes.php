@@ -34,7 +34,8 @@ $routes->get('/', 'Home::index');
 $routes->get('/health', 'Home::health');
 $routes->get('/dashboard', 'Dash::index', ['filter' => 'session']);
 $routes->get('/dashboard/graph', 'Graph::index', ['filter' => 'session']);
-$routes->get('/dashboard/search', 'Search::index', ['filter' => 'session']);
+$routes->get('/dashboard/graph/category-details', 'Graph::categoryDetails', ['filter' => 'session']);
+$routes->addRedirect('/dashboard/search', '/dashboard/transactions');
 $routes->post('/dashboard/rescan', 'Home::rescan', ['filter' => 'session']);
 $routes->post('/dashboard/rescan/all', 'Home::rescanAll', ['filter' => 'session']);
 $routes->get('/dashboard/rescan/progress', 'Home::progress', ['filter' => 'session']);
@@ -46,6 +47,7 @@ $routes->get('/dashboard/transactions', 'Transactions::index', ['filter' => 'ses
 $routes->get('/dashboard/transactions/export', 'Transactions::export', ['filter' => 'session']);
     $routes->get('/dashboard/history', 'History::index', ['filter' => 'session']);
     $routes->get('/dashboard/history/jobs', 'History::jobs', ['filter' => 'session']);
+    $routes->post('/dashboard/history/jobs/stop', 'History::stopJob', ['filter' => 'session']);
 $routes->get('/dashboard/info', 'Info::index', ['filter' => 'session']);
 $routes->post('/dashboard/info/generate-token', 'Info::generateToken', ['filter' => 'session']);
 $routes->post('/dashboard/info/revoke-token', 'Info::revokeToken', ['filter' => 'session']);
@@ -83,14 +85,18 @@ $routes->post('/dashboard/settings/tags/save', 'Settings::saveTag', ['filter' =>
 $routes->post('/dashboard/settings/tags/delete', 'Settings::deleteTag', ['filter' => 'session']);
 
 // Blocklist
-$routes->get('/dashboard/blocklist', 'Blocklist::index', ['filter' => 'session']);
+$routes->get('/dashboard/blocklist', 'Blocklist::status', ['filter' => 'session']);
+$routes->get('/dashboard/blocklist/status', 'Blocklist::status', ['filter' => 'session']);
 $routes->get('/dashboard/blocklist/blocked', 'Blocklist::blocked', ['filter' => 'session']);
 $routes->get('/dashboard/blocklist/allowed', 'Blocklist::allowed', ['filter' => 'session']);
 $routes->get('/dashboard/blocklist/unknown', 'Blocklist::unknown', ['filter' => 'session']);
 $routes->post('/dashboard/blocklist/block', 'Blocklist::block', ['filter' => 'session']);
 $routes->post('/dashboard/blocklist/unblock', 'Blocklist::unblock', ['filter' => 'session']);
+$routes->post('/dashboard/blocklist/allow', 'Blocklist::allow', ['filter' => 'session']);
 $routes->post('/dashboard/blocklist/bulk-block', 'Blocklist::bulkBlock', ['filter' => 'session']);
 $routes->post('/dashboard/blocklist/bulk-unblock', 'Blocklist::bulkUnblock', ['filter' => 'session']);
+$routes->post('/dashboard/blocklist/bulk-allow', 'Blocklist::bulkAllow', ['filter' => 'session']);
+$routes->post('/dashboard/blocklist/delete-unwanted-sms', 'Blocklist::deleteUnwantedSms', ['filter' => 'session']);
 
 // Notes (AJAX)
 $routes->post('/dashboard/settings/notes/save', 'Settings::saveNote', ['filter' => 'session']);
@@ -184,6 +190,7 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
     $routes->post('ml/prompts/delete', 'Admin\Ml::promptDelete');
     $routes->get('ml/senders', 'Admin\Ml::senders');
     $routes->post('ml/config/save', 'Admin\Ml::saveConfig');
+    $routes->post('ml/config/test', 'Admin\Ml::testConnection');
     $routes->post('ml/models/activate', 'Admin\Ml::activateModel');
     $routes->post('ml/models/upload', 'Admin\Ml::uploadModel');
     $routes->post('ml/models/delete', 'Admin\Ml::deleteModel');
@@ -191,10 +198,14 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
     $routes->post('ml/senders/set-finance', 'Admin\Ml::setSenderFinance');
     $routes->get('ml/allowed', 'Admin\Ml::allowed');
     $routes->get('ml/jobs', 'Admin\Ml::jobs');
+    $routes->post('ml/jobs/stop', 'Admin\Ml::stopJob');
     $routes->post('ml/jobs/auto', 'Admin\Ml::toggleAuto');
     $routes->post('ml/allowed/add', 'Admin\Ml::allowedAdd');
     $routes->post('ml/allowed/remove', 'Admin\Ml::allowedRemove');
     $routes->post('ml/allowed/reset', 'Admin\Ml::allowedReset');
+    $routes->post('ml/allowed/bulk-categorize', 'Admin\Ml::allowedBulkCategorize');
+    $routes->post('ml/allowed/bulk-remove', 'Admin\Ml::allowedBulkRemove');
+    $routes->post('ml/allowed/seed', 'Admin\Ml::allowedSeed');
 
     // Maintenance
     $routes->post('maintenance/save-retention', 'Admin\Maintenance::saveRetention');

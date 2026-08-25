@@ -112,7 +112,7 @@
                                 <h4 class="fw-bold mb-2">Install the Android App</h4>
                                 <p class="text-muted mb-3">The Mpesa Analyzer Android companion app handles SMS collection on your phone. It runs in the background and automatically forwards financial SMS to the backend.</p>
                                 <ol class="text-muted small" style="line-height: 2;">
-                                    <li>Download the latest APK from the <a href="#" class="fw-semibold">downloads page</a></li>
+                                    <li>Get the latest APK from the <a href="<?= base_url('android-app') ?>" class="fw-semibold">Android App page</a> or your distribution channel</li>
                                     <li>On your Android phone, enable <strong>Install from Unknown Sources</strong> (Settings → Security)</li>
                                     <li>Open the downloaded APK file and tap <strong>Install</strong></li>
                                     <li>Grant the <strong>SMS permission</strong> when prompted — this is required to read M-Pesa messages</li>
@@ -186,18 +186,17 @@
                             <span class="step-number">6</span>
                             <div>
                                 <h4 class="fw-bold mb-2">Run ML Analysis</h4>
-                                <p class="text-muted mb-3">After SMS are uploaded, the ML backend needs to classify them. This step extracts structured transaction data from the raw SMS text.</p>
+                                <p class="text-muted mb-3">After SMS are uploaded, the ML backend classifies senders and extracts structured transaction data. With auto-processing enabled this happens automatically; you can also trigger it manually.</p>
                                 <ol class="text-muted small" style="line-height: 2;">
-                                    <li>On the dashboard, click the <strong>Analyze</strong> button (the microchip icon)</li>
-                                    <li>A progress badge appears in the top bar showing classification status</li>
-                                    <li>Click the badge to open a detailed progress modal with counts</li>
-                                    <li>The LLM processes each SMS one by one, extracting transaction details</li>
-                                    <li>Processing time depends on volume — typically 1-3 seconds per SMS</li>
-                                    <li>Once complete, your analytics, charts, and reports will be populated</li>
+                                    <li>New SMS are processed automatically by the background poller, or click the <strong>Analyze</strong> button on the dashboard to run a cycle now</li>
+                                    <li>Known finance senders (M-Pesa, banks, SACCOs…) are recognised instantly; unknown senders are classified by the local LLM</li>
+                                    <li>Processing is batched, so hundreds of messages are handled in a few calls rather than one-by-one</li>
+                                    <li>Track progress in the top bar; completed runs appear in <strong>History → ML Jobs</strong> with a full summary</li>
+                                    <li>Once complete, your analytics, charts, and reports are populated</li>
                                 </ol>
                                 <div class="bg-light p-3 rounded-3 small">
                                     <i class="fa-solid fa-lightbulb text-warning me-2"></i>
-                                    <strong>Tip:</strong> The <strong>Rescan</strong> button processes only new/unprocessed SMS. The <strong>Full</strong> button clears all existing analysis and re-classifies everything from scratch.
+                                    <strong>Tip:</strong> The <strong>Rescan</strong> button processes only new/unprocessed SMS. The <strong>Full</strong> button clears existing analysis and re-classifies everything. If processing ever pauses, an admin can toggle <strong>Auto Jobs</strong> from the ML console.
                                 </div>
                             </div>
                         </div>
@@ -228,8 +227,32 @@
                                     </div>
                                     <div class="col-sm-6">
                                         <div class="bg-light p-3 rounded-3 small">
+                                            <strong><i class="fa-solid fa-timeline text-primary me-1"></i> History</strong>
+                                            <p class="mb-0 text-muted">Upload History plus an <strong>ML Jobs</strong> tab — every run with a click-through summary (good/bad SMS, senders, model).</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="bg-light p-3 rounded-3 small">
                                             <strong><i class="fa-solid fa-bullseye text-primary me-1"></i> Budget</strong>
                                             <p class="mb-0 text-muted">Set monthly budgets per category and get alerts when approaching or exceeding limits.</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="bg-light p-3 rounded-3 small">
+                                            <strong><i class="fa-solid fa-ban text-primary me-1"></i> Blocklist</strong>
+                                            <p class="mb-0 text-muted">Blocked / Allowed / Unknown sender tabs. Pre-selected good senders show as Allowed automatically.</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="bg-light p-3 rounded-3 small">
+                                            <strong><i class="fa-solid fa-database text-primary me-1"></i> Data Management</strong>
+                                            <p class="mb-0 text-muted">Export, purge old data, and <strong>delete non-finance SMS</strong> (type DELETE to confirm) while keeping finance data.</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="bg-light p-3 rounded-3 small">
+                                            <strong><i class="fa-solid fa-gear text-primary me-1"></i> Info &amp; Auth</strong>
+                                            <p class="mb-0 text-muted">Manage devices and access tokens — generate and revoke the tokens that link your phone.</p>
                                         </div>
                                     </div>
                                 </div>

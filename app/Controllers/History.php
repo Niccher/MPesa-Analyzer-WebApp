@@ -7,12 +7,49 @@ class History extends BaseController
     public function index()
     {
         helper('mpesa_date');
+        $hist = $this->getHistoryData();
         $db = \Config\Database::connect();
+        
+        $jobs = [];
+        if ($db->tableExists('tbl_Processing_Jobs')) {
+            $jobs = $db->table('tbl_Processing_Jobs')
+                ->where('user_id', auth()->user()->id)
+                ->get()
+                ->getResultArray();
+        }
 
+        $data = array_merge($hist, [
+            'active_tab' => 'uploads',
+            'jobs'       => $jobs,
+            'bg_color'   => '#B1B8ED'
+        ]);
+
+        return view('Dash/history', $data);
+    }
+
+    /**
+     * ML Jobs tab: this user's processing jobs with full metadata.
+     */
+    public function jobs()
+    {
+        helper('mpesa_date');
+        $hist = $this->getHistoryData();
+
+        $data = array_merge($hist, [
+            'active_tab' => 'jobs',
+            'jobs'       => $this->fetchUserJobs(),
+            'bg_color'   => '#B1B8ED'
+        ]);
+
+        return view('Dash/history', $data);
+    }
+
+    private function getHistoryData(): array
+    {
+        $db = \Config\Database::connect();
         $userId = auth()->user()->id;
         $tokenType = \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN;
 
-        $rawTokens = [];
         $tokenRows = $db->query("
             SELECT DISTINCT s.sms_owner AS tk FROM tbl_Sms s
             INNER JOIN auth_identities i ON i.secret = SHA2(s.sms_owner, 256)
@@ -30,7 +67,6 @@ class History extends BaseController
         $totalClassifiedAll = 0;
         $totalAmountAll = 0;
 
-        // ── Overall ML stats summary (all uploads) ─────────────
         $stats = [
             'all_sms'        => 0,
             'finance_sms'    => 0,
@@ -53,7 +89,6 @@ class History extends BaseController
             $escapedTokens = array_map(fn($t) => $db->escape($t), $rawTokens);
             $inClause = implode(',', $escapedTokens);
 
-            // ── Global SMS/sender breakdown from tbl_Sms (canonical) ──
             if ($db->tableExists('tbl_Sms')) {
                 $g = $db->query("
                     SELECT
@@ -91,8 +126,6 @@ class History extends BaseController
                 }
             }
 
-            // ── Bank sender count ──
-            // Category is "Bank", or the sender name obviously looks like a bank.
             if ($db->tableExists('tbl_Sender_Profiles')) {
                 $b = $db->query("
                     SELECT COUNT(DISTINCT sp_number) AS banks
@@ -115,10 +148,8 @@ class History extends BaseController
                 $stats['banks'] = (int)($b->banks ?? 0);
             }
 
-            // Unclassified = all SMS minus those with an llm classification
             $stats['unclassified'] = max(0, $stats['all_sms'] - $stats['finance_sms'] - $stats['non_finance_sms']);
 
-            // Get upload batches that belong to this user's tokens
             $summaries = $db->query("
                 SELECT ls.loot_Uuid, ls.loot_Created, ls.info_All
                 FROM tbl_Loot_Summary ls
@@ -133,7 +164,6 @@ class History extends BaseController
                 $uuid = $s->loot_Uuid;
                 $total = (int)$s->info_All;
 
-                // LLM-classified count
                 $classified = 0;
                 if ($db->tableExists('tbl_Sms_Classification')) {
                     $cr = $db->query("
@@ -144,85 +174,53 @@ class History extends BaseController
                     $classified = (int)$cr->cnt;
                 }
 
-                // Category breakdown (canonical: category lives on tbl_Sms)
                 $catRows = $db->query("
                     SELECT COALESCE(sms_category, 'Unclassified') as cat, COUNT(*) as cnt
                     FROM tbl_Sms
                     WHERE sms_loot_source = ?
-                    GROUP BY cat
-                    ORDER BY cnt DESC
+                    GROUP BY sms_category
                 ", [$uuid])->getResult();
 
                 $categories = [];
-                foreach ($catRows as $r) {
-                    $categories[$r->cat] = (int)$r->cnt;
+                foreach ($catRows as $cr) {
+                    $categories[$cr->cat] = (int)$cr->cnt;
                 }
 
-                // Financial summary
-                $finData = $db->query("
-                    SELECT
-                        COALESCE(SUM(a.amount), 0) as total_amount,
-                        COUNT(DISTINCT a.counterparty) as counterparties,
-                        COUNT(a.id) as analyzed_count
-                    FROM tbl_Analyzed_Transactions a
-                    INNER JOIN tbl_Sms s ON s.id = a.orig_sms_int_id OR s.sms__id = a.orig_sms_id
-                    WHERE s.sms_loot_source = ?
+                $amtRow = $db->query("
+                    SELECT COALESCE(SUM(sms_amount), 0) as total FROM tbl_Sms
+                    WHERE sms_loot_source = ? AND sms_is_transactional = 1
                 ", [$uuid])->getRow();
+                $totalAmount = (float)($amtRow->total ?? 0);
 
-                $totalAmount = (float)($finData->total_amount ?? 0);
-                $counterparties = (int)($finData->counterparties ?? 0);
+                $cpRow = $db->query("
+                    SELECT COUNT(DISTINCT sms_counterparty) as cnt FROM tbl_Sms
+                    WHERE sms_loot_source = ? AND sms_counterparty IS NOT NULL AND sms_counterparty != ''
+                ", [$uuid])->getRow();
+                $counterparties = (int)($cpRow->cnt ?? 0);
 
                 $totalSmsAll += $total;
                 $totalClassifiedAll += $classified;
                 $totalAmountAll += $totalAmount;
 
-                $batches[] = (object)[
+                $batches[] = [
                     'uuid'           => $uuid,
                     'created_at'     => $s->loot_Created,
                     'total'          => $total,
                     'classified'     => $classified,
-                    'total_amount'   => $totalAmount,
-                    'counterparties' => $counterparties,
+                    'amount'         => $totalAmount,
                     'categories'     => $categories,
+                    'counterparties' => $counterparties,
                 ];
             }
         }
 
-        $data = [
-            'batches'           => $batches,
-            'total_sms_all'     => $totalSmsAll,
+        return [
+            'batches' => $batches,
+            'stats' => $stats,
+            'total_sms_all' => $totalSmsAll,
             'total_classified_all' => $totalClassifiedAll,
-            'total_amount_all'  => $totalAmountAll,
-            'stats'             => $stats,
-            'active_tab'        => 'uploads',
-            'jobs'              => $this->fetchUserJobs(),
-            'bg_color'          => '#B1B8ED'
+            'total_amount_all' => $totalAmountAll,
         ];
-
-        return view('Dash/history', $data);
-    }
-
-    /**
-     * ML Jobs tab: this user's processing jobs with full metadata.
-     */
-    public function jobs()
-    {
-        helper('mpesa_date');
-        $db = \Config\Database::connect();
-        $userId = auth()->user()->id;
-
-        $data = [
-            'batches'           => [],
-            'total_sms_all'     => 0,
-            'total_classified_all' => 0,
-            'total_amount_all'  => 0,
-            'stats'             => $this->computeStats([]),
-            'active_tab'        => 'jobs',
-            'jobs'              => $this->fetchUserJobs(),
-            'bg_color'          => '#B1B8ED'
-        ];
-
-        return view('Dash/history', $data);
     }
 
     /**
@@ -244,6 +242,22 @@ class History extends BaseController
             ->get()
             ->getResultArray();
 
+        // Resolve token usages for computing pricing
+        $tokenUsages = [];
+        if ($db->tableExists('tbl_LLM_Calls')) {
+            $calls = $db->table('tbl_LLM_Calls')
+                ->select('job_id, SUM(prompt_tokens) as p, SUM(reply_tokens) as r')
+                ->groupBy('job_id')
+                ->get()
+                ->getResult();
+            foreach ($calls as $c) {
+                $tokenUsages[(int)$c->job_id] = [
+                    'prompt' => (int)$c->p,
+                    'reply' => (int)$c->r
+                ];
+            }
+        }
+
         foreach ($jobs as $key => $j) {
             $md = $j['metadata'] ?? null;
             if (is_string($md) && $md !== '') {
@@ -251,22 +265,70 @@ class History extends BaseController
             }
             $md = is_array($md) ? $md : [];
             $jobs[$key]['metadata'] = $md;
+
+            // Pricing logic
+            $jobTokens = $tokenUsages[(int)$j['id']] ?? ['prompt' => 0, 'reply' => 0];
+            $cost = (($jobTokens['prompt'] / 1000000) * 0.15) + (($jobTokens['reply'] / 1000000) * 0.60);
+            $jobs[$key]['cost'] = $cost;
+            $jobs[$key]['tokens'] = $jobTokens;
         }
 
         return $jobs;
     }
 
     /**
-     * Default stats (empty) used by the Jobs tab before any summary is loaded.
+     * Stop/cancel a queued or processing ML job.
      */
-    private function computeStats(array $tokens): array
+    public function stopJob()
     {
-        return [
-            'all_sms' => 0, 'finance_sms' => 0, 'non_finance_sms' => 0,
-            'unclassified' => 0, 'all_senders' => 0, 'finance_senders' => 0,
-            'non_finance_senders' => 0, 'banks' => 0, 'sent' => 0,
-            'received' => 0, 'none' => 0, 'transactions' => 0,
-            'total_value' => 0.0, 'oldest' => null, 'newest' => null,
-        ];
+        $jobId = (int)$this->request->getPost('job_id');
+        if ($jobId <= 0) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Invalid Job ID.']);
+        }
+
+        $db = \Config\Database::connect();
+        $userId = auth()->user()->id;
+
+        $job = $db->table('tbl_Processing_Jobs')
+            ->where('id', $jobId)
+            ->where('user_id', $userId)
+            ->get()
+            ->getRowArray();
+
+        if (!$job) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Job not found or access denied.']);
+        }
+
+        if (!in_array($job['status'], ['queued', 'processing', 'starting'])) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Job is not in a cancellable state.']);
+        }
+
+        $md = $job['metadata'] ?? null;
+        if (is_string($md) && $md !== '') {
+            $md = json_decode($md, true);
+        }
+        $md = is_array($md) ? $md : [];
+        $md['error'] = 'Job stopped/cancelled by user.';
+
+        $startedAt = $job['started_at'] ?? $job['created_at'] ?? null;
+        $duration = null;
+        if (!empty($startedAt)) {
+            $duration = max(0, time() - strtotime($startedAt));
+        }
+        $md['duration_seconds'] = $duration;
+
+        $db->table('tbl_Processing_Jobs')
+            ->where('id', $jobId)
+            ->update([
+                'status' => 'failed',
+                'completed_at' => date('Y-m-d H:i:s'),
+                'duration_seconds' => $duration,
+                'metadata' => json_encode($md)
+            ]);
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'message' => 'Job successfully cancelled/stopped.'
+        ]);
     }
 }

@@ -36,6 +36,8 @@
 
 <?= $this->section('content') ?>
 
+<?= $this->include('Layouts/_control_center_nav', ['activeTab' => 'preferences']) ?>
+
 <?php if (session()->has('message')) : ?>
 <div class="alert alert-success alert-dismissible fade show" role="alert">
     <?= session('message') ?>

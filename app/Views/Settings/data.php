@@ -12,15 +12,14 @@
 <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-3">
     <div>
         <h2 class="fw-bold mb-1" style="color: var(--primary);"><i class="fa-solid fa-database me-2"></i>Data Management</h2>
-        <p class="text-secondary mb-0">Export, purge, and manage your financial data.</p>
+        <p class="text-secondary mb-0">Export, purge, and manage your financial records.</p>
     </div>
-    <a href="<?= base_url('dashboard/settings') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-        <i class="fa-solid fa-arrow-left me-1"></i> Back to Settings
-    </a>
 </div>
 <?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
+
+<?= $this->include('Layouts/_control_center_nav', ['activeTab' => 'data']) ?>
 
 <?php if (session()->has('message')) : ?>
 <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -36,12 +35,14 @@
 <?php endif; ?>
 
 <div class="row g-4">
+    <!-- Left Column: Exports, Purging & Summary -->
     <div class="col-lg-6">
-        <div class="card settings-card">
+        <!-- Data Exports -->
+        <div class="card settings-card mb-4">
             <div class="card-body p-4">
-                <h5 class="fw-bold mb-4" style="color: var(--primary);"><i class="fa-solid fa-download me-2"></i>Export Transactions</h5>
-                <p class="text-muted small mb-3">Download all your analyzed transactions for backup or external analysis.</p>
-                <div class="d-flex gap-3">
+                <h5 class="fw-bold mb-3" style="color: var(--primary);"><i class="fa-solid fa-download me-2"></i>Export Transactions</h5>
+                <p class="text-muted small mb-3">Download your analyzed transaction records in standard formats for backup or external spreadsheet analysis.</p>
+                <div class="d-flex flex-wrap gap-3">
                     <a href="<?= base_url('dashboard/settings/export/csv') ?>" class="btn btn-success rounded-pill px-4 fw-semibold">
                         <i class="fa-solid fa-file-csv me-1"></i> Export CSV
                     </a>
@@ -52,10 +53,50 @@
             </div>
         </div>
 
-        <div class="card settings-card mt-4">
+        <!-- Purge Old Data -->
+        <div class="card settings-card mb-4">
             <div class="card-body p-4">
-                <h5 class="fw-bold mb-4" style="color: var(--primary);"><i class="fa-solid fa-clock-rotate-left me-2"></i>Delete Upload Batches</h5>
-                <p class="text-muted small mb-3">Remove specific upload batches and their associated SMS data.</p>
+                <h5 class="fw-bold mb-2" style="color: var(--primary);"><i class="fa-solid fa-eraser me-2"></i>Purge Old Data</h5>
+                <p class="text-muted small mb-3">Remove SMS records and analyzed transactions older than a specified timeline. Account configurations remain untouched.</p>
+                <form action="<?= base_url('dashboard/settings/data/purge') ?>" method="POST"
+                      onsubmit="return confirm('This will permanently delete data older than the selected period. This cannot be undone. Continue?');">
+                    <?= csrf_field() ?>
+                    <div class="d-flex gap-2 align-items-end">
+                        <div class="flex-grow-1">
+                            <label class="form-label small fw-bold text-secondary">Delete older than:</label>
+                            <select class="form-select form-select-sm" name="months">
+                                <option value="3">3 months</option>
+                                <option value="6">6 months</option>
+                                <option value="12" selected>12 months</option>
+                                <option value="24">24 months</option>
+                                <option value="36">36 months</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-danger btn-sm rounded-pill px-4 fw-semibold flex-shrink-0">
+                            <i class="fa-solid fa-trash-can me-1"></i> Purge Data
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Data Summary -->
+        <div class="card settings-card">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-2" style="color: var(--primary);"><i class="fa-solid fa-chart-simple me-2"></i>Data Summary</h5>
+                <p class="text-muted small mb-0">Your account currently has <strong><?= $total_uploads ?? 0 ?></strong> upload batch(es) 
+                with the earliest record from <strong><?= $oldest_upload ?></strong>.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Upload batches & Non-Finance deletion -->
+    <div class="col-lg-6">
+        <!-- Latest Upload Batch -->
+        <div class="card settings-card mb-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-3" style="color: var(--primary);"><i class="fa-solid fa-clock-rotate-left me-2"></i>Latest Upload Batch</h5>
+                <p class="text-muted small mb-3">Your most recently uploaded SMS dataset batch.</p>
                 <?php
                 $db = \Config\Database::connect();
                 $userId = auth()->user()->id;
@@ -64,30 +105,31 @@
                     SELECT l.* FROM tbl_Loot l
                     INNER JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256)
                     WHERE i.user_id = ? AND i.type = ?
-                    ORDER BY l.loot_Created DESC LIMIT 20
+                    ORDER BY l.loot_Created DESC LIMIT 1
                 ", [$userId, $tokenType])->getResult();
                 ?>
                 <?php if (!empty($uploads)): ?>
-                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
-                    <table class="table table-sm">
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-hover align-middle mb-0">
                         <thead>
                             <tr>
-                                <th>Date</th>
-                                <th>File</th>
-                                <th>Action</th>
+                                <th>Uploaded</th>
+                                <th>File Name</th>
+                                <th class="text-end">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($uploads as $upload): ?>
                             <tr>
-                                <td><small><?= format_date_display($upload->loot_Created ?? '') ?></small></td>
-                                <td><small><?= htmlspecialchars($upload->loot_Name ?? 'N/A') ?></small></td>
-                                <td>
+                                <td><small class="text-secondary"><?= format_date_display($upload->loot_Created ?? '') ?></small></td>
+                                <td><small class="fw-semibold text-dark"><?= htmlspecialchars($upload->loot_Name ?? 'N/A') ?></small></td>
+                                <td class="text-end">
                                     <form action="<?= base_url('dashboard/settings/data/delete-upload') ?>" method="POST"
-                                          onsubmit="return confirm('Delete this upload batch and all its SMS data? This cannot be undone.');">
+                                          onsubmit="return confirm('Delete this upload batch and all its SMS data? This cannot be undone.');"
+                                          class="d-inline">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="uuid" value="<?= $upload->loot_Uuid ?>">
-                                        <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-2 py-0" style="font-size: 0.75rem;">
                                             <i class="fa-solid fa-trash-can"></i> Delete
                                         </button>
                                     </form>
@@ -97,38 +139,37 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="text-end">
+                    <a href="<?= base_url('dashboard/history') ?>" class="btn btn-light btn-sm rounded-pill px-3 fw-bold border">
+                        <i class="fa-solid fa-clock-rotate-left me-1"></i> Show all Uploads
+                    </a>
+                </div>
                 <?php else: ?>
-                <div class="alert alert-info mb-0">
-                    <i class="fa-solid fa-circle-info me-1"></i> No uploads found.
+                <div class="alert alert-info mb-0 py-2">
+                    <i class="fa-solid fa-circle-info me-1"></i> No upload batches found.
                 </div>
                 <?php endif; ?>
             </div>
         </div>
 
-        <div class="card settings-card mt-4">
+        <!-- Delete Non-Finance SMS -->
+        <div class="card settings-card">
             <div class="card-body p-4">
-                <h5 class="fw-bold mb-4" style="color: var(--primary);"><i class="fa-solid fa-trash-can me-2"></i>Delete Non-Finance SMS</h5>
+                <h5 class="fw-bold mb-2 text-danger"><i class="fa-solid fa-trash-can me-2"></i>Delete Non-Finance SMS</h5>
                 <p class="text-muted small mb-3">
-                    Permanently remove all SMS from senders <strong>not</strong> related to finance
-                    (marketing, promos, social media, service notifications, etc.).
-                    Finance-related SMS (banks, M-PESA, SACCOs, fintechs…) are <strong>never</strong> touched.
+                    Permanently delete SMS messages from marketing, OTPs, or service alerts that have no financial operations. Finance-related SMS are kept.
                 </p>
 
-                <div class="alert alert-danger small mb-3">
-                    <i class="fa-solid fa-triangle-exclamation me-1"></i>
-                    <strong>Warning:</strong> this is irreversible. These messages and their classifications
-                    will be permanently deleted and cannot be recovered.
+                <div class="alert alert-danger py-2 small mb-3">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i> Irreversible.
                 </div>
 
-                <div class="d-flex align-items-center gap-3 mb-3">
-                    <span class="fw-semibold text-dark">Will delete:</span>
-                    <span class="badge bg-danger rounded-pill">
-                        <i class="fa-solid fa-envelope me-1"></i>
-                        <?= number_format($non_finance_count ?? 0) ?> SMS
+                <div class="d-flex gap-3 mb-3 small">
+                    <span class="badge bg-danger rounded-pill px-3 py-2">
+                        <i class="fa-solid fa-envelope me-1"></i> <?= number_format($non_finance_count ?? 0) ?> SMS
                     </span>
-                    <span class="badge bg-secondary rounded-pill">
-                        <i class="fa-solid fa-address-book me-1"></i>
-                        <?= number_format($non_finance_senders ?? 0) ?> senders
+                    <span class="badge bg-secondary rounded-pill px-3 py-2">
+                        <i class="fa-solid fa-address-book me-1"></i> <?= number_format($non_finance_senders ?? 0) ?> senders
                     </span>
                 </div>
 
@@ -136,96 +177,16 @@
                       onsubmit="return confirm('This permanently deletes <?= number_format($non_finance_count ?? 0) ?> non-finance SMS. This cannot be undone. Continue?');">
                     <?= csrf_field() ?>
                     <label class="form-label small fw-bold text-danger">Type <code>DELETE</code> to confirm</label>
-                    <div class="input-group mb-2">
-                        <input type="text" class="form-control" name="confirm" placeholder="DELETE" autocomplete="off" required>
-                        <button type="submit" class="btn btn-danger rounded-end fw-semibold"
-                                <?= empty($non_finance_count) ? 'disabled' : '' ?>>
-                            <i class="fa-solid fa-trash-can me-1"></i> Delete Non-Finance SMS
+                    <div class="input-group">
+                        <input type="text" class="form-control form-control-sm" name="confirm" placeholder="DELETE" autocomplete="off" required>
+                        <button type="submit" class="btn btn-danger btn-sm fw-semibold" <?= empty($non_finance_count) ? 'disabled' : '' ?>>
+                            Delete
                         </button>
                     </div>
                     <?php if (empty($non_finance_count)): ?>
-                        <div class="form-text text-success">No non-finance SMS found — nothing to delete.</div>
+                        <div class="form-text text-success small mt-1">No non-finance SMS found.</div>
                     <?php endif; ?>
                 </form>
-            </div>
-        </div>
-
-        <div class="card settings-card mt-4">
-            <div class="card-body p-4">
-                <h5 class="fw-bold mb-4" style="color: var(--primary);"><i class="fa-solid fa-circle-info me-2"></i>Data Summary</h5>
-                <p class="text-muted small mb-0">Your account currently has <strong><?= $total_uploads ?? 0 ?></strong> upload batch(es) 
-                with the earliest record from <strong><?= $oldest_upload ?></strong>. Use the export feature above to download a backup before purging old data.</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-6">
-        <div class="card settings-card">
-            <div class="card-body p-4">
-                <h5 class="fw-bold mb-4" style="color: var(--primary);"><i class="fa-solid fa-eraser me-2"></i>Purge Old Data</h5>
-                <p class="text-muted small mb-3">
-                    Remove SMS records and analyzed transactions older than a specified number of months.
-                    Your account and settings will remain intact.
-                </p>
-                <div class="mb-3">
-                    <span class="fw-semibold text-dark">Total Uploads:</span>
-                    <span class="badge bg-primary rounded-pill ms-2"><?= $total_uploads ?? 0 ?></span>
-                </div>
-                <div class="mb-3">
-                    <span class="fw-semibold text-dark">Oldest Record:</span>
-                    <span class="text-muted ms-2"><?= $oldest_upload ?></span>
-                </div>
-                <form action="<?= base_url('dashboard/settings/data/purge') ?>" method="POST"
-                      onsubmit="return confirm('This will permanently delete data older than the selected period. This cannot be undone. Continue?');">
-                    <?= csrf_field() ?>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Delete data older than:</label>
-                        <select class="form-select" name="months">
-                            <option value="3">3 months</option>
-                            <option value="6">6 months</option>
-                            <option value="12" selected>12 months</option>
-                            <option value="24">24 months</option>
-                            <option value="36">36 months</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn btn-danger rounded-pill px-4 fw-semibold">
-                        <i class="fa-solid fa-trash-can me-1"></i> Purge Old Data
-                    </button>
-                </form>
-            </div>
-        </div>
-
-        <div class="card settings-card mt-4">
-            <div class="card-body p-4">
-                <h5 class="fw-bold mb-4" style="color: var(--primary);"><i class="fa-solid fa-floppy-disk me-2"></i>Settings Backup</h5>
-                <p class="text-muted small mb-3">Export or restore your preferences, budgets, and category rules.</p>
-                <div class="d-flex gap-3 flex-wrap">
-                    <a href="<?= base_url('dashboard/settings/data/export-settings') ?>" class="btn btn-outline-primary rounded-pill px-4 fw-semibold">
-                        <i class="fa-solid fa-download me-1"></i> Export Settings
-                    </a>
-                    <form action="<?= base_url('dashboard/settings/data/import-settings') ?>" method="POST" enctype="multipart/form-data" class="d-flex gap-2 align-items-center">
-                        <?= csrf_field() ?>
-                        <input type="file" name="settings_file" accept=".json" class="form-control form-control-sm" style="max-width:200px;" required>
-                        <button type="submit" class="btn btn-outline-success rounded-pill px-4 fw-semibold btn-sm">
-                            <i class="fa-solid fa-upload me-1"></i> Import
-                        </button>
-                    </form>
-                </div>
-                <hr class="my-3">
-                <h6 class="fw-bold mb-2">Category Rules</h6>
-                <p class="text-muted small mb-2">Export or bulk-import keyword-to-category mappings as CSV.</p>
-                <div class="d-flex gap-3 flex-wrap">
-                    <a href="<?= base_url('dashboard/settings/data/export-rules') ?>" class="btn btn-outline-info rounded-pill px-4 fw-semibold btn-sm">
-                        <i class="fa-solid fa-download me-1"></i> Export Rules
-                    </a>
-                    <form action="<?= base_url('dashboard/settings/data/import-rules') ?>" method="POST" enctype="multipart/form-data" class="d-flex gap-2 align-items-center">
-                        <?= csrf_field() ?>
-                        <input type="file" name="rules_file" accept=".csv" class="form-control form-control-sm" style="max-width:200px;" required>
-                        <button type="submit" class="btn btn-outline-success rounded-pill px-4 fw-semibold btn-sm">
-                            <i class="fa-solid fa-upload me-1"></i> Import CSV
-                        </button>
-                    </form>
-                </div>
             </div>
         </div>
     </div>

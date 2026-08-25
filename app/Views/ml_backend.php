@@ -4,13 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>ML Backend — Mpesa Analyzer</title>
-    <meta name="description" content="The Mpesa Analyzer ML backend uses a fine-tuned LLM to classify SMS transactions. FastAPI service that extracts counterparty, category, amount, and generates smart alerts.">
+    <meta name="description" content="The Mpesa Analyzer ML backend uses a local LLM to classify SMS senders and extract transactions. FastAPI service with model, prompt and job management.">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="<?= base_url('ml-backend') ?>">
     <link rel="icon" type="image/png" href="<?= base_url('favicon.png') ?>">
     <link rel="apple-touch-icon" href="<?= base_url('favicon.png') ?>">
     <meta property="og:title" content="ML Backend — Mpesa Analyzer">
-    <meta property="og:description" content="Fine-tuned LLM classifies M-Pesa SMS transactions. FastAPI service at :9050.">
+    <meta property="og:description" content="Local LLM classifies M-Pesa SMS senders and extracts transactions. FastAPI service at :9050.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="<?= base_url('ml-backend') ?>">
 
@@ -77,11 +77,11 @@
                     </span>
                     <h1 class="fw-800 mb-3" style="font-size: 2.75rem; font-weight: 800; letter-spacing: -0.5px;">ML Backend</h1>
                     <p class="lead text-muted mb-4" style="line-height: 1.7;">
-                        The intelligence layer of Mpesa Analyzer. A FastAPI microservice running a fine-tuned Large Language Model (LLM) that reads raw SMS text, determines if it's financial, and extracts structured transaction data — all without rigid parsing rules.
+                        The intelligence layer of Mpesa Analyzer. A FastAPI microservice running a local Large Language Model (Qwen2.5 1.5B via llama.cpp) that reads raw SMS text, determines if a sender is finance-related, and extracts structured transaction data — all without rigid parsing rules.
                     </p>
                     <div class="d-flex gap-2 flex-wrap">
                         <span class="badge bg-light text-dark border px-3 py-2"><i class="fa-brands fa-python me-1"></i>FastAPI</span>
-                        <span class="badge bg-light text-dark border px-3 py-2"><i class="fa-solid fa-brain me-1"></i>LLM</span>
+                        <span class="badge bg-light text-dark border px-3 py-2"><i class="fa-solid fa-brain me-1"></i>Local LLM</span>
                         <span class="badge bg-light text-dark border px-3 py-2"><i class="fa-solid fa-database me-1"></i>MySQL</span>
                         <span class="badge bg-light text-dark border px-3 py-2"><i class="fa-brands fa-docker me-1"></i>Docker</span>
                     </div>
@@ -156,22 +156,22 @@
                 <div class="col-md-3 col-6">
                     <div class="glass-card text-center">
                         <div class="icon-box mx-auto"><i class="fa-solid fa-filter-circle-xmark"></i></div>
-                        <h6 class="fw-bold">2. Classification</h6>
-                        <p class="text-muted small mb-0">LLM determines: financial? → Yes. Type? → Send money. Non-financial SMS are discarded.</p>
+                        <h6 class="fw-bold">2. Sender Classification</h6>
+                        <p class="text-muted small mb-0">Known finance senders (M-Pesa, banks, SACCOs…) are recognised instantly; unknown senders are classified by the LLM.</p>
                     </div>
                 </div>
                 <div class="col-md-3 col-6">
                     <div class="glass-card text-center">
                         <div class="icon-box mx-auto"><i class="fa-solid fa-cubes"></i></div>
                         <h6 class="fw-bold">3. Extraction</h6>
-                        <p class="text-muted small mb-0">Amount, counterparty, category, timestamp, new balance, transaction code extracted.</p>
+                        <p class="text-muted small mb-0">Amount, counterparty, category, timestamp, new balance, transaction code extracted from finance SMS.</p>
                     </div>
                 </div>
                 <div class="col-md-3 col-6">
                     <div class="glass-card text-center">
                         <div class="icon-box mx-auto"><i class="fa-solid fa-chart-simple"></i></div>
-                        <h6 class="fw-bold">4. Storage</h6>
-                        <p class="text-muted small mb-0">Structured data written to MySQL. Dashboard queries and visualizes instantly.</p>
+                        <h6 class="fw-bold">4. Canonical Storage</h6>
+                        <p class="text-muted small mb-0">One record per SMS in tbl_Sms carries both classification and parsed fields. Dashboards query it instantly.</p>
                     </div>
                 </div>
             </div>
@@ -222,6 +222,57 @@
                             <div class="icon-box" style="width: 48px; height: 48px; font-size: 1.1rem; background: #d1fae5; color: #059669;"><i class="fa-solid fa-heart-pulse"></i></div>
                             <div><h6 class="fw-bold">Financial Health Score</h6><p class="text-muted small mb-0">A composite score based on 60 days of transaction history, considering income stability, spending patterns, and Fuliza dependency.</p></div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-5 bg-light">
+        <div class="container py-4">
+            <div class="text-center mb-5">
+                <h2 class="fw-bold h1 mb-3">Managed ML Service</h2>
+                <p class="text-muted mx-auto" style="max-width: 650px;">Admins can operate the backend end-to-end from the web console — no SSH or manual config required.</p>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="glass-card">
+                        <h5 class="fw-bold mb-3"><i class="fa-solid fa-play text-primary me-2"></i>Automatic Processing</h5>
+                        <ul class="text-muted small mb-0">
+                            <li class="mb-1">A background poller automatically processes new SMS on a configurable interval</li>
+                            <li class="mb-1">Admins can <strong>Start / Stop Auto Jobs</strong> — when stopped, no ML jobs run until re-enabled</li>
+                            <li class="mb-1">Jobs can also be triggered on demand per user (Rescan / Analyze)</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="glass-card">
+                        <h5 class="fw-bold mb-3"><i class="fa-solid fa-box-open text-primary me-2"></i>Model Management</h5>
+                        <ul class="text-muted small mb-0">
+                            <li class="mb-1">Upload, activate and delete GGUF models from the web console</li>
+                            <li class="mb-1">Model metadata (parameters, quantization, context length, architecture) is read automatically from the file</li>
+                            <li class="mb-1">Runtime tuning: context size, prompt batch, GPU layers, temperature — applied on restart</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="glass-card">
+                        <h5 class="fw-bold mb-3"><i class="fa-solid fa-file-lines text-primary me-2"></i>Prompt Management</h5>
+                        <ul class="text-muted small mb-0">
+                            <li class="mb-1">Classification and extraction prompts are editable and versioned</li>
+                            <li class="mb-1">Saving a prompt creates a new version and makes it active</li>
+                            <li class="mb-1">The hardcoded prompt stays the fallback whenever no DB version exists</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="glass-card">
+                        <h5 class="fw-bold mb-3"><i class="fa-solid fa-list-check text-primary me-2"></i>Job Metadata & Audit</h5>
+                        <ul class="text-muted small mb-0">
+                            <li class="mb-1">Every ML job records rich metadata: all / good / bad / skipped SMS, sender breakdowns, model &amp; LLM tuning, duration, errors</li>
+                            <li class="mb-1">Users see their job runs in the ML Jobs tab of the History page with a per-run summary modal</li>
+                            <li class="mb-1">Admins monitor all jobs with aggregate stats from the ML Jobs console</li>
+                        </ul>
                     </div>
                 </div>
             </div>

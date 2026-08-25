@@ -77,11 +77,20 @@ class Ml extends BaseController
             ]);
         }
 
+        // Auto-cleanup zombie jobs that are stuck in active statuses for more than 30 minutes
+        $thirtyMinsAgo = date('Y-m-d H:i:s', time() - 1800);
+        $db->table('tbl_Processing_Jobs')
+            ->whereIn('status', ['processing', 'starting', 'queued'])
+            ->where('created_at <', $thirtyMinsAgo)
+            ->update(['status' => 'failed']);
+
         $jobs = $db->table('tbl_Processing_Jobs')
             ->orderBy('id', 'DESC')
             ->limit(200)
             ->get()
             ->getResultArray();
+
+        $totalSmsDb = (int) $db->table('tbl_Sms')->countAllResults();
 
         // Resolve user_id -> username for display.
         $usernames = [];
@@ -90,15 +99,56 @@ class Ml extends BaseController
             $usernames[(string) $r->id] = $r->username;
         }
 
+        // Pre-fetch token usages from tbl_LLM_Calls group by job_id to calculate pricing
+        $tokenUsages = [];
+        if ($db->tableExists('tbl_LLM_Calls')) {
+            $calls = $db->table('tbl_LLM_Calls')
+                ->select('job_id, SUM(prompt_tokens) as p, SUM(reply_tokens) as r')
+                ->groupBy('job_id')
+                ->get()
+                ->getResult();
+            foreach ($calls as $c) {
+                $tokenUsages[(int)$c->job_id] = [
+                    'prompt' => (int)$c->p,
+                    'reply' => (int)$c->r
+                ];
+            }
+        }
+
         $totals = [
             'jobs' => 0, 'msgs' => 0, 'errors' => 0, 'time' => 0,
             'senders' => 0, 'senders_finance' => 0, 'senders_unwanted' => 0,
             'sms_total' => 0, 'sms_finance' => 0, 'sms_unwanted' => 0, 'sms_skipped' => 0,
-            'transactional' => 0,
+            'transactional' => 0, 'cost' => 0.0
         ];
         $statusCounts = [];
         foreach ($jobs as $key => $j) {
             $md = $this->decodeMetadata($j['metadata'] ?? null);
+
+            // Sanitize messages_processed and metadata counts to never exceed database totals
+            if ((int)$j['messages_processed'] > $totalSmsDb) {
+                $j['messages_processed'] = $totalSmsDb;
+                $db->table('tbl_Processing_Jobs')->where('id', $j['id'])->update(['messages_processed' => $totalSmsDb]);
+            }
+            
+            if (!empty($md)) {
+                $modifiedMd = false;
+                foreach (['messages_processed', 'sms_total', 'sms_finance', 'sms_unwanted', 'sms_skipped', 'senders_total'] as $field) {
+                    if (isset($md[$field]) && (int)$md[$field] > $totalSmsDb) {
+                        $md[$field] = $totalSmsDb;
+                        $modifiedMd = true;
+                    }
+                }
+                if ($modifiedMd) {
+                    $db->table('tbl_Processing_Jobs')->where('id', $j['id'])->update(['metadata' => json_encode($md)]);
+                }
+            }
+
+            // Compute pricing: standard $0.15 per million input tokens, $0.60 per million output tokens
+            $jobTokens = $tokenUsages[(int)$j['id']] ?? ['prompt' => 0, 'reply' => 0];
+            $cost = (($jobTokens['prompt'] / 1000000) * 0.15) + (($jobTokens['reply'] / 1000000) * 0.60);
+            $j['cost'] = $cost;
+            $j['tokens'] = $jobTokens;
 
             $totals['jobs']++;
             $totals['msgs'] += (int) ($md['messages_processed'] ?? $j['messages_processed']);
@@ -112,6 +162,7 @@ class Ml extends BaseController
             $totals['sms_unwanted'] += (int) ($md['sms_unwanted'] ?? 0);
             $totals['sms_skipped'] += (int) ($md['sms_skipped'] ?? 0);
             $totals['transactional'] += (int) ($md['transactional_inserted'] ?? 0);
+            $totals['cost'] += $cost;
             $statusCounts[$j['status']] = ($statusCounts[$j['status']] ?? 0) + 1;
 
             $j['metadata'] = $md;
@@ -386,6 +437,68 @@ class Ml extends BaseController
         ]);
     }
 
+    public function allowedBulkCategorize()
+    {
+        $senders = $this->request->getPost('senders');
+        $category = trim((string) $this->request->getPost('category'));
+
+        if (empty($senders) || !is_array($senders)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'No senders selected.']);
+        }
+
+        $db = \Config\Database::connect();
+        $db->table('tbl_Allowed_Senders')
+            ->whereIn('sender', $senders)
+            ->update([
+                'category' => $category ?: null
+            ]);
+
+        \App\Libraries\Audit::log('ml_allowed_bulk_categorize', 'config', 'Bulk categorized allowed senders', [
+            'senders' => $senders,
+            'category' => $category,
+        ]);
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'message' => 'Successfully updated category for ' . count($senders) . ' senders.',
+        ]);
+    }
+
+    public function allowedBulkRemove()
+    {
+        $senders = $this->request->getPost('senders');
+
+        if (empty($senders) || !is_array($senders)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'No senders selected.']);
+        }
+
+        $db = \Config\Database::connect();
+        $db->table('tbl_Allowed_Senders')->whereIn('sender', $senders)->delete();
+
+        \App\Libraries\Audit::log('ml_allowed_bulk_remove', 'config', 'Bulk removed allowed senders', [
+            'senders' => $senders,
+        ]);
+
+        return $this->response->setJSON([
+            'status'  => 'success',
+            'message' => 'Removed ' . count($senders) . ' senders.',
+        ]);
+    }
+
+    public function allowedSeed()
+    {
+        \CodeIgniter\CLI\CLI::init();
+        $seeder = \Config\Database::seeder();
+        $seeder->call('AllowedSendersSeeder');
+
+        \App\Libraries\Audit::log('ml_allowed_seed', 'config', 'Re-seeded allowed senders with defaults');
+
+        return $this->response->setJSON([
+            'status'  => 'success',
+            'message' => 'Default senders have been re-seeded. Existing entries were preserved.',
+        ]);
+    }
+
     private function loadAllowed(): array
     {
         $db = \Config\Database::connect();
@@ -422,6 +535,34 @@ class Ml extends BaseController
             'batch_size' => $this->request->getPost('batch_size') !== '' ? (int)$this->request->getPost('batch_size') : null,
             'max_retries' => $this->request->getPost('max_retries') !== '' ? (int)$this->request->getPost('max_retries') : null,
             'poll_interval' => $this->request->getPost('poll_interval') !== '' ? (int)$this->request->getPost('poll_interval') : null,
+            'llm_engine' => $this->request->getPost('llm_engine') !== '' ? $this->request->getPost('llm_engine') : null,
+            'llm_provider' => $this->request->getPost('llm_provider') !== '' ? $this->request->getPost('llm_provider') : null,
+            'llm_base_url' => $this->request->getPost('llm_base_url') !== '' ? $this->request->getPost('llm_base_url') : null,
+            'llm_api_key' => $this->request->getPost('llm_api_key') !== '' ? $this->request->getPost('llm_api_key') : null,
+            'llm_external_provider' => $this->request->getPost('llm_external_provider') !== '' ? $this->request->getPost('llm_external_provider') : null,
+            'llm_external_base_url' => $this->request->getPost('llm_external_base_url') !== '' ? $this->request->getPost('llm_external_base_url') : null,
+            'llm_external_api_key' => $this->request->getPost('llm_external_api_key') !== '' ? $this->request->getPost('llm_external_api_key') : null,
+            'llm_external_model' => $this->request->getPost('llm_external_model') !== '' ? $this->request->getPost('llm_external_model') : null,
+            'llm_external_max_tokens' => $this->request->getPost('llm_external_max_tokens') !== '' ? (int)$this->request->getPost('llm_external_max_tokens') : null,
+            'llm_external_temperature' => $this->request->getPost('llm_external_temperature') !== '' ? (float)$this->request->getPost('llm_external_temperature') : null,
+            'external_batch_size' => $this->request->getPost('external_batch_size') !== '' ? (int)$this->request->getPost('external_batch_size') : null,
+            'external_max_retries' => $this->request->getPost('external_max_retries') !== '' ? (int)$this->request->getPost('external_max_retries') : null,
+            'external_poll_interval' => $this->request->getPost('external_poll_interval') !== '' ? (int)$this->request->getPost('external_poll_interval') : null,
+            'llm_fallback_provider' => $this->request->getPost('llm_fallback_provider') !== '' ? $this->request->getPost('llm_fallback_provider') : null,
+            'llm_fallback_base_url' => $this->request->getPost('llm_fallback_base_url') !== '' ? $this->request->getPost('llm_fallback_base_url') : null,
+            'llm_fallback_api_key' => $this->request->getPost('llm_fallback_api_key') !== '' ? $this->request->getPost('llm_fallback_api_key') : null,
+            'llm_fallback_model' => $this->request->getPost('llm_fallback_model') !== '' ? $this->request->getPost('llm_fallback_model') : null,
+            'llm_fallback_enabled' => $this->request->getPost('llm_fallback_enabled') !== '' ? in_array(strtolower($this->request->getPost('llm_fallback_enabled')), ['true', '1', 'yes', 'on'], true) : null,
+            'llm_gemini_api_key' => $this->request->getPost('llm_gemini_api_key') !== '' ? $this->request->getPost('llm_gemini_api_key') : null,
+            'llm_deepseek_api_key' => $this->request->getPost('llm_deepseek_api_key') !== '' ? $this->request->getPost('llm_deepseek_api_key') : null,
+            'llm_openai_api_key' => $this->request->getPost('llm_openai_api_key') !== '' ? $this->request->getPost('llm_openai_api_key') : null,
+            'llm_groq_api_key' => $this->request->getPost('llm_groq_api_key') !== '' ? $this->request->getPost('llm_groq_api_key') : null,
+            'llm_mistral_api_key' => $this->request->getPost('llm_mistral_api_key') !== '' ? $this->request->getPost('llm_mistral_api_key') : null,
+            'llm_openrouter_api_key' => $this->request->getPost('llm_openrouter_api_key') !== '' ? $this->request->getPost('llm_openrouter_api_key') : null,
+            'llm_cohere_api_key' => $this->request->getPost('llm_cohere_api_key') !== '' ? $this->request->getPost('llm_cohere_api_key') : null,
+            'llm_kimi_api_key' => $this->request->getPost('llm_kimi_api_key') !== '' ? $this->request->getPost('llm_kimi_api_key') : null,
+            'llm_nemotron_api_key' => $this->request->getPost('llm_nemotron_api_key') !== '' ? $this->request->getPost('llm_nemotron_api_key') : null,
+            'llm_xai_api_key' => $this->request->getPost('llm_xai_api_key') !== '' ? $this->request->getPost('llm_xai_api_key') : null,
         ];
 
         try {
@@ -436,6 +577,30 @@ class Ml extends BaseController
                 'message' => 'Config saved. ' . ($body['note'] ?? ''),
                 'applied' => $body['applied'] ?? [],
             ]);
+        } catch (\Throwable $e) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Failed to reach ML backend: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function testConnection()
+    {
+        $payload = [
+            'provider' => $this->request->getPost('provider'),
+            'base_url' => $this->request->getPost('base_url'),
+            'api_key' => $this->request->getPost('api_key'),
+            'model' => $this->request->getPost('model'),
+        ];
+
+        try {
+            $resp = $this->client()->post($this->baseUrl() . '/admin/test_connection', [
+                'json' => $payload,
+                'timeout' => 15,
+            ]);
+            $body = json_decode($resp->getBody(), true);
+            return $this->response->setJSON($body);
         } catch (\Throwable $e) {
             return $this->response->setJSON([
                 'status' => 'error',
@@ -695,5 +860,66 @@ class Ml extends BaseController
                 'error' => $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Stop/cancel a queued or processing ML job as administrator.
+     */
+    public function stopJob()
+    {
+        $jobId = (int)$this->request->getPost('job_id');
+        if ($jobId <= 0) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Invalid Job ID.']);
+        }
+
+        $db = \Config\Database::connect();
+
+        $job = $db->table('tbl_Processing_Jobs')
+            ->where('id', $jobId)
+            ->get()
+            ->getRowArray();
+
+        if (!$job) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Job not found.']);
+        }
+
+        if (!in_array($job['status'], ['queued', 'processing', 'starting'])) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Job is not in a cancellable state.']);
+        }
+
+        // Decode metadata to update the error field
+        $md = $job['metadata'] ?? null;
+        if (is_string($md) && $md !== '') {
+            $md = json_decode($md, true);
+        }
+        $md = is_array($md) ? $md : [];
+        $md['error'] = 'Job stopped/cancelled by administrator.';
+
+        // Calculate duration metrics
+        $startedAt = $job['started_at'] ?? $job['created_at'] ?? null;
+        $duration = null;
+        if (!empty($startedAt)) {
+            $duration = max(0, time() - strtotime($startedAt));
+        }
+        $md['duration_seconds'] = $duration;
+
+        $db->table('tbl_Processing_Jobs')
+            ->where('id', $jobId)
+            ->update([
+                'status' => 'failed',
+                'completed_at' => date('Y-m-d H:i:s'),
+                'duration_seconds' => $duration,
+                'metadata' => json_encode($md)
+            ]);
+
+        \App\Libraries\Audit::log('ml_job_stopped', 'maintenance', 'Stopped processing job manually', [
+            'job_id' => $jobId,
+            'original_status' => $job['status']
+        ]);
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'message' => 'Job successfully cancelled/stopped.'
+        ]);
     }
 }

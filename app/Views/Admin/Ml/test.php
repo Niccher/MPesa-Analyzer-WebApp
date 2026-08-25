@@ -21,7 +21,7 @@
 
 <div class="card settings-card">
     <div class="card-body p-4">
-        <?= view('Admin/Ml/_nav', ['active' => 'test']) ?>
+        <?= view('Admin/Ml/_nav', ['active' => 'test', 'status' => $status]) ?>
 
         <form id="testForm" class="row g-3 mb-4">
             <?= csrf_field() ?>

@@ -6,30 +6,19 @@ use CodeIgniter\Model;
 
 class ModInsights extends Model
 {
-    private function extractAmount(string $body): float {
-        if (preg_match('/ksh\.?\s*([\d,]+\.?\d{0,2})/i', $body, $m)) {
-            return (float)str_replace(',', '', $m[1]);
+    private function normalizeTimestamp($smsTime, $transDate = null): int {
+        if (!empty($transDate) && strlen($transDate) >= 10) {
+            $ts = strtotime($transDate);
+            if ($ts > 0) return $ts;
         }
-        return 0.0;
-    }
-
-    private function extractBalance(string $body): float {
-        if (preg_match('/balance is ksh\.?\s*([\d,]+\.?\d{0,2})/i', $body, $m) || 
-            preg_match('/new m-pesa balance is ksh\.?\s*([\d,]+\.?\d{0,2})/i', $body, $m)) {
-            return (float)str_replace(',', '', $m[1]);
-        }
-        return -1.0; // Unknown
-    }
-
-    private function normalizeTimestamp($smsTime): int {
         if (is_numeric($smsTime) && $smsTime > 1000000000000) {
             return (int)($smsTime / 1000);
         }
-        return is_numeric($smsTime) ? (int)$smsTime : strtotime((string)$smsTime);
+        return is_numeric($smsTime) ? (int)$smsTime : (strtotime((string)$smsTime) ?: time());
     }
 
     /**
-     * 2.3 Spending Trends (This month vs Last month outflow)
+     * Spending Trends (This month vs Last month outflow)
      */
     public function getSpendingTrends(?string $deviceToken = null): array {
         $now = time();
@@ -39,18 +28,18 @@ class ModInsights extends Model
         $thisMonthOutflow = 0.0;
         $lastMonthOutflow = 0.0;
         
-        $builder = $this->db->table('tbl_Sms s')
-            ->select('s.*, sc.direction as cl_direction')
-            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left');
-        if ($deviceToken) $builder->where('s.sms_owner', $deviceToken);
+        $builder = $this->db->table('tbl_Sms')
+            ->select('sms_amount, sms_direction, sms_time, sms_trans_date')
+            ->where('sms_is_finance', 1);
+        if ($deviceToken) $builder->where('sms_owner', $deviceToken);
         $allSms = $builder->get()->getResult();
         
         foreach ($allSms as $sms) {
-            $dir = strtolower($sms->cl_direction ?? '');
-            if ($dir !== 'outgoing') continue;
+            $dir = strtolower($sms->sms_direction ?? '');
+            if ($dir !== 'outgoing' && $dir !== 'sent' && $dir !== 'money_out') continue;
             
-            $ts = $this->normalizeTimestamp($sms->sms_time);
-            $amount = $this->extractAmount(strtolower(base64_decode($sms->sms_body)));
+            $ts = $this->normalizeTimestamp($sms->sms_time, $sms->sms_trans_date);
+            $amount = (float)($sms->sms_amount ?? 0);
             
             if ($ts >= $thisMonthStart) {
                 $thisMonthOutflow += $amount;
@@ -71,53 +60,39 @@ class ModInsights extends Model
     }
 
     /**
-     * 2.4 Recurring Payments Detector
+     * Recurring Payments Detector
      */
     public function getRecurringPayments(?string $deviceToken = null): array {
-        if (!$this->db->tableExists('tbl_Analyzed_Transactions')) return [];
-        
-        $sixMonthsAgo = date('Y-m-d H:i:s', strtotime('-6 months'));
-        
-        // Find transactions with same counterparty and same amount appearing 3+ times
-        $db = \Config\Database::connect();
-        
-        $sql = "
-            SELECT a.counterparty, a.amount, COUNT(*) as occurs, MAX(a.trans_date) as last_paid
-            FROM tbl_Analyzed_Transactions a
-            LEFT JOIN tbl_Sms s ON s.sms__id = a.orig_sms_id
-            WHERE a.description IN ('Paybill', 'Till', 'Sent', 'Sent to LNM', 'Sent to Mobile')
-              AND a.trans_date >= ?
-              AND a.counterparty != 'Unknown'
-        ";
-        $params = [$sixMonthsAgo];
-        
-        if ($deviceToken) {
-            $sql .= " AND s.sms_owner = ? ";
-            $params[] = $deviceToken;
-        }
-        
-        $sql .= "
-            GROUP BY a.counterparty, a.amount
-            HAVING occurs >= 3
-            ORDER BY last_paid DESC
-            LIMIT 10
-        ";
-        
-        $query = $db->query($sql, $params);
+        $builder = $this->db->table('tbl_Sms')
+            ->select('sms_counterparty as counterparty, sms_amount as amount, COUNT(*) as occurs, MAX(sms_trans_date) as last_paid')
+            ->where('sms_is_finance', 1)
+            ->where('sms_is_transactional', 1)
+            ->where('sms_counterparty IS NOT NULL')
+            ->where('sms_counterparty !=', '')
+            ->where('sms_counterparty !=', 'Unknown');
 
-        return $query->getResult();
+        if ($deviceToken) {
+            $builder->where('sms_owner', $deviceToken);
+        }
+
+        $builder->groupBy('sms_counterparty, sms_amount')
+            ->having('occurs >=', 2)
+            ->orderBy('last_paid', 'DESC')
+            ->limit(10);
+
+        return $builder->get()->getResult();
     }
 
     /**
-     * 3. Smart Alerts Engine
+     * Smart Alerts Engine
      */
     public function getSmartAlerts(?string $deviceToken = null): array {
         $alerts = [];
-        $builder = $this->db->table('tbl_Sms s')
-            ->select('s.*, sc.direction as cl_direction')
-            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
-            ->orderBy('s.sms_time', 'DESC');
-        if ($deviceToken) $builder->where('s.sms_owner', $deviceToken);
+        $builder = $this->db->table('tbl_Sms')
+            ->select('sms_amount, sms_balance, sms_direction, sms_transaction_type, sms_time, sms_trans_date, sms_counterparty')
+            ->where('sms_is_finance', 1)
+            ->orderBy('id', 'DESC');
+        if ($deviceToken) $builder->where('sms_owner', $deviceToken);
         $allSms = $builder->get()->getResult();
         
         if (empty($allSms)) return $alerts;
@@ -125,7 +100,7 @@ class ModInsights extends Model
         // 1. Low Balance Warning
         $latestBal = -1.0;
         foreach ($allSms as $sms) {
-            $bal = $this->extractBalance(strtolower(base64_decode($sms->sms_body)));
+            $bal = (float)($sms->sms_balance ?? -1.0);
             if ($bal >= 0) {
                 $latestBal = $bal;
                 break;
@@ -141,64 +116,60 @@ class ModInsights extends Model
             ];
         }
 
-        // 2 & 3. Unusual Activity & Fuliza Index (Analyze last 60 days)
-        $sixtyDaysAgo = strtotime('-60 days');
+        // 2 & 3. Unusual Activity & Fuliza Index
         $outflowAmounts = [];
         $totalOutflow = 0.0;
         $fulizaTaken = 0.0;
         
         $recentTransactions = [];
-        $fortyEightHoursAgo = strtotime('-48 hours');
 
         foreach ($allSms as $sms) {
-            $ts = $this->normalizeTimestamp($sms->sms_time);
-            if ($ts < $sixtyDaysAgo) continue;
+            $dir = strtolower($sms->sms_direction ?? '');
+            $type = strtolower($sms->sms_transaction_type ?? '');
+            $amount = (float)($sms->sms_amount ?? 0);
             
-            $dir = strtolower($sms->cl_direction ?? '');
-            $body = strtolower(base64_decode($sms->sms_body));
-            $amount = $this->extractAmount($body);
-            
-            if ($dir === 'outgoing') {
+            if ($dir === 'outgoing' || $dir === 'sent' || $dir === 'money_out') {
                 $outflowAmounts[] = $amount;
                 $totalOutflow += $amount;
                 
-                if ($ts >= $fortyEightHoursAgo && $amount > 0) {
+                if ($amount > 0) {
                     $recentTransactions[] = ['amount' => $amount, 'sms' => $sms];
                 }
             }
             
-            if (strpos($body, 'fuliza') !== false && strpos($body, 'taken') !== false) {
+            if ($type === 'loan') {
                 $fulizaTaken += $amount;
             }
         }
         
         // Processing Unusual Activity
-        if (count($outflowAmounts) > 10) {
+        if (count($outflowAmounts) > 5) {
             $avgOutflow = array_sum($outflowAmounts) / count($outflowAmounts);
-            $anomalyThreshold = $avgOutflow * 4; // 4x average is unusual
+            $anomalyThreshold = $avgOutflow * 3;
             
-            foreach ($recentTransactions as $rt) {
-                if ($rt['amount'] > $anomalyThreshold && $rt['amount'] > 5000) {
+            foreach (array_slice($recentTransactions, 0, 10) as $rt) {
+                if ($rt['amount'] > $anomalyThreshold && $rt['amount'] > 2000) {
+                    $cp = !empty($rt['sms']->sms_counterparty) ? $rt['sms']->sms_counterparty : 'recent transaction';
                     $alerts[] = [
                         'type'    => 'unusual_activity',
-                        'level'   => 'danger',
-                        'title'   => 'Unusual Activity Detected',
-                        'message' => 'Large transaction of Ksh ' . number_format($rt['amount'], 2) . ' detected recently. Average is Ksh ' . number_format($avgOutflow, 0) . '.'
+                        'level'   => 'warning',
+                        'title'   => 'High Value Transaction',
+                        'message' => 'Transaction of Ksh ' . number_format($rt['amount'], 2) . ' to ' . htmlspecialchars($cp) . ' is above your average spend of Ksh ' . number_format($avgOutflow, 0) . '.'
                     ];
-                    break; // Only show one anomaly alert
+                    break;
                 }
             }
         }
         
         // Processing Fuliza Dependency Index
-        if ($totalOutflow > 0) {
+        if ($totalOutflow > 0 && $fulizaTaken > 0) {
             $fulizaRatio = ($fulizaTaken / $totalOutflow) * 100;
-            if ($fulizaRatio > 25) {
+            if ($fulizaRatio > 15) {
                 $alerts[] = [
                     'type'    => 'fuliza_index',
-                    'level'   => $fulizaRatio > 50 ? 'danger' : 'warning',
-                    'title'   => 'High Fuliza Dependency',
-                    'message' => round($fulizaRatio, 1) . '% of your spending in the last 60 days came from Fuliza (Ksh ' . number_format($fulizaTaken, 0) . ').'
+                    'level'   => $fulizaRatio > 40 ? 'danger' : 'warning',
+                    'title'   => 'High Overdraft/Loan Usage',
+                    'message' => round($fulizaRatio, 1) . '% of your recorded outflow (Ksh ' . number_format($fulizaTaken, 0) . ') came from loans/overdrafts.'
                 ];
             }
         }
@@ -212,32 +183,51 @@ class ModInsights extends Model
     public function getAIObservations(?string $deviceToken = null): array {
         $observations = [];
 
-        $builder = $this->db->table('tbl_Sms s')
-            ->select('s.*, sc.direction as cl_direction')
-            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
-            ->orderBy('s.sms_time', 'DESC');
-        if ($deviceToken) $builder->where('s.sms_owner', $deviceToken);
+        $builder = $this->db->table('tbl_Sms')
+            ->select('sms_amount, sms_direction, sms_transaction_type, sms_category, sms_counterparty, sms_time, sms_trans_date')
+            ->where('sms_is_finance', 1)
+            ->orderBy('id', 'DESC');
+        if ($deviceToken) $builder->where('sms_owner', $deviceToken);
         $allSms = $builder->get()->getResult();
 
         if (empty($allSms)) {
             return [
                 ['type' => 'neutral', 'label' => 'NO DATA YET', 'icon' => 'fa-circle-info',
-                 'text' => 'No transactions have been synced yet. Upload data from your Android device to get personalized insights.'],
+                 'text' => 'No financial transactions recorded yet.'],
             ];
         }
 
-        // --- 1. Peak Spending Day of the Week ---
-        $dayTotals = array_fill(0, 7, 0); // 0=Sun, 1=Mon ... 6=Sat
+        // --- 1. Top Counterparty Insight ---
+        $cpTotals = [];
+        foreach ($allSms as $sms) {
+            $cp = $sms->sms_counterparty;
+            if (empty($cp) || $cp === 'Unknown') continue;
+            $amt = (float)($sms->sms_amount ?? 0);
+            if (!isset($cpTotals[$cp])) $cpTotals[$cp] = 0;
+            $cpTotals[$cp] += $amt;
+        }
+        if (!empty($cpTotals)) {
+            arsort($cpTotals);
+            $topCp = array_key_first($cpTotals);
+            $topAmt = $cpTotals[$topCp];
+            $observations[] = [
+                'type'  => 'info',
+                'label' => 'TOP RECIPIENT / COUNTERPARTY',
+                'icon'  => 'fa-user-tag',
+                'text'  => 'Your highest total transaction volume is with <strong>' . htmlspecialchars($topCp) . '</strong> at <strong>Ksh ' . number_format($topAmt, 2) . '</strong>.'
+            ];
+        }
+
+        // --- 2. Peak Spending Day of Week ---
+        $dayTotals = array_fill(0, 7, 0);
         $dayNames  = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        $sixtyDaysAgo = strtotime('-60 days');
 
         foreach ($allSms as $sms) {
-            $ts = $this->normalizeTimestamp($sms->sms_time);
-            if ($ts < $sixtyDaysAgo) continue;
-            $dir = strtolower($sms->cl_direction ?? '');
-            if ($dir !== 'outgoing') continue;
-            $amount = $this->extractAmount(strtolower(base64_decode($sms->sms_body)));
-            $dow = (int) date('w', $ts); // 0 = Sunday
+            $dir = strtolower($sms->sms_direction ?? '');
+            if ($dir !== 'outgoing' && $dir !== 'sent' && $dir !== 'money_out') continue;
+            $ts = $this->normalizeTimestamp($sms->sms_time, $sms->sms_trans_date);
+            $amount = (float)($sms->sms_amount ?? 0);
+            $dow = (int) date('w', $ts);
             $dayTotals[$dow] += $amount;
         }
 
@@ -248,14 +238,11 @@ class ModInsights extends Model
                 'type'  => 'warning',
                 'label' => 'PEAK SPENDING DAY',
                 'icon'  => 'fa-calendar-day',
-                'text'  => 'You spend the most on <strong>' . $dayNames[$peakDayIndex] . 's</strong>. '
-                         . 'Total outflow on ' . $dayNames[$peakDayIndex] . 's over the last 60 days: '
-                         . '<strong>Ksh ' . number_format($peakDayTotal, 0) . '</strong>. '
-                         . 'Consider setting a ' . $dayNames[$peakDayIndex] . ' budget.'
+                'text'  => 'You spend the most on <strong>' . $dayNames[$peakDayIndex] . 's</strong> with a total outflow of <strong>Ksh ' . number_format($peakDayTotal, 2) . '</strong>.'
             ];
         }
 
-        // --- 2. Month-over-Month Spending Trend ---
+        // --- 3. Month-over-Month Spending Trend ---
         $trends = $this->getSpendingTrends($deviceToken);
         if ($trends['last_month'] > 0) {
             $pct = abs($trends['percentage']);
@@ -264,62 +251,14 @@ class ModInsights extends Model
                     'type'  => 'success',
                     'label' => 'SAVINGS OPPORTUNITY',
                     'icon'  => 'fa-arrow-trend-down',
-                    'text'  => 'Great news! Your spending this month is <strong>' . number_format($pct, 1) . '% lower</strong> '
-                             . 'than last month (Ksh ' . number_format($trends['last_month'], 0) . ' → '
-                             . 'Ksh ' . number_format($trends['this_month'], 0) . '). Keep it up!'
+                    'text'  => 'Spending this month is <strong>' . number_format($pct, 1) . '% lower</strong> than last month (Ksh ' . number_format($trends['last_month'], 0) . ' → Ksh ' . number_format($trends['this_month'], 0) . ').'
                 ];
             } elseif ($trends['trend'] === 'up') {
                 $observations[] = [
                     'type'  => 'danger',
                     'label' => 'SPENDING INCREASE',
                     'icon'  => 'fa-arrow-trend-up',
-                    'text'  => 'Your spending this month is <strong>' . number_format($pct, 1) . '% higher</strong> '
-                             . 'than last month (Ksh ' . number_format($trends['last_month'], 0) . ' → '
-                             . 'Ksh ' . number_format($trends['this_month'], 0) . '). Review your outgoings.'
-                ];
-            } else {
-                $observations[] = [
-                    'type'  => 'neutral',
-                    'label' => 'SPENDING STABLE',
-                    'icon'  => 'fa-equals',
-                    'text'  => 'Your spending is consistent with last month at around Ksh ' . number_format($trends['this_month'], 0) . '.'
-                ];
-            }
-        }
-
-        // --- 3. Fuliza Dependency ---
-        $totalOutflow = 0.0;
-        $fulizaTaken  = 0.0;
-        foreach ($allSms as $sms) {
-            $ts = $this->normalizeTimestamp($sms->sms_time);
-            if ($ts < $sixtyDaysAgo) continue;
-            $dir    = strtolower($sms->cl_direction ?? '');
-            $body   = strtolower(base64_decode($sms->sms_body));
-            $amount = $this->extractAmount($body);
-            if ($dir === 'outgoing') $totalOutflow += $amount;
-            if (strpos($body, 'fuliza') !== false && strpos($body, 'taken') !== false) $fulizaTaken += $amount;
-        }
-
-        if ($totalOutflow > 0) {
-            $fulizaRatio = ($fulizaTaken / $totalOutflow) * 100;
-            if ($fulizaRatio > 0) {
-                $severity = $fulizaRatio > 40 ? 'danger' : ($fulizaRatio > 15 ? 'warning' : 'success');
-                $assessment = $fulizaRatio > 40 ? 'Heavy reliance — consider reducing Fuliza usage to avoid compounding debt.'
-                    : ($fulizaRatio > 15 ? 'Moderate usage — monitor closely to keep debt in check.'
-                    : 'Low usage — you are managing Fuliza responsibly.');
-                $observations[] = [
-                    'type'  => $severity,
-                    'label' => 'FULIZA USAGE',
-                    'icon'  => 'fa-percent',
-                    'text'  => '<strong>' . number_format($fulizaRatio, 1) . '%</strong> of your last 60-day outflow '
-                             . '(Ksh ' . number_format($fulizaTaken, 0) . ') came from Fuliza. ' . $assessment
-                ];
-            } else {
-                $observations[] = [
-                    'type'  => 'success',
-                    'label' => 'FULIZA USAGE',
-                    'icon'  => 'fa-circle-check',
-                    'text'  => 'No Fuliza usage detected in the last 60 days. Excellent financial discipline!'
+                    'text'  => 'Spending this month is <strong>' . number_format($pct, 1) . '% higher</strong> than last month (Ksh ' . number_format($trends['last_month'], 0) . ' → Ksh ' . number_format($trends['this_month'], 0) . ').'
                 ];
             }
         }
@@ -328,14 +267,13 @@ class ModInsights extends Model
     }
 
     /**
-     * 4. AI Financial Health Score (0-100)
+     * AI Financial Health Score (0-100)
      */
     public function getFinancialHealthScore(?string $deviceToken = null): array {
-        $builder = $this->db->table('tbl_Sms s')
-            ->select('s.*, sc.direction as cl_direction')
-            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
-            ->orderBy('s.sms_time', 'DESC');
-        if ($deviceToken) $builder->where('s.sms_owner', $deviceToken);
+        $builder = $this->db->table('tbl_Sms')
+            ->select('sms_amount, sms_direction, sms_transaction_type')
+            ->where('sms_is_finance', 1);
+        if ($deviceToken) $builder->where('sms_owner', $deviceToken);
         $allSms = $builder->get()->getResult();
         
         $score = 100;
@@ -343,53 +281,50 @@ class ModInsights extends Model
         $outflow = 0.0;
         $fuliza = 0.0;
 
-        $sixtyDaysAgo = strtotime('-60 days');
-
         foreach ($allSms as $sms) {
-            $ts = $this->normalizeTimestamp($sms->sms_time);
-            if ($ts < $sixtyDaysAgo) continue;
+            $dir    = strtolower($sms->sms_direction ?? '');
+            $type   = strtolower($sms->sms_transaction_type ?? '');
+            $amount = (float)($sms->sms_amount ?? 0);
 
-            $dir   = strtolower($sms->cl_direction ?? '');
-            $body  = strtolower(base64_decode($sms->sms_body));
-            $amount = $this->extractAmount($body);
-
-            if ($dir === 'outgoing') {
+            if ($dir === 'outgoing' || $dir === 'sent' || $dir === 'money_out') {
                 $outflow += $amount;
-            } elseif ($dir === 'incoming') {
+            } elseif ($dir === 'incoming' || $dir === 'received' || $dir === 'money_in') {
                 $inflow += $amount;
             }
             
-            if (strpos($body, 'fuliza') !== false && strpos($body, 'taken') !== false) {
+            if ($type === 'loan') {
                 $fuliza += $amount;
             }
         }
 
         $tips = [];
 
+        if ($inflow == 0 && $outflow == 0) {
+            return [
+                'score' => 50,
+                'color' => '#FFA502',
+                'tips'  => ['Awaiting financial transaction data to calculate accurate score.']
+            ];
+        }
+
         // 1. Savings Ratio (40 points)
         if ($outflow > $inflow) {
             $ratio = $inflow == 0 ? 2 : ($outflow / $inflow);
             if ($ratio > 1.5) { $score -= 35; $tips[] = "Spending significantly exceeds income (High Risk)."; }
-            elseif ($ratio > 1.1) { $score -= 20; $tips[] = "Spending slightly higher than income (Moderate Risk)."; }
-            elseif ($ratio > 1.0) { $score -= 10; }
+            elseif ($ratio > 1.1) { $score -= 20; $tips[] = "Spending exceeds income (Moderate Risk)."; }
+            elseif ($ratio > 1.0) { $score -= 10; $tips[] = "Spending slightly higher than income."; }
         } else {
-            $tips[] = "Excellent savings ratio (Inflow > Outflow).";
+            $tips[] = "Healthy cash flow (Inflow >= Outflow).";
         }
 
-        // 2. Fuliza Dependency (40 points)
+        // 2. Loan Dependency (40 points)
         if ($outflow > 0) {
             $fulizaRatio = $fuliza / $outflow;
-            if ($fulizaRatio > 0.4) { $score -= 40; $tips[] = "Heavy Fuliza reliance detected (>40% of spend)."; }
-            elseif ($fulizaRatio > 0.2) { $score -= 20; $tips[] = "Moderate Fuliza usage (>20% of spend)."; }
-            elseif ($fulizaRatio > 0.05) { $score -= 5; }
+            if ($fulizaRatio > 0.4) { $score -= 40; $tips[] = "Heavy loan reliance detected (>40% of spend)."; }
+            elseif ($fulizaRatio > 0.2) { $score -= 20; $tips[] = "Moderate loan usage (>20% of spend)."; }
+            elseif ($fulizaRatio > 0.05) { $score -= 5; $tips[] = "Low loan usage."; }
         } else {
-            $tips[] = "Healthy independent spending (No/Low Fuliza).";
-        }
-
-        // 3. Activity Consistency (20 points)
-        if ($outflow == 0 && $inflow == 0) {
-            $score -= 20;
-            $tips[] = "Not enough recent data to calculate a robust score.";
+            $tips[] = "Independent spending (No loan reliance).";
         }
 
         $score = max(0, min(100, $score));

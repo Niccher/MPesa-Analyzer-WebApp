@@ -29,8 +29,8 @@
         <!-- Top nav (shared across Blocklist sub-pages) -->
         <ul class="nav nav-tabs mb-4" role="tablist">
             <li class="nav-item">
-                <a class="nav-link <?= $active_tab === 'blocked' ? 'active' : '' ?>" href="<?= base_url('dashboard/blocklist/blocked') ?>">
-                    <i class="fa-solid fa-ban me-1"></i> Blocked <span class="badge bg-secondary ms-1"><?= $counts['blocked'] ?></span>
+                <a class="nav-link <?= $active_tab === 'status' ? 'active' : '' ?>" href="<?= base_url('dashboard/blocklist/status') ?>">
+                    <i class="fa-solid fa-chart-line me-1"></i> Status
                 </a>
             </li>
             <li class="nav-item">
@@ -41,6 +41,11 @@
             <li class="nav-item">
                 <a class="nav-link <?= $active_tab === 'unknown' ? 'active' : '' ?>" href="<?= base_url('dashboard/blocklist/unknown') ?>">
                     <i class="fa-solid fa-question-circle me-1"></i> Unknown <span class="badge bg-secondary ms-1"><?= $counts['unknown'] ?></span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link <?= $active_tab === 'blocked' ? 'active' : '' ?>" href="<?= base_url('dashboard/blocklist/blocked') ?>">
+                    <i class="fa-solid fa-ban me-1"></i> Blocked <span class="badge bg-danger ms-1"><?= $counts['blocked'] ?></span>
                 </a>
             </li>
         </ul>
@@ -66,9 +71,18 @@
             </div>
         <?php else: ?>
             <div class="bulk-bar d-flex align-items-center gap-2 bg-white border rounded p-2 mb-3" id="bulkBar">
-                <button type="button" class="btn btn-sm <?= $bulkBtnClass ?>" id="bulkActionBtn" disabled>
-                    <i class="fa-solid fa-<?= $active_tab === 'blocked' ? 'check' : 'ban' ?> me-1"></i><?= $bulkLabel ?> <span id="selectedCount"></span>
-                </button>
+                <?php if ($active_tab === 'unknown'): ?>
+                    <button type="button" class="btn btn-sm btn-danger" id="bulkBlockBtn" disabled>
+                        <i class="fa-solid fa-ban me-1"></i>Block Selected <span class="selectedCount"></span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-success" id="bulkAllowBtn" disabled>
+                        <i class="fa-solid fa-star me-1"></i>Add Selected to Allowed List <span class="selectedCount"></span>
+                    </button>
+                <?php else: ?>
+                    <button type="button" class="btn btn-sm <?= $bulkBtnClass ?>" id="bulkActionBtn" disabled>
+                        <i class="fa-solid fa-<?= $active_tab === 'blocked' ? 'check' : 'ban' ?> me-1"></i><?= $bulkLabel ?> <span id="selectedCount"></span>
+                    </button>
+                <?php endif; ?>
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAllBtn">Select all</button>
                 <span class="text-muted small" id="selInfo"></span>
             </div>
@@ -107,9 +121,16 @@
                                             <i class="fa-solid fa-check me-1"></i> Unblock
                                         </button>
                                     <?php else: ?>
-                                        <button class="btn btn-sm btn-outline-danger row-action" data-sender="<?= esc($s['sender'], 'attr') ?>" data-action="block">
-                                            <i class="fa-solid fa-ban me-1"></i> Block
-                                        </button>
+                                        <div class="d-flex gap-1">
+                                            <button class="btn btn-sm btn-outline-danger row-action" data-sender="<?= esc($s['sender'], 'attr') ?>" data-action="block">
+                                                <i class="fa-solid fa-ban me-1"></i> Block
+                                            </button>
+                                            <?php if (!$s['allowed']): ?>
+                                                <button class="btn btn-sm btn-outline-success row-action" data-sender="<?= esc($s['sender'], 'attr') ?>" data-action="allow">
+                                                    <i class="fa-solid fa-star me-1"></i> Allow
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -130,6 +151,9 @@
 <script>
 const checkAll = document.getElementById('checkAll');
 const bulkBtn = document.getElementById('bulkActionBtn');
+const bulkBlockBtn = document.getElementById('bulkBlockBtn');
+const bulkAllowBtn = document.getElementById('bulkAllowBtn');
+const selectedCounts = document.querySelectorAll('.selectedCount');
 const selectedCount = document.getElementById('selectedCount');
 const bulkEndpoint = '<?= $bulkEndpoint ?>';
 const isBulkBlock = bulkEndpoint.includes('bulk-block');
@@ -141,8 +165,11 @@ function selected() {
 function refresh() {
     const sel = selected();
     checkAll.checked = sel.length > 0 && sel.length === document.querySelectorAll('.row-check').length;
-    bulkBtn.disabled = sel.length === 0;
-    selectedCount.textContent = sel.length ? `(${sel.length})` : '';
+    if (bulkBtn) bulkBtn.disabled = sel.length === 0;
+    if (bulkBlockBtn) bulkBlockBtn.disabled = sel.length === 0;
+    if (bulkAllowBtn) bulkAllowBtn.disabled = sel.length === 0;
+    if (selectedCount) selectedCount.textContent = sel.length ? `(${sel.length})` : '';
+    selectedCounts.forEach(el => el.textContent = sel.length ? `(${sel.length})` : '');
     document.getElementById('selInfo').textContent = sel.length ? `${sel.length} selected` : '';
 }
 
@@ -186,58 +213,138 @@ function postSenders(url, senders, msg) {
         .catch(err => Swal.fire({ icon: 'error', title: 'Error', text: err.message }));
 }
 
-bulkBtn.addEventListener('click', function() {
-    const sel = selected();
-    if (!sel.length) return;
-    const blocking = isBulkBlock;
-    Swal.fire({
-        title: (blocking ? 'Block' : 'Unblock') + ' selected senders?',
-        html: 'This will <strong>' + (blocking ? 'exclude' : 'include') + '</strong> '
-            + sel.length + ' sender(s) '
-            + (blocking ? 'from your finance intelligence.' : 'back into finance classification.'),
-        icon: blocking ? 'warning' : 'question',
-        showCancelButton: true,
-        confirmButtonColor: blocking ? '#dc3545' : '#28a745',
-        cancelButtonColor: '#6c757d',
-        confirmButtonText: blocking ? 'Yes, block them' : 'Yes, unblock them',
-        cancelButtonText: 'Cancel',
-        allowOutsideClick: false,
-        focusCancel: true,
-    }).then(result => {
-        if (result.isConfirmed) {
-            postSenders(bulkEndpoint, sel, {
-                title: blocking ? 'Senders blocked' : 'Senders unblocked',
-                html: sel.length + ' sender(s) ' + (blocking ? 'excluded from' : 'restored to') + ' finance intelligence.',
-            });
-        }
+if (bulkBtn) {
+    bulkBtn.addEventListener('click', function() {
+        const sel = selected();
+        if (!sel.length) return;
+        const blocking = isBulkBlock;
+        Swal.fire({
+            title: (blocking ? 'Block' : 'Unblock') + ' selected senders?',
+            html: 'This will <strong>' + (blocking ? 'exclude' : 'include') + '</strong> '
+                + sel.length + ' sender(s) '
+                + (blocking ? 'from your finance intelligence.' : 'back into finance classification.'),
+            icon: blocking ? 'warning' : 'question',
+            showCancelButton: true,
+            confirmButtonColor: blocking ? '#dc3545' : '#28a745',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: blocking ? 'Yes, block them' : 'Yes, unblock them',
+            cancelButtonText: 'Cancel',
+            allowOutsideClick: false,
+            focusCancel: true,
+        }).then(result => {
+            if (result.isConfirmed) {
+                postSenders(bulkEndpoint, sel, {
+                    title: blocking ? 'Senders blocked' : 'Senders unblocked',
+                    html: sel.length + ' sender(s) ' + (blocking ? 'excluded from' : 'restored to') + ' finance intelligence.',
+                });
+            }
+        });
     });
-});
+}
+
+if (bulkBlockBtn) {
+    bulkBlockBtn.addEventListener('click', function() {
+        const sel = selected();
+        if (!sel.length) return;
+        Swal.fire({
+            title: 'Block selected senders?',
+            html: 'This will <strong>exclude</strong> ' + sel.length + ' sender(s) from your finance intelligence.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, block them',
+            cancelButtonText: 'Cancel',
+            allowOutsideClick: false,
+            focusCancel: true,
+        }).then(result => {
+            if (result.isConfirmed) {
+                postSenders('<?= base_url('dashboard/blocklist/bulk-block') ?>', sel, {
+                    title: 'Senders blocked',
+                    html: sel.length + ' sender(s) excluded from finance intelligence.',
+                });
+            }
+        });
+    });
+}
+
+if (bulkAllowBtn) {
+    bulkAllowBtn.addEventListener('click', function() {
+        const sel = selected();
+        if (!sel.length) return;
+        Swal.fire({
+            title: 'Allow selected senders?',
+            html: 'This will <strong>allow</strong> ' + sel.length + ' sender(s) and classify them as finance.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, allow them',
+            cancelButtonText: 'Cancel',
+            allowOutsideClick: false,
+            focusCancel: true,
+        }).then(result => {
+            if (result.isConfirmed) {
+                postSenders('<?= base_url('dashboard/blocklist/bulk-allow') ?>', sel, {
+                    title: 'Senders allowed',
+                    html: sel.length + ' sender(s) added to allowed list.',
+                });
+            }
+        });
+    });
+}
 
 document.querySelectorAll('.row-action').forEach(btn => {
     btn.addEventListener('click', function() {
         const sender = this.dataset.sender;
         const action = this.dataset.action;
-        const url = action === 'block'
-            ? '<?= base_url('dashboard/blocklist/block') ?>'
-            : '<?= base_url('dashboard/blocklist/unblock') ?>';
+        let url = '<?= base_url('dashboard/blocklist/block') ?>';
+        if (action === 'unblock') {
+            url = '<?= base_url('dashboard/blocklist/unblock') ?>';
+        } else if (action === 'allow') {
+            url = '<?= base_url('dashboard/blocklist/allow') ?>';
+        }
+        
         const blocking = action === 'block';
+        const allowing = action === 'allow';
+        const unblocking = action === 'unblock';
+        
+        let title = 'Block sender?';
+        let html = 'Sender <strong>' + sender + '</strong> will be excluded from your finance intelligence.';
+        let icon = 'warning';
+        let confirmColor = '#dc3545';
+        let confirmText = 'Yes, block';
+        
+        if (allowing) {
+            title = 'Allow sender?';
+            html = 'Sender <strong>' + sender + '</strong> will be added to the allowed list and classified as finance.';
+            icon = 'question';
+            confirmColor = '#28a745';
+            confirmText = 'Yes, allow';
+        } else if (unblocking) {
+            title = 'Unblock sender?';
+            html = 'Sender <strong>' + sender + '</strong> will be restored for finance classification.';
+            icon = 'question';
+            confirmColor = '#28a745';
+            confirmText = 'Yes, unblock';
+        }
+
         Swal.fire({
-            title: (blocking ? 'Block' : 'Unblock') + ' sender?',
-            html: 'Sender <strong>' + sender + '</strong> will be '
-                + (blocking ? 'excluded from your finance intelligence.' : 'restored for finance classification.'),
-            icon: blocking ? 'warning' : 'question',
+            title: title,
+            html: html,
+            icon: icon,
             showCancelButton: true,
-            confirmButtonColor: blocking ? '#dc3545' : '#28a745',
+            confirmButtonColor: confirmColor,
             cancelButtonColor: '#6c757d',
-            confirmButtonText: blocking ? 'Yes, block' : 'Yes, unblock',
+            confirmButtonText: confirmText,
             cancelButtonText: 'Cancel',
             allowOutsideClick: false,
             focusCancel: true,
         }).then(result => {
             if (result.isConfirmed) {
                 postSenders(url, [sender], {
-                    title: blocking ? 'Sender blocked' : 'Sender unblocked',
-                    html: '<strong>' + sender + '</strong> ' + (blocking ? 'excluded from' : 'restored to') + ' finance intelligence.',
+                    title: allowing ? 'Sender allowed' : (blocking ? 'Sender blocked' : 'Sender unblocked'),
+                    html: '<strong>' + sender + '</strong> ' + (allowing ? 'added to allowed list' : (blocking ? 'excluded from' : 'restored to')) + ' finance intelligence.',
                 });
             }
         });

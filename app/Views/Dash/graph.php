@@ -171,6 +171,38 @@
     </div>
 </div>
 
+<!-- Additional Financial Intelligence Metrics -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="glass-card card p-3 h-100 border-0 border-start border-4 border-warning shadow-sm">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h6 class="text-secondary fw-bold mb-1" style="font-size:0.85rem;">Transaction Fees Leakage</h6>
+                    <h3 class="fw-bold mb-0 text-warning"><?= $cs ?> <?= number_format($total_fees ?? 0, 2) ?></h3>
+                    <p class="small text-muted mb-0 mt-1" style="font-size:0.75rem;">Excise duties &amp; transfer charges extracted by AI</p>
+                </div>
+                <div class="insight-icon bg-warning-subtle text-warning mb-0 fs-3 p-2 rounded-3">
+                    <i class="fa-solid fa-receipt"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="glass-card card p-3 h-100 border-0 border-start border-4 border-info shadow-sm">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h6 class="text-secondary fw-bold mb-1" style="font-size:0.85rem;">Total Loan Inflows</h6>
+                    <h3 class="fw-bold mb-0 text-info"><?= $cs ?> <?= number_format($total_loans ?? 0, 2) ?></h3>
+                    <p class="small text-muted mb-0 mt-1" style="font-size:0.75rem;">Fuliza, M-Shwari &amp; KCB disbursements</p>
+                </div>
+                <div class="insight-icon bg-info-subtle text-info mb-0 fs-3 p-2 rounded-3">
+                    <i class="fa-solid fa-hand-holding-dollar"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-4 mb-4">
     <!-- Main Cash Flow Chart -->
     <div class="col-12">
@@ -190,34 +222,52 @@
     <!-- Category Distribution -->
     <div class="col-lg-7">
         <div class="glass-card card border-0 p-4 h-100">
-            <h5 class="fw-bold mb-4">Spending Distribution</h5>
+            <h5 class="fw-bold mb-4"><i class="fa-solid fa-chart-pie me-2 text-primary"></i>Spending Distribution</h5>
             <div class="row align-items-center">
-                <div class="col-md-7">
+                <div class="col-md-6">
                     <div class="chart-container" style="height: 280px;">
                         <canvas id="donutChart"></canvas>
                     </div>
                 </div>
-                <div class="col-md-5">
-                    <?php 
-                    $colors = ['#5D5FEF', '#2ED573', '#FFA502', '#FF4757', '#1E90FF', '#a29bfe', '#fd79a8'];
-                    $idx = 0;
-                    $total = array_sum($analytics['categories'] ?? []) ?: 1;
-                    foreach (array_filter($analytics['categories'] ?? []) as $cat => $val): 
-                        $perc = round(($val / $total) * 100);
-                    ?>
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span class="small fw-bold text-secondary"><?= htmlspecialchars($cat) ?></span>
-                            <span class="small fw-bold"><?= $perc ?>%</span>
-                        </div>
-                        <div class="progress rounded-pill" style="height: 6px;">
-                            <div class="progress-bar rounded-pill" style="width: <?= $perc ?>%; background-color: <?= $colors[$idx % count($colors)] ?>;"></div>
-                        </div>
+                <div class="col-md-6">
+                    <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
+                        <table class="table table-sm table-borderless align-middle mb-0">
+                            <tbody>
+                                <?php 
+                                $colors = ['#5D5FEF', '#2ED573', '#FFA502', '#FF4757', '#1E90FF', '#a29bfe', '#fd79a8'];
+                                $idx = 0;
+                                $total = array_sum($analytics['categories'] ?? []) ?: 1;
+                                foreach (array_filter($analytics['categories'] ?? []) as $cat => $val): 
+                                    $perc = round(($val / $total) * 100);
+                                    $color = $colors[$idx % count($colors)];
+                                ?>
+                                <tr class="category-row cursor-pointer" onclick="showCategoryBreakdown('<?= esc($cat, 'js') ?>', '<?= $color ?>')" style="cursor: pointer; border-bottom: 1px solid rgba(0,0,0,0.03);">
+                                    <td style="width: 10px; padding: 10px 0;">
+                                        <span class="d-inline-block rounded-circle" style="width: 8px; height: 8px; background-color: <?= $color ?>;"></span>
+                                    </td>
+                                    <td style="padding: 10px 8px;">
+                                        <div class="fw-bold text-dark small mb-0"><?= htmlspecialchars($cat) ?></div>
+                                        <div class="progress rounded-pill mt-1" style="height: 4px; width: 100%;">
+                                            <div class="progress-bar rounded-pill" style="width: <?= $perc ?>%; background-color: <?= $color ?>;"></div>
+                                        </div>
+                                    </td>
+                                    <td class="text-end text-nowrap" style="padding: 10px 8px;">
+                                        <div class="small fw-bold text-dark"><?= $cs ?><?= number_format($val, 0) ?></div>
+                                        <div class="text-muted" style="font-size: 0.7rem;"><?= $perc ?>%</div>
+                                    </td>
+                                    <td class="text-end text-muted" style="width: 15px; padding: 10px 0;">
+                                        <i class="fa-solid fa-angle-right small"></i>
+                                    </td>
+                                </tr>
+                                <?php $idx++; endforeach; ?>
+                                <?php if ($idx === 0): ?>
+                                    <tr>
+                                        <td colspan="4" class="text-muted small text-center py-4">No category data available yet</td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
                     </div>
-                    <?php $idx++; endforeach; ?>
-                    <?php if ($idx === 0): ?>
-                        <p class="text-muted small text-center py-4">No category data available yet</p>
-                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -253,6 +303,50 @@
                 <?php if (empty($ai_observations)): ?>
                     <p class="text-muted small text-center py-4">No insights available yet. Process more data to generate observations.</p>
                 <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Category Breakdown Modal -->
+<div class="modal fade" id="categoryBreakdownModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2">
+                    <span id="modalCategoryColorCircle" class="d-inline-block rounded-circle" style="width: 16px; height: 16px;"></span>
+                    <span id="modalCategoryName">Category Breakdown</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small mb-3">Counterparties and recipient entities associated with this category spending registry.</p>
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-hover align-middle mb-0" id="categoryBreakdownTable">
+                        <thead>
+                            <tr class="table-light">
+                                <th>Counterparty Entity</th>
+                                <th class="text-center">Transactions</th>
+                                <th class="text-end">Total Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Loaded dynamically via AJAX -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="modalLoadingSpinner" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <div id="modalNoData" class="text-center py-4 text-muted d-none">
+                    <i class="fa-solid fa-circle-exclamation fs-3 mb-2"></i>
+                    <p class="mb-0 small">No counterparty matches found for this category.</p>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -348,6 +442,8 @@
     // 2. Donut Chart
     const labels = <?= json_encode(array_keys(array_filter($analytics['categories'] ?? []))) ?>;
     const values = <?= json_encode(array_values(array_filter($analytics['categories'] ?? []))) ?>;
+    const catColors = [primaryColor, successColor, warningColor, dangerColor, infoColor, '#a29bfe', '#fd79a8'];
+
     if (labels.length > 0) {
         const ctxDonut = document.getElementById('donutChart').getContext('2d');
         new Chart(ctxDonut, {
@@ -356,7 +452,7 @@
                 labels: labels,
                 datasets: [{
                     data: values,
-                    backgroundColor: [primaryColor, successColor, warningColor, dangerColor, infoColor, '#a29bfe', '#fd79a8'],
+                    backgroundColor: catColors,
                     borderWidth: 0,
                     hoverOffset: 15
                 }]
@@ -366,14 +462,81 @@
                 maintainAspectRatio: false,
                 cutout: '80%',
                 plugins: { legend: { display: false } },
-                animation: { animateScale: true, animateRotate: true }
+                animation: { animateScale: true, animateRotate: true },
+                onClick: (evt, activeElements) => {
+                    if (activeElements.length > 0) {
+                        const points = activeElements[0];
+                        const index = points.index;
+                        const categoryName = labels[index];
+                        const colorHex = catColors[index % catColors.length];
+                        showCategoryBreakdown(categoryName, colorHex);
+                    }
+                }
             }
         });
     } else {
         document.getElementById('donutChart').innerHTML = '<div class="d-flex align-items-center justify-content-center h-100 text-muted small">No data</div>';
     }
 
-    // 3. Export
+    // 3. Category Details Modal loader
+    window.showCategoryBreakdown = function(categoryName, colorHex) {
+        document.getElementById('modalCategoryName').innerText = categoryName + ' Spending Breakdown';
+        document.getElementById('modalCategoryColorCircle').style.backgroundColor = colorHex;
+
+        const tbody = document.querySelector('#categoryBreakdownTable tbody');
+        tbody.innerHTML = '';
+        document.getElementById('modalLoadingSpinner').classList.remove('d-none');
+        document.getElementById('modalNoData').classList.add('d-none');
+
+        const modalEl = new bootstrap.Modal(document.getElementById('categoryBreakdownModal'));
+        modalEl.show();
+
+        fetch(`<?= base_url('dashboard/graph/category-details') ?>?category=${encodeURIComponent(categoryName)}`)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('modalLoadingSpinner').classList.add('d-none');
+                if (data.length === 0) {
+                    document.getElementById('modalNoData').classList.remove('d-none');
+                    return;
+                }
+
+                data.forEach(item => {
+                    const tr = document.createElement('tr');
+                    
+                    const cellEntity = document.createElement('td');
+                    cellEntity.innerHTML = `<div class="fw-bold text-dark small">${escapeHtml(item.counterparty)}</div>`;
+                    
+                    const cellCount = document.createElement('td');
+                    cellCount.className = 'text-center small';
+                    cellCount.innerText = parseInt(item.trans_count).toLocaleString();
+
+                    const cellAmount = document.createElement('td');
+                    cellAmount.className = 'text-end fw-bold text-dark small';
+                    cellAmount.innerText = '<?= $cs ?> ' + parseFloat(item.total_amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+                    tr.appendChild(cellEntity);
+                    tr.appendChild(cellCount);
+                    tr.appendChild(cellAmount);
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('modalLoadingSpinner').classList.add('d-none');
+                document.getElementById('modalNoData').classList.remove('d-none');
+            });
+    };
+
+    function escapeHtml(text) {
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // 4. Export Graph
     window.exportGraph = function() {
         const link = document.createElement('a');
         link.download = 'mpesa_analytics_graph.png';

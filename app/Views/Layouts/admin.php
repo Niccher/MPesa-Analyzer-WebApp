@@ -234,13 +234,8 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?= ($currentURL == 'dashboard/search') ? 'active' : '' ?>" href="<?= base_url('dashboard/search') ?>">
-                        <i class="fa-solid fa-magnifying-glass"></i> Search & Filtering
-                    </a>
-                </li>
-                <li class="nav-item">
                     <a class="nav-link <?= strpos($currentURL, 'dashboard/transactions') !== false ? 'active' : '' ?>" href="<?= url_to('Transactions::index') ?>">
-                        <i class="fa-solid fa-list-check"></i> Transactions
+                        <i class="fa-solid fa-list-check"></i> Transaction Ledger
                     </a>
                 </li>
                 <li class="nav-item">
@@ -254,23 +249,13 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?= strpos($currentURL, 'dashboard/devices') !== false ? 'active' : '' ?>" href="<?= base_url('dashboard/devices') ?>">
-                        <i class="fa-solid fa-mobile-screen-button"></i> Devices
+                    <a class="nav-link <?= (strpos($currentURL, 'dashboard/settings') !== false || strpos($currentURL, 'dashboard/devices') !== false || $currentURL == 'dashboard/info') ? 'active' : '' ?>" href="<?= base_url('dashboard/settings/profile') ?>">
+                        <i class="fa-solid fa-sliders"></i> Control Center
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?= ($currentURL == 'dashboard/history') ? 'active' : '' ?>" href="<?= url_to('History::index') ?>">
+                    <a class="nav-link <?= strpos($currentURL, 'dashboard/history') !== false ? 'active' : '' ?>" href="<?= url_to('History::index') ?>">
                         <i class="fa-solid fa-clock-rotate-left"></i> History
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= strpos($currentURL, 'dashboard/settings') !== false ? 'active' : '' ?>" href="<?= base_url('dashboard/settings') ?>">
-                        <i class="fa-solid fa-gear"></i> Settings
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= ($currentURL == 'dashboard/info') ? 'active' : '' ?>" href="<?= url_to('Info::index') ?>">
-                        <i class="fa-solid fa-circle-info"></i> Info & Auth
                     </a>
                 </li>
                 <li class="nav-item">
@@ -303,11 +288,11 @@
 
                     <!-- Rescan Buttons -->
                     <div class="btn-group btn-group-sm me-3" role="group">
-                        <button class="btn btn-outline-warning fw-semibold d-flex align-items-center gap-1"
+                        <button class="btn btn-outline-primary fw-semibold d-flex align-items-center gap-1"
                                 id="rescanBtn" title="Process only new/unprocessed SMS">
                             <i class="fa-solid fa-arrows-rotate"></i> Rescan
                         </button>
-                        <button class="btn btn-outline-danger fw-semibold d-flex align-items-center gap-1"
+                        <button class="btn btn-outline-secondary fw-semibold d-flex align-items-center gap-1"
                                 id="rescanAllBtn" title="Reprocess ALL SMS from scratch (clears existing analysis)">
                             <i class="fa-solid fa-rotate"></i> Full
                         </button>
@@ -372,41 +357,153 @@
                                 }
                             }
 
-                            function populateModal(data) {
-                                const total = data.total || 0;
-                                const processed = data.processed || 0;
-                                const errors = data.errors || 0;
-                                const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+                             function populateModal(data) {
+                                 const total = data.total || 0;
+                                 const processed = data.processed || 0;
+                                 const errors = data.errors || 0;
+                                 const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
 
-                                document.getElementById('modalProgressBar').style.width = pct + '%';
-                                document.getElementById('modalProgressCount').textContent = processed + ' / ' + total;
-                                document.getElementById('modalTotal').textContent = total;
-                                document.getElementById('modalProcessed').textContent = processed;
-                                document.getElementById('modalErrors').textContent = errors;
+                                 const bar = document.getElementById('modalProgressBar');
+                                 bar.style.width = pct + '%';
+                                 document.getElementById('modalProgressCount').textContent = processed + ' / ' + total;
 
-                                if (data.job) {
-                                    const j = data.job;
-                                    let st = 'Status: <strong>' + j.status + '</strong>';
-                                    if (j.messages_processed) st += ' | ' + j.messages_processed + ' processed';
-                                    if (j.errors > 0) st += ' | ' + j.errors + ' errors';
-                                    if (j.duration_seconds) st += ' | ' + j.duration_seconds + 's elapsed';
-                                    document.getElementById('modalStatusText').innerHTML = st;
-                                } else {
-                                    document.getElementById('modalStatusText').textContent = 'Total SMS: ' + total + ', Completed: ' + processed + ', Errors: ' + errors;
-                                }
+                                 // Different colors for progressbar at different stages
+                                 bar.classList.remove('bg-danger', 'bg-warning', 'bg-info', 'bg-success');
+                                 if (pct < 30) {
+                                     bar.classList.add('bg-danger');
+                                 } else if (pct < 70) {
+                                     bar.classList.add('bg-warning');
+                                 } else if (pct < 100) {
+                                     bar.classList.add('bg-info');
+                                 } else {
+                                     bar.classList.add('bg-success');
+                                 }
 
-                                if (total > 0 && !data.running && (data.job && (data.job.status === 'completed' || data.job.status === 'failed'))) {
-                                    document.getElementById('modalProgressBar').classList.remove('progress-bar-animated');
-                                    if (data.job.status === 'completed') {
-                                        document.getElementById('modalProgressBar').classList.add('bg-success');
-                                    } else {
-                                        document.getElementById('modalProgressBar').classList.add('bg-danger');
-                                    }
+                                 // SMS Stats
+                                 document.getElementById('smsTotalCount').textContent = total;
+                                 document.getElementById('smsFinanceCount').textContent = data.finance_sms || 0;
+                                 document.getElementById('smsBadCount').textContent = data.skipped || 0;
+                                 document.getElementById('smsFinanceProgress').textContent = data.completed + ' of ' + (data.finance_sms || 0);
+
+                                 // Sender Stats
+                                 document.getElementById('sendersTotalCount').textContent = data.total_senders || 0;
+                                 document.getElementById('sendersFinanceCount').textContent = data.finance_senders || 0;
+                                 document.getElementById('sendersBadCount').textContent = data.bad_senders || 0;
+                                 document.getElementById('sendersProgress').textContent = data.processed_senders + ' of ' + (data.total_senders || 0);
+
+                                 // Errors Count
+                                 document.getElementById('modalErrors').innerHTML = '<i class="fa-solid fa-circle-xmark text-danger me-1 small"></i>' + errors;
+
+                                 // Speed & ETA calculations
+                                 let speedText = '—';
+                                 let etaText = '—';
+                                 let startedText = '—';
+                                 let engineText = '—';
+
+                                 if (data.job) {
+                                     const j = data.job;
+                                     if (j.started_at) {
+                                         startedText = j.started_at;
+                                         const startMs = new Date(j.started_at.replace(/-/g, '/')).getTime();
+                                         const nowMs = new Date().getTime();
+                                         const elapsedSec = Math.max(1, Math.round((nowMs - startMs) / 1000));
+
+                                         const financeSms = data.finance_sms || 0;
+                                         const completed = data.completed || 0;
+
+                                         if (processed > 0) {
+                                             const overallSpeed = (processed / elapsedSec).toFixed(1);
+                                             
+                                             // Compute financial SMS processing speed and base ETA on remaining financial SMS
+                                             if (completed > 0) {
+                                                 const extractionSpeed = completed / elapsedSec; // financial SMS per second
+                                                 speedText = overallSpeed + ' SMS/s <br><small class="text-muted" style="font-size:0.7rem;">(' + (extractionSpeed * 60).toFixed(1) + ' finance/min)</small>';
+
+                                                 if (financeSms > completed) {
+                                                     const remainingFinance = financeSms - completed;
+                                                     const etaSec = Math.round(remainingFinance / extractionSpeed);
+                                                     if (etaSec < 60) {
+                                                         etaText = etaSec + 's';
+                                                     } else {
+                                                         const mins = Math.floor(etaSec / 60);
+                                                         const secs = etaSec % 60;
+                                                         etaText = mins + 'm ' + secs + 's';
+                                                     }
+                                                 } else {
+                                                     etaText = 'Done';
+                                                 }
+                                             } else {
+                                                 speedText = overallSpeed + ' SMS/s';
+                                                 if (total > processed) {
+                                                     const remaining = total - processed;
+                                                     const etaSec = Math.round(remaining / (processed / elapsedSec));
+                                                     if (etaSec < 60) {
+                                                         etaText = etaSec + 's';
+                                                     } else {
+                                                         const mins = Math.floor(etaSec / 60);
+                                                         const secs = etaSec % 60;
+                                                         etaText = mins + 'm ' + secs + 's';
+                                                     }
+                                                 } else {
+                                                     etaText = 'Done';
+                                                 }
+                                             }
+                                         }
+                                     }
+
+                                     // Parse metadata for Engine details and Current Senders
+                                     if (j.metadata) {
+                                         try {
+                                             const meta = typeof j.metadata === 'string' ? JSON.parse(j.metadata) : j.metadata;
+                                             if (meta.llm_engine) {
+                                                 engineText = meta.llm_engine;
+                                                 if (meta.model) {
+                                                     engineText += ' (' + meta.model + ')';
+                                                 }
+                                                 if (meta.model_provider) {
+                                                     engineText = meta.model_provider + ' / ' + engineText;
+                                                 }
+                                             }
+                                             if (meta.current_senders && meta.current_senders.length > 0) {
+                                                 document.getElementById('modalCurrentSenders').textContent = meta.current_senders.join(', ');
+                                                 document.getElementById('modalCurrentSendersContainer').classList.remove('d-none');
+                                             } else {
+                                                 document.getElementById('modalCurrentSendersContainer').classList.add('d-none');
+                                             }
+                                         } catch (e) {
+                                             document.getElementById('modalCurrentSendersContainer').classList.add('d-none');
+                                         }
+                                     } else {
+                                         document.getElementById('modalCurrentSendersContainer').classList.add('d-none');
+                                     }
+
+                                     let st = 'Status: <strong>' + j.status + '</strong>';
+                                     if (processed) st += ' | ' + processed + ' processed';
+                                     if (errors > 0) st += ' | ' + errors + ' errors';
+                                     if (j.duration_seconds) st += ' | ' + j.duration_seconds + 's elapsed';
+                                     document.getElementById('modalStatusText').innerHTML = '<i class="fa-solid fa-circle-info me-1"></i>' + st;
+                                 } else {
+                                     document.getElementById('modalStatusText').innerHTML = '<i class="fa-solid fa-circle-info me-1"></i>Total SMS: ' + total + ', Completed: ' + processed + ', Errors: ' + errors;
+                                     document.getElementById('modalCurrentSendersContainer').classList.add('d-none');
+                                 }
+
+                                 document.getElementById('modalStartedAt').textContent = startedText;
+                                 document.getElementById('modalEngine').textContent = engineText;
+                                 document.getElementById('modalSpeed').innerHTML = '<i class="fa-solid fa-gauge-high text-info me-1 small"></i>' + speedText;
+                                 document.getElementById('modalETA').innerHTML = '<i class="fa-solid fa-hourglass-half text-primary me-1 small"></i>' + etaText;
+
+                                 const stopBtn = document.getElementById('modalStopJobBtn');
+                                 if (stopBtn && data.job && ['queued', 'processing', 'starting'].includes(data.job.status)) {
+                                     stopBtn.classList.remove('d-none');
+                                     stopBtn.setAttribute('data-job-id', data.job.id);
+                                 } else if (stopBtn) {
+                                     stopBtn.classList.add('d-none');
+                                 }
+
+                                 if (total > 0 && !data.running && (data.job && (data.job.status === 'completed' || data.job.status === 'done' || data.job.status === 'failed'))) {
+                                    bar.classList.remove('progress-bar-animated');
                                 } else if (total > 0 && processed >= total) {
-                                    document.getElementById('modalProgressBar').classList.remove('progress-bar-animated');
-                                    document.getElementById('modalProgressBar').classList.add('bg-success');
-                                } else {
-                                    document.getElementById('modalProgressBar').classList.remove('bg-success', 'bg-danger');
+                                    bar.classList.remove('progress-bar-animated');
                                 }
                             }
 
@@ -418,24 +515,26 @@
                                         const processed = data.processed || 0;
                                         const errors = data.errors || 0;
 
-                                        if (data.job && (data.job.status === 'completed' || data.job.status === 'failed')) {
+                                        const terminalStatuses = ['done', 'error', 'failed', 'cancelled', 'disabled', 'completed'];
+                                        const isTerminal = data.job && terminalStatuses.includes(data.job.status);
+
+                                        if (isTerminal) {
                                             stopPolling();
-                                            if (data.job.status === 'completed') {
-                                                setBadgeState('complete', data.job.messages_processed + ' processed');
-                                                showAlert('Scan Complete', data.job.messages_processed + ' messages processed' + (errors ? ', ' + errors + ' errors' : '') + '.', 'success');
+                                            if (data.job.status === 'done' || data.job.status === 'completed') {
+                                                setBadgeState('complete', processed + ' processed');
+                                                showAlert('Scan Complete', processed + ' messages processed.', 'success');
                                             } else {
-                                                setBadgeState('failed', 'Scan failed');
-                                                showAlert('Scan Failed', 'LLM analysis encountered errors.', 'danger');
+                                                setBadgeState('failed', 'Scan stopped/failed (' + data.job.status + ')');
+                                                showAlert('Scan Stopped', 'Job status: ' + data.job.status, 'warning');
                                             }
                                             populateModal(data);
-                                            setTimeout(() => window.location.reload(), 3000);
-                                        } else if (!data.running && processed >= total && total > 0) {
+                                        } else if (total > 0 && processed >= total) {
                                             stopPolling();
                                             setBadgeState('complete', processed + ' processed');
                                             showAlert('Scan Complete', processed + ' messages processed.', 'success');
                                             populateModal(data);
                                             setTimeout(() => window.location.reload(), 3000);
-                                        } else if (data.running || (total > 0 && processed < total)) {
+                                        } else if (data.running) {
                                             const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
                                             setBadgeState('scanning', pct + '% - ' + processed + '/' + total);
                                             populateModal(data);
@@ -455,58 +554,134 @@
                                     .then(data => {
                                         const total = data.total || 0;
                                         const processed = data.processed || 0;
-                                        if (data.running || (total > 0 && processed < total && data.job && data.job.status !== 'completed' && data.job.status !== 'failed')) {
+                                        const terminalStatuses = ['done', 'error', 'failed', 'cancelled', 'disabled', 'completed'];
+                                        const isTerminal = data.job && terminalStatuses.includes(data.job.status);
+
+                                        if (data.running && !isTerminal) {
                                             startPolling();
-                                        } else if (data.job && data.job.status === 'completed') {
-                                            setBadgeState('complete', data.job.messages_processed + ' processed');
-                                        } else if (data.job && data.job.status === 'failed') {
-                                            setBadgeState('failed', 'Scan failed');
+                                        } else if (data.job && (data.job.status === 'completed' || data.job.status === 'done')) {
+                                            setBadgeState('complete', processed + ' processed');
+                                        } else if (isTerminal) {
+                                            setBadgeState('failed', 'Scan stopped/failed (' + data.job.status + ')');
                                         }
                                     })
                                     .catch(() => {});
                             });
 
+                            document.getElementById('modalStopJobBtn')?.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                const jobId = this.getAttribute('data-job-id');
+                                if (!jobId) return;
+
+                                Swal.fire({
+                                    title: 'Stop ML Job?',
+                                    text: 'Are you sure you want to stop/cancel Job #' + jobId + '?',
+                                    icon: 'warning',
+                                    showCancelButton: true,
+                                    confirmButtonColor: '#d33',
+                                    cancelButtonColor: '#3085d6',
+                                    confirmButtonText: 'Yes, Stop It!',
+                                    cancelButtonText: 'Cancel'
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        this.disabled = true;
+                                        const formData = new FormData();
+                                        formData.append('job_id', jobId);
+
+                                        fetch('<?= $baseUrl ?>dashboard/history/jobs/stop', {
+                                            method: 'POST',
+                                            body: formData,
+                                            headers: {
+                                                'X-Requested-With': 'XMLHttpRequest'
+                                            }
+                                        })
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            if (data.status === 'success') {
+                                                Swal.fire({
+                                                    title: 'Stopped!',
+                                                    text: data.message,
+                                                    icon: 'success',
+                                                    timer: 2000,
+                                                    showConfirmButton: false
+                                                });
+                                                setTimeout(() => window.location.reload(), 1500);
+                                            } else {
+                                                Swal.fire('Error', data.message, 'error');
+                                                this.disabled = false;
+                                            }
+                                        })
+                                        .catch(err => {
+                                            Swal.fire('Error', 'Failed to send request: ' + err.message, 'error');
+                                            this.disabled = false;
+                                        });
+                                    }
+                                });
+                            });
+
                             document.getElementById('rescanBtn')?.addEventListener('click', function(e) {
                                 e.preventDefault();
-                                if (!confirm('This will re-analyze all unprocessed SMS using the LLM. It may take several minutes depending on the volume. Continue?')) return;
                                 const btn = this;
-                                btn.disabled = true;
-                                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Scanning...';
-                                fetch('<?= $baseUrl ?>dashboard/rescan', { method: 'POST' })
-                                    .then(r => r.json())
-                                    .then(data => {
-                                        if (data.status === 'started') {
-                                            showAlert('Rescan Started', data.message || 'LLM analysis is running in the background.', 'info');
-                                            startPolling();
-                                        } else {
-                                            showAlert('Notice', data.message || 'No unprocessed SMS found.', 'warning');
-                                            setBadgeState('idle', 'No unprocessed SMS');
-                                        }
-                                    })
-                                    .catch(err => showAlert('Error', 'Failed to start rescan: ' + err.message, 'danger'))
-                                    .finally(() => {
-                                        btn.disabled = false;
-                                        btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Rescan';
-                                    });
+                                Swal.fire({
+                                    title: 'Start Rescan?',
+                                    text: 'This will analyze all new/unprocessed SMS messages using the LLM. It may take several minutes depending on the volume.',
+                                    icon: 'question',
+                                    showCancelButton: true,
+                                    confirmButtonColor: 'var(--primary)',
+                                    cancelButtonColor: '#6c757d',
+                                    confirmButtonText: 'Yes, start!'
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        btn.disabled = true;
+                                        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Scanning...';
+                                        fetch('<?= $baseUrl ?>dashboard/rescan', { method: 'POST' })
+                                            .then(r => r.json())
+                                            .then(data => {
+                                                if (data.status === 'started') {
+                                                    showAlert('Rescan Started', data.message || 'LLM analysis is running in the background.', 'info');
+                                                    startPolling();
+                                                } else {
+                                                    showAlert('Notice', data.message || 'No unprocessed SMS found.', 'warning');
+                                                    setBadgeState('idle', 'No unprocessed SMS');
+                                                }
+                                            })
+                                            .catch(err => showAlert('Error', 'Failed to start rescan: ' + err.message, 'danger'))
+                                            .finally(() => {
+                                                btn.disabled = false;
+                                                btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Rescan';
+                                            });
+                                    }
+                                });
                             });
 
                             document.getElementById('rescanAllBtn')?.addEventListener('click', function(e) {
                                 e.preventDefault();
-                                if (!confirm('WARNING: This will DELETE all existing LLM analysis and re-process every single SMS from scratch. This may take many minutes. Continue?')) return;
                                 const btn = this;
-                                btn.disabled = true;
-                                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Resetting...';
-                                fetch('<?= $baseUrl ?>dashboard/rescan/all', { method: 'POST' })
-                                    .then(r => r.json())
-                                    .then(data => {
-                                        showAlert(data.status === 'started' ? 'Reprocess Started' : 'Notice', data.message || 'Processing triggered.', data.status === 'started' ? 'info' : 'warning');
-                                        if (data.status === 'started') startPolling();
-                                    })
-                                    .catch(err => showAlert('Error', 'Failed: ' + err.message, 'danger'))
-                                    .finally(() => {
-                                        btn.disabled = false;
-                                        btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Full';
-                                    });
+                                Swal.fire({
+                                    title: 'Reset & Reprocess All?',
+                                    text: 'WARNING: This will DELETE all existing LLM analysis and re-analyze every single SMS from scratch. This cannot be undone and may take a long time.',
+                                    icon: 'warning',
+                                    showCancelButton: true,
+                                    confirmButtonColor: '#dc3545',
+                                    cancelButtonColor: '#6c757d',
+                                    confirmButtonText: 'Yes, reset everything!'
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        btn.disabled = true;
+                                        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Resetting...';
+                                        fetch('<?= $baseUrl ?>dashboard/rescan/all', { method: 'POST' })
+                                            .then(r => r.json())
+                                            .then(data => {
+                                                showAlert(data.status === 'started' ? 'Reprocess Started' : 'Notice', data.message || 'Processing triggered.', data.status === 'started' ? 'info' : 'warning');
+                                                if (data.status === 'started') startPolling();
+                                            })
+                                            .catch(err => showAlert('Error', 'Failed: ' + err.message, 'danger'))
+                                            .finally(() => {
+                                                btn.disabled = false;
+                                                btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Full';
+                                            });
+                                    }
+                                });
                             });
                             </script>
                             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
@@ -609,7 +784,7 @@
 
     <!-- Scan Progress Modal -->
     <div class="modal fade" id="scanProgressModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content glass-card border-0 shadow-lg">
                 <div class="modal-header border-0 pb-0">
                     <h5 class="modal-title fw-bold">
@@ -620,37 +795,86 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <div class="d-flex justify-content-between small mb-1">
-                            <span id="modalProgressLabel">Progress</span>
-                            <span id="modalProgressCount">0 / 0</span>
+                            <span id="modalProgressLabel" class="fw-semibold">Progress</span>
+                            <span id="modalProgressCount" class="fw-bold">0 / 0</span>
                         </div>
-                        <div class="progress" style="height: 10px;">
+                        <div class="progress mb-2" style="height: 12px;">
                             <div id="modalProgressBar" class="progress-bar progress-bar-striped progress-bar-animated"
                                  role="progressbar" style="width: 0%"></div>
                         </div>
-                    </div>
-                    <div class="row g-2 text-center">
-                        <div class="col-4">
-                            <div class="border rounded p-2">
-                                <div class="fw-bold fs-5" id="modalTotal">0</div>
-                                <div class="text-muted small">Total</div>
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="border rounded p-2">
-                                <div class="fw-bold fs-5 text-success" id="modalProcessed">0</div>
-                                <div class="text-muted small">Done</div>
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="border rounded p-2">
-                                <div class="fw-bold fs-5 text-danger" id="modalErrors">0</div>
-                                <div class="text-muted small">Errors</div>
-                            </div>
+                        <div class="d-flex justify-content-between small text-muted">
+                            <span><i class="fa-solid fa-clock me-1"></i>Started: <span id="modalStartedAt">—</span></span>
+                            <span><i class="fa-solid fa-gears me-1"></i>Engine: <span id="modalEngine" class="badge bg-secondary">—</span></span>
                         </div>
                     </div>
-                    <div class="mt-3 small text-muted" id="modalStatusText">No scan running.</div>
+                    
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 bg-light-subtle h-100">
+                                <div class="small fw-bold text-secondary mb-2 border-bottom pb-1">
+                                    <i class="fa-solid fa-envelope me-1"></i>SMS STATS
+                                </div>
+                                <div class="small">
+                                    <div class="d-flex justify-content-between mb-1"><span>All SMS (Raw):</span><strong id="smsTotalCount" class="text-dark">0</strong></div>
+                                    <div class="d-flex justify-content-between mb-1 text-success"><span>Financial SMS:</span><strong id="smsFinanceCount">0</strong></div>
+                                    <div class="d-flex justify-content-between mb-1 text-danger"><span>Bad / Non-Finance:</span><strong id="smsBadCount">0</strong></div>
+                                    <div class="d-flex justify-content-between border-top pt-1 mt-1 fw-bold text-primary">
+                                        <span>Finance SMS Progress:</span><span id="smsFinanceProgress">0 of 0</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 bg-light-subtle h-100">
+                                <div class="small fw-bold text-secondary mb-2 border-bottom pb-1">
+                                    <i class="fa-solid fa-users me-1"></i>SENDER STATS
+                                </div>
+                                <div class="small">
+                                    <div class="d-flex justify-content-between mb-1"><span>All Senders:</span><strong id="sendersTotalCount" class="text-dark">0</strong></div>
+                                    <div class="d-flex justify-content-between mb-1 text-success"><span>Financial Senders:</span><strong id="sendersFinanceCount">0</strong></div>
+                                    <div class="d-flex justify-content-between mb-1 text-danger"><span>Bad / Unwanted:</span><strong id="sendersBadCount">0</strong></div>
+                                    <div class="d-flex justify-content-between border-top pt-1 mt-1 fw-bold text-primary">
+                                        <span>Senders Classified:</span><span id="sendersProgress">0 of 0</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 text-center mb-3">
+                        <div class="col-4">
+                            <div class="border rounded p-2">
+                                <div class="fw-bold fs-6 text-danger" id="modalErrors"><i class="fa-solid fa-circle-xmark text-danger me-1 small"></i>0</div>
+                                <div class="text-muted small" style="font-size: 0.75rem;">Errors</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border rounded p-2">
+                                <div class="fw-bold fs-6 text-info" id="modalSpeed"><i class="fa-solid fa-gauge-high text-info me-1 small"></i>—</div>
+                                <div class="text-muted small" style="font-size: 0.75rem;">Speed</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border rounded p-2">
+                                <div class="fw-bold fs-6 text-primary" id="modalETA"><i class="fa-solid fa-hourglass-half text-primary me-1 small"></i>—</div>
+                                <div class="text-muted small" style="font-size: 0.75rem;">ETA</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="modalCurrentSendersContainer" class="border rounded p-2 bg-light-subtle d-none mb-3 text-start">
+                        <div class="fw-bold text-secondary mb-1" style="font-size: 0.75rem;">
+                            <i class="fa-solid fa-spinner fa-spin me-1 text-primary"></i>Currently Processing Senders
+                        </div>
+                        <div id="modalCurrentSenders" class="text-secondary small" style="word-break: break-all;">—</div>
+                    </div>
+
+                    <div class="mt-3 small text-muted text-start" id="modalStatusText"><i class="fa-solid fa-circle-info me-1"></i>No scan running.</div>
                 </div>
                 <div class="modal-footer border-0 pt-0">
+                    <button type="button" id="modalStopJobBtn" class="btn btn-danger btn-sm rounded-pill px-4 d-none">
+                        <i class="fa-solid fa-stop me-1"></i> Stop Job
+                    </button>
                     <button type="button" class="btn btn-secondary btn-sm rounded-pill px-4" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
@@ -726,6 +950,7 @@
     });
     </script>
 
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <?= $this->renderSection('scripts') ?>
 </body>
 </html>

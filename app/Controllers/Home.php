@@ -57,37 +57,37 @@ class Home extends BaseController
     public function rescan()
     {
         $userId = auth()->user()->id;
-        $mlBase = (string) config('MlBackend')->baseUrl;
+        $mlBase = rtrim((string) config('MlBackend')->baseUrl, '/');
         $fastApiUrl = $mlBase . '/process/for-user/' . $userId;
 
-        $client = \Config\Services::curlrequest();
-        try {
-            $resp = $client->post($fastApiUrl, ['timeout' => 5]);
-            $body = json_decode($resp->getBody(), true);
-            if ($body && ($body['status'] === 'done' || isset($body['messages_processed']))) {
-                return $this->response->setJSON([
-                    'status'  => 'started',
-                    'message' => 'LLM analysis triggered. ' . ($body['messages_processed'] ?? 0) . ' messages processed.',
-                ]);
-            }
-            if ($body && $body['status'] === 'skipped') {
-                return $this->response->setJSON([
-                    'status'  => 'started',
-                    'message' => 'A scan is already in progress. Check back shortly.',
-                ]);
-            }
-            return $this->response->setJSON([
-                'status'  => 'started',
-                'message' => 'LLM analysis has been queued.',
-            ]);
-        } catch (\Throwable $e) {
-            log_message('error', 'Rescan failed: ' . $e->getMessage());
+        // Fire-and-forget: PHP returns 'started' immediately.
+        // The ML service job runs asynchronously; the client polls /progress.
+        $ch = curl_init($fastApiUrl);
+        curl_setopt($ch, CURLOPT_POST,           true);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+        curl_setopt($ch, CURLOPT_TIMEOUT,        5);
+        curl_setopt($ch, CURLOPT_POSTFIELDS,     '');
+        curl_setopt($ch, CURLOPT_HTTPHEADER,     ['Content-Type: application/json']);
+        @curl_exec($ch);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlErr && strpos($curlErr, 'timed out') === false) {
+            log_message('error', 'Rescan failed: ' . $curlErr);
             return $this->response->setJSON([
                 'status'  => 'error',
                 'message' => 'Could not reach the analysis service. Please try again later.',
             ]);
         }
+
+        return $this->response->setJSON([
+            'status'  => 'started',
+            'message' => 'LLM analysis has been queued. Processing will run in the background.',
+        ]);
     }
+
+
 
     public function progress()
     {
@@ -115,10 +115,41 @@ class Home extends BaseController
         $job = null;
         $llmClassified = 0;
 
+        $totalSenders = 0;
+        $financeSenders = 0;
+        $financeSms = 0;
+        $uniqueSendersCount = 0;
+
         if (!empty($rawTokens)) {
             $total = $db->table('tbl_Sms')
                 ->whereIn('sms_owner', $rawTokens)
                 ->countAllResults();
+
+            // Total unique senders in the inbox data
+            $sendersQuery = $db->table('tbl_Sms')
+                ->whereIn('sms_owner', $rawTokens)
+                ->select('COUNT(DISTINCT sms_number) as cnt')
+                ->get()
+                ->getRow();
+            $uniqueSendersCount = (int)($sendersQuery->cnt ?? 0);
+
+            if ($db->tableExists('tbl_Sender_Profiles')) {
+                $totalSenders = $db->table('tbl_Sender_Profiles')
+                    ->whereIn('sp_owner', $rawTokens)
+                    ->countAllResults();
+
+                $financeSenders = $db->table('tbl_Sender_Profiles')
+                    ->whereIn('sp_owner', $rawTokens)
+                    ->where('sp_is_finance', 1)
+                    ->countAllResults();
+            }
+
+            if ($db->tableExists('tbl_Sms')) {
+                $financeSms = $db->table('tbl_Sms')
+                    ->whereIn('sms_owner', $rawTokens)
+                    ->where('sms_is_finance', 1)
+                    ->countAllResults();
+            }
 
             // Count SMS classified by the LLM (method = 'llm')
             if ($db->tableExists('tbl_Sms_Classification')) {
@@ -156,30 +187,53 @@ class Home extends BaseController
                 ->getRowArray();
         }
 
-        // Use the better of the two progress signals
-        $processingDone = ($statuses['completed'] ?? 0) + ($statuses['error'] ?? 0);
+        // Use the better of the two progress signals, including skipped messages
+        $processingDone = ($statuses['done'] ?? 0) + ($statuses['completed'] ?? 0) + ($statuses['error'] ?? 0) + ($statuses['skipped'] ?? 0);
         $processed = max($processingDone, $llmClassified);
 
         // Determine if a scan is actively running
         $hasProcessingRows = ($statuses['processing'] ?? 0) > 0;
-        $jobActive = $job && in_array($job['status'], ['queued', 'processing'], true);
-        $jobJustCompleted = $job && in_array($job['status'], ['completed', 'failed'], true);
-        $hasPendingWork = $processed > 0 && $processed < $total && $total > 0;
+        $activeStatuses    = ['queued', 'processing', 'starting', 'already_running'];
+        $terminalStatuses  = ['done', 'error', 'failed', 'cancelled', 'disabled'];
+        $jobActive = $job && in_array($job['status'], $activeStatuses, true);
 
-        $running = $hasProcessingRows || $jobActive || ($hasPendingWork && !$jobJustCompleted);
+        $running = ($hasProcessingRows || $jobActive) && ($total > 0 && $processed < $total);
+
+        // Derive a clean UI status:
+        // - If something is actively running → use the live job status
+        // - If the last job finished cleanly → 'done'
+        // - If nothing is running and last job was cancelled/failed/errored → 'idle'
+        //   (avoids showing a stale terminal failure as the current state)
+        // - No job at all → 'idle'
+        if ($running) {
+            $uiStatus = $job['status'] ?? 'processing';
+        } elseif ($job && in_array($job['status'], ['done'], true)) {
+            $uiStatus = 'done';
+        } elseif ($job && in_array($job['status'], $terminalStatuses, true)) {
+            $uiStatus = 'idle';  // stale failure — nothing actively broken right now
+        } else {
+            $uiStatus = 'idle';
+        }
 
         return $this->response->setJSON([
-            'status'          => $job['status'] ?? 'idle',
-            'total'           => $total,
+            'status'            => $uiStatus,
+            'total'             => $total,
             'processed'       => $processed,
             'llm_classified'  => $llmClassified,
-            'completed'       => (int)($statuses['completed'] ?? 0),
+            'completed'       => (int)($statuses['done'] ?? $statuses['completed'] ?? 0),
+            'skipped'         => (int)($statuses['skipped'] ?? 0),
             'errors'          => (int)($statuses['error'] ?? 0) + (int)($job['errors'] ?? 0),
             'pending'         => (int)($statuses['pending'] ?? 0),
+            'total_senders'     => $uniqueSendersCount,
+            'processed_senders' => $totalSenders,
+            'finance_senders'   => $financeSenders,
+            'bad_senders'       => $totalSenders - $financeSenders,
+            'finance_sms'     => $financeSms,
             'running'         => $running,
             'job'             => $job,
         ]);
     }
+
 
     /**
      * Full reprocess: resets all processing flags and re-triggers LLM.
@@ -261,24 +315,33 @@ class Home extends BaseController
 
         $db->transComplete();
 
-        // Now trigger the LLM pipeline
-        $mlBase = (string) config('MlBackend')->baseUrl;
+        // Trigger the LLM pipeline — fire-and-forget so PHP returns
+        // immediately rather than blocking until the job finishes.
+        // The ML service runs the job asynchronously; the client polls
+        // /dashboard/rescan/progress to track progress.
+        $mlBase = rtrim((string) config('MlBackend')->baseUrl, '/');
         $fastApiUrl = $mlBase . '/process/for-user/' . $userId;
-        $client = \Config\Services::curlrequest();
-        try {
-            $resp = $client->post($fastApiUrl, ['timeout' => 10]);
-            $body = json_decode($resp->getBody(), true);
-            $count = $body['messages_processed'] ?? 0;
-            return $this->response->setJSON([
-                'status'  => 'started',
-                'message' => "Full reprocess triggered. Processing {$count} messages.",
-            ]);
-        } catch (\Throwable $e) {
-            log_message('error', 'Reprocess LLM trigger failed: ' . $e->getMessage());
-            return $this->response->setJSON([
-                'status'  => 'started',
-                'message' => 'Processing flags reset. Triggering LLM analysis failed — it may auto-start on next poll cycle.',
-            ]);
+
+        $ch = curl_init($fastApiUrl);
+        curl_setopt($ch, CURLOPT_POST,           true);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);   // wait up to 3s to connect
+        curl_setopt($ch, CURLOPT_TIMEOUT,        5);   // read up to 5s then give up — job keeps running server-side
+        curl_setopt($ch, CURLOPT_POSTFIELDS,     '');
+        curl_setopt($ch, CURLOPT_HTTPHEADER,     ['Content-Type: application/json']);
+        @curl_exec($ch);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlErr && strpos($curlErr, 'timed out') === false) {
+            // Real connection error (not just a read timeout from async fire-and-forget)
+            log_message('error', 'Reprocess LLM trigger failed: ' . $curlErr);
         }
+
+        return $this->response->setJSON([
+            'status'  => 'started',
+            'message' => 'Full reprocess triggered. Processing will run in the background — check progress below.',
+        ]);
     }
+
 }

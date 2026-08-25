@@ -18,7 +18,55 @@ class Blocklist extends BaseController
      */
     public function index()
     {
-        return redirect()->to('/dashboard/blocklist/blocked');
+        return redirect()->to('/dashboard/blocklist/status');
+    }
+
+    public function status()
+    {
+        $userId = auth()->user()->id;
+        $tokens = $this->uploadsModel->getOwnedRawTokens($userId);
+
+        $db = \Config\Database::connect();
+        
+        $allSms = 0;
+        $goodSms = 0;
+        $badSms = 0;
+        
+        if (!empty($tokens)) {
+            $allSms = $db->table('tbl_Sms')->whereIn('sms_owner', $tokens)->countAllResults();
+            $goodSms = $db->table('tbl_Sms')->whereIn('sms_owner', $tokens)->where('sms_is_finance', 1)->countAllResults();
+            $badSms = $db->table('tbl_Sms')->whereIn('sms_owner', $tokens)->where('sms_is_finance', 0)->countAllResults();
+        }
+
+        $senders = $this->getCategorizedSenders($userId);
+        
+        $counts = ['blocked' => 0, 'allowed' => 0, 'unknown' => 0];
+        foreach ($senders as $s) {
+            if ($s['blocked']) {
+                $counts['blocked']++;
+            } elseif ($s['allowed']) {
+                $counts['allowed']++;
+            } else {
+                $counts['unknown']++;
+            }
+        }
+        
+        $data = [
+            'bg_color' => '#B1B8ED',
+            'active_tab' => 'status',
+            'counts' => $counts,
+            'stats' => [
+                'all_sms' => $allSms,
+                'good_sms' => $goodSms,
+                'bad_sms' => $badSms,
+                'all_senders' => count($senders),
+                'finance_senders' => $counts['allowed'],
+                'unverified_senders' => $counts['unknown'],
+                'blocked_senders' => $counts['blocked'],
+            ]
+        ];
+
+        return view('Blocklist/status', $data);
     }
 
     public function blocked()
@@ -34,6 +82,51 @@ class Blocklist extends BaseController
     public function unknown()
     {
         return $this->renderList('unknown');
+    }
+
+    public function deleteUnwantedSms()
+    {
+        $userId = auth()->user()->id;
+        $tokens = $this->uploadsModel->getOwnedRawTokens($userId);
+        if (empty($tokens)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'No tokens found.']);
+        }
+        
+        $db = \Config\Database::connect();
+        $blockedRows = $db->table('tbl_Blocked_Senders')->where('bs_owner', $userId)->get()->getResultArray();
+        $blockedSenders = array_map(static fn($r) => strtoupper(trim($r['bs_sender'])), $blockedRows);
+        
+        if (empty($blockedSenders)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'No blocked senders to delete messages from.']);
+        }
+        
+        $db->transStart();
+        
+        $smsRows = $db->table('tbl_Sms')
+            ->select('id')
+            ->whereIn('sms_owner', $tokens)
+            ->whereIn('sms_sender', $blockedSenders)
+            ->get()
+            ->getResultArray();
+            
+        $smsIds = array_map(static fn($r) => $r['id'], $smsRows);
+        
+        if (!empty($smsIds)) {
+            if ($db->tableExists('tbl_Sms_Processing')) {
+                $db->table('tbl_Sms_Processing')->whereIn('sms_id', $smsIds)->delete();
+            }
+            if ($db->tableExists('tbl_Sms_Classification')) {
+                $db->table('tbl_Sms_Classification')->whereIn('sms_id', $smsIds)->delete();
+            }
+            $db->table('tbl_Sms')->whereIn('id', $smsIds)->delete();
+        }
+        
+        $db->transComplete();
+        
+        return $this->response->setJSON([
+            'status' => 'success',
+            'message' => 'Successfully deleted ' . count($smsIds) . ' SMS messages from unwanted (blocked) senders.'
+        ]);
     }
 
     /**
@@ -171,6 +264,103 @@ class Blocklist extends BaseController
         return $this->response->setJSON($this->applyUnblock(auth()->user()->id, $senders));
     }
 
+    /**
+     * Allow a single sender (adds to allowed list and resets user flags).
+     */
+    public function allow()
+    {
+        $senders = $this->request->getPost('senders')
+            ? (array) $this->request->getPost('senders')
+            : [$this->request->getPost('sender')];
+
+        $senders = array_values(array_filter(array_map(
+            static fn ($s) => strtoupper(trim((string) $s)),
+            $senders
+        )));
+
+        if (empty($senders)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'No sender provided.']);
+        }
+
+        return $this->response->setJSON($this->applyAllow(auth()->user()->id, $senders));
+    }
+
+    /**
+     * Bulk allow multiple senders.
+     */
+    public function bulkAllow()
+    {
+        $senders = $this->request->getPost('senders');
+        if (empty($senders) || !is_array($senders)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'No senders selected.']);
+        }
+
+        $senders = array_values(array_filter(array_map(
+            static fn ($s) => strtoupper(trim((string) $s)),
+            $senders
+        )));
+
+        if (empty($senders)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'No senders selected.']);
+        }
+
+        return $this->response->setJSON($this->applyAllow(auth()->user()->id, $senders));
+    }
+
+    private function applyAllow(int $userId, array $senders): array
+    {
+        $db = \Config\Database::connect();
+        $tokens = $this->uploadsModel->getOwnedRawTokens($userId);
+
+        foreach ($senders as $sender) {
+            $exists = $db->table('tbl_Allowed_Senders')
+                ->where('sender', $sender)
+                ->get()
+                ->getRow();
+
+            if (!$exists) {
+                $db->table('tbl_Allowed_Senders')->insert([
+                    'sender' => $sender,
+                    'category' => 'Finance',
+                    'created_at' => date('Y-m-d H:i:s'),
+                ]);
+            }
+
+            $db->table('tbl_Blocked_Senders')
+                ->where('user_id', $userId)
+                ->where('sender', $sender)
+                ->delete();
+        }
+
+        $smsUpdated = 0;
+        $profilesUpdated = 0;
+
+        if (!empty($tokens)) {
+            if ($db->tableExists('tbl_Sms')) {
+                $smsUpdated = $db->table('tbl_Sms')
+                    ->whereIn('sms_number', $senders)
+                    ->whereIn('sms_owner', $tokens)
+                    ->set('sms_is_finance', 1)
+                    ->update();
+            }
+
+            if ($db->tableExists('tbl_Sender_Profiles')) {
+                $profilesUpdated = $db->table('tbl_Sender_Profiles')
+                    ->whereIn('sp_number', $senders)
+                    ->whereIn('sp_owner', $tokens)
+                    ->set('sp_is_finance', 1)
+                    ->set('sp_updated', date('Y-m-d H:i:s'))
+                    ->update();
+            }
+        }
+
+        return [
+            'status' => 'success',
+            'message' => count($senders) . ' sender(s) added to allowed list.'
+                . " ({$smsUpdated} SMS classifications, {$profilesUpdated} sender profiles updated).",
+        ];
+    }
+
     private function applyBlock(int $userId, array $senders): array
     {
         $db = \Config\Database::connect();
@@ -189,13 +379,9 @@ class Blocklist extends BaseController
 
         if (!empty($tokens)) {
             if ($db->tableExists('tbl_Sms')) {
-                $ownedSms = $db->table('tbl_Sms')
-                    ->select('id')
-                    ->whereIn('sms_owner', $tokens);
-
                 $smsUpdated = $db->table('tbl_Sms')
                     ->whereIn('sms_number', $senders)
-                    ->whereIn('id', $ownedSms)
+                    ->whereIn('sms_owner', $tokens)
                     ->set('sms_is_finance', 0)
                     ->update();
             }
@@ -245,7 +431,7 @@ class Blocklist extends BaseController
 
         $map = [];
         foreach ($rows as $row) {
-            $map[$row['sender']] = $row['created_at'];
+            $map[strtoupper(trim($row['sender']))] = $row['created_at'];
         }
         return $map;
     }
@@ -269,13 +455,14 @@ class Blocklist extends BaseController
 
         $map = [];
         foreach ($rows as $row) {
-            $map[$row['sender']] = $row['category'] ?? '';
+            $map[strtoupper(trim($row['sender']))] = $row['category'] ?? '';
         }
 
         // Merge the hardcoded defaults (they never override an explicit DB entry).
         foreach ($this->getHardcodedDefaults() as $sender => $category) {
-            if (!isset($map[$sender])) {
-                $map[$sender] = $category;
+            $senderUpper = strtoupper(trim($sender));
+            if (!isset($map[$senderUpper])) {
+                $map[$senderUpper] = $category;
             }
         }
 
@@ -363,30 +550,38 @@ class Blocklist extends BaseController
 
         $senders = [];
         foreach ($bySender as $s) {
-            $allowed = (bool) $s['is_finance'] || isset($globalAllowed[$s['sender']]);
+            $senderUpper = strtoupper(trim($s['sender']));
+            $allowed = (bool) $s['is_finance'] || isset($globalAllowed[$senderUpper]);
             $senders[] = [
                 'sender' => $s['sender'],
                 'name' => $s['name'],
-                'category' => $s['category'] ?: ($globalAllowed[$s['sender']] ?? ''),
+                'category' => $s['category'] ?: ($globalAllowed[$senderUpper] ?? ''),
                 'is_finance' => (bool) $s['is_finance'],
                 'allowed' => $allowed,
-                'blocked' => isset($blockedMap[$s['sender']]),
-                'blocked_at' => $blockedMap[$s['sender']] ?? null,
+                'blocked' => isset($blockedMap[$senderUpper]),
+                'blocked_at' => $blockedMap[$senderUpper] ?? null,
             ];
         }
 
         // Add hardcoded default finance senders that the user has no data for,
         // so the Allowed tab lists every "preselected good sender".
-        foreach ($globalAllowed as $sender => $category) {
-            if (!isset($bySender[$sender])) {
+        foreach ($globalAllowed as $senderUpper => $category) {
+            $found = false;
+            foreach ($bySender as $origSender => $info) {
+                if (strcasecmp($origSender, $senderUpper) === 0) {
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
                 $senders[] = [
-                    'sender' => $sender,
+                    'sender' => $senderUpper,
                     'name' => '',
                     'category' => $category ?? '',
                     'is_finance' => true,
                     'allowed' => true,
-                    'blocked' => isset($blockedMap[$sender]),
-                    'blocked_at' => $blockedMap[$sender] ?? null,
+                    'blocked' => isset($blockedMap[$senderUpper]),
+                    'blocked_at' => $blockedMap[$senderUpper] ?? null,
                 ];
             }
         }

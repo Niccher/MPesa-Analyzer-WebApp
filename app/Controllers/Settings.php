@@ -182,17 +182,17 @@ class Settings extends BaseController
         $tokenType = \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN;
 
         $totalUploads = $db->query("
-            SELECT COUNT(*) as cnt FROM tbl_Loot
-            WHERE loot_Owner IN (
-                SELECT secret FROM auth_identities WHERE user_id = ? AND type = ?
-            )
+            SELECT COUNT(*) as cnt FROM tbl_Loot l
+            INNER JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256)
+            WHERE i.user_id = ? AND i.type = ?
         ", [$userId, $tokenType])->getRow()->cnt ?? 0;
 
-        $oldestUpload = $db->table('tbl_Loot')
-            ->select('MIN(loot_Created) as oldest')
-            ->get()
-            ->getRow()
-            ->oldest ?? 'N/A';
+        $oldestUploadRow = $db->query("
+            SELECT MIN(l.loot_Created) as oldest FROM tbl_Loot l
+            INNER JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256)
+            WHERE i.user_id = ? AND i.type = ?
+        ", [$userId, $tokenType])->getRow();
+        $oldestUpload = $oldestUploadRow->oldest ?? 'N/A';
 
         $nonFinance = $this->nonFinanceCount();
 
@@ -232,11 +232,7 @@ class Settings extends BaseController
 
         $rules = [];
         if ($db->tableExists('tbl_Category_Rules')) {
-            $rules = $db->table('tbl_Category_Rules')
-                ->whereIn('created_by', $rawTokens)
-                ->orWhere('created_by', null)
-                ->get()
-                ->getResultArray();
+            $rules = $db->table('tbl_Category_Rules')->get()->getResultArray();
         }
 
         $export = [

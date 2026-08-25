@@ -97,7 +97,7 @@
                     </span>
                     <h1 class="hero-title">Intelligence From Every SMS You Receive</h1>
                     <p class="lead mb-4 text-muted" style="font-size: 1.15rem; line-height: 1.7;">
-                        Mpesa Analyzer syncs <strong>all your phone SMS</strong> — not just M-Pesa messages. Our ML engine automatically <strong>detects which messages are finance-related</strong>, classifies M-Pesa transactions (sent, received, airtime, Fuliza, M-Shwari, utilities), and visualizes your complete financial picture. Everything else is ignored and never stored. This approach means you never miss a transaction, even if Safaricom changes their SMS format.
+                        Mpesa Analyzer syncs <strong>all your phone SMS</strong> — not just M-Pesa messages. Our ML engine automatically <strong>detects which senders are finance-related</strong>, classifies transactions (sent, received, airtime, Fuliza, M-Shwari, utilities), and visualizes your complete financial picture. Every message is kept so no transaction is ever missed — finance messages feed your analytics, and the rest can be reviewed or deleted anytime. This approach means you never miss a transaction, even if Safaricom changes their SMS format.
                     </p>
                     <div class="d-flex flex-wrap gap-3">
                         <a href="<?= url_to('register') ?>" class="btn btn-primary btn-lg px-4">
@@ -138,7 +138,7 @@
                     <div class="glass-card">
                         <div class="icon-box"><i class="fa-solid fa-shield-halved"></i></div>
                         <h5 class="fw-bold">Privacy By Design</h5>
-                        <p class="text-muted small mb-0">Only finance-related SMS are processed and stored. Personal messages, OTPs, promotional SMS, and non-financial content are detected by the ML and discarded immediately — never written to the database.</p>
+                        <p class="text-muted small mb-0">Your data stays in your own Docker deployment. Finance-related SMS are processed and stored; non-financial messages are flagged separately so you can review or delete them anytime from Data Management — keeping only what you want.</p>
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -174,7 +174,7 @@
                         <div class="glass-card">
                             <div class="icon-box"><i class="fa-solid fa-microchip"></i></div>
                             <h4 class="fw-bold text-dark mb-2">ML Backend</h4>
-                            <p class="text-muted small mb-0">FastAPI service running a fine-tuned LLM. Classifies SMS by transaction type, extracts counterparty, amount, date, and generates smart alerts.</p>
+                            <p class="text-muted small mb-0">FastAPI service running a local LLM. Classifies SMS senders, extracts counterparty, amount, date, and tracks every ML job with full metadata.</p>
                             <span class="text-primary fw-semibold small mt-3 d-inline-block">Learn more <i class="fa-solid fa-arrow-right ms-1"></i></span>
                         </div>
                     </a>

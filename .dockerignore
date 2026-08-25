@@ -1,9 +1,11 @@
 .git
+.gitignore
 .idea
 .vscode
 .env
 .env.testing
 node_modules
+vendor
 writable/logs/*
 writable/cache/*
 writable/session/*
@@ -17,6 +19,7 @@ phpunit.xml.dist
 tests
 README.md
 LICENSE
+CONTRIBUTING.md
 !writable/logs/index.html
 !writable/cache/index.html
 !writable/session/index.html

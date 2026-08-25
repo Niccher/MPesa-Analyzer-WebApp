@@ -71,7 +71,7 @@
 
 <div class="card settings-card">
     <div class="card-body p-4">
-        <?= view('Admin/Ml/_nav', ['active' => 'models']) ?>
+        <?= view('Admin/Ml/_nav', ['active' => 'models', 'status' => $status]) ?>
 
         <?php if (!$status['reachable']): ?>
             <div class="alert alert-warning mb-0">

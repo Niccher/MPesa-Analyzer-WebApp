@@ -14,13 +14,12 @@
         <h2 class="fw-bold mb-1" style="color: var(--primary);"><i class="fa-solid fa-user me-2"></i>Profile Settings</h2>
         <p class="text-secondary mb-0">Update your account details and password.</p>
     </div>
-    <a href="<?= base_url('dashboard/settings') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-        <i class="fa-solid fa-arrow-left me-1"></i> Back to Settings
-    </a>
 </div>
 <?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
+
+<?= $this->include('Layouts/_control_center_nav', ['activeTab' => 'profile']) ?>
 
 <?php if (session()->has('message')) : ?>
 <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -98,4 +97,97 @@
         </div>
     </div>
 </div>
+
+<!-- Danger Zone: Account & Data Deletion -->
+<div class="row g-4 mt-2">
+    <div class="col-lg-6">
+        <div class="card settings-card border-start border-4 border-warning h-100">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-3 text-warning"><i class="fa-solid fa-eraser me-2"></i>Delete Uploaded Data</h5>
+                <p class="text-muted small mb-4">Delete all your uploaded SMS messages and financial summaries, but keep your username and login credentials active.</p>
+                <form action="<?= base_url('process/delete_data') ?>" method="POST" id="deleteDataForm">
+                    <?= csrf_field() ?>
+                    <button type="button" id="deleteDataBtn" class="btn btn-outline-warning rounded-pill px-4 fw-bold btn-sm">
+                        <i class="fa-solid fa-eraser me-1"></i> Delete My Data
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card settings-card border-start border-4 border-danger h-100">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-3 text-danger"><i class="fa-solid fa-trash-can me-2"></i>Delete Profile Account</h5>
+                <p class="text-muted small mb-4">Permanently remove your account, linked device tokens, rules, and all associated files. This cannot be undone.</p>
+                <form action="<?= base_url('process/delete_account') ?>" method="POST" id="deleteAccountForm">
+                    <?= csrf_field() ?>
+                    <button type="button" id="deleteAccountBtn" class="btn btn-outline-danger rounded-pill px-4 fw-bold btn-sm">
+                        <i class="fa-solid fa-trash-can me-1"></i> Delete Account Permanently
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    function submitForm(formId) {
+        document.getElementById(formId).submit();
+    }
+
+    // Delete Data
+    const deleteDataBtn = document.getElementById('deleteDataBtn');
+    if (deleteDataBtn) {
+        deleteDataBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Delete all your data?',
+                text: 'This will permanently remove all your uploaded SMS data. This cannot be undone.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, delete my data',
+                cancelButtonText: 'Cancel'
+            }).then(function (result) {
+                if (result.isConfirmed) submitForm('deleteDataForm');
+            });
+        });
+    }
+
+    // Delete Account — requires typing DELETE
+    const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+    if (deleteAccountBtn) {
+        deleteAccountBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Delete your account permanently?',
+                html: 'This will permanently remove your account and all data.<br><br>'
+                    + 'To proceed, type <strong>DELETE</strong> below.',
+                icon: 'warning',
+                input: 'text',
+                inputPlaceholder: 'Type DELETE to confirm',
+                inputAttributes: { autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off' },
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Delete my account',
+                cancelButtonText: 'Cancel',
+                inputValidator: function (value) {
+                    if (value !== 'DELETE') {
+                        return 'Please type DELETE to confirm';
+                    }
+                }
+            }).then(function (result) {
+                if (result.isConfirmed) submitForm('deleteAccountForm');
+            });
+        });
+    }
+});
+</script>
 <?= $this->endSection() ?>

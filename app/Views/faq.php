@@ -98,7 +98,7 @@
                         </div>
                         <div class="collapse" id="faq1">
                             <div class="faq-answer text-muted pt-3 border-top mt-3">
-                                Mpesa Analyzer is an AI-powered financial intelligence platform that automatically syncs SMS from your Android phone, uses a fine-tuned LLM (Large Language Model) to detect and classify financial transactions, and visualizes your spending through an interactive web dashboard. It consists of three components: an Android companion app, a FastAPI ML backend, and a CodeIgniter 4 web dashboard.
+                                Mpesa Analyzer is an AI-powered financial intelligence platform that automatically syncs SMS from your Android phone, uses a local LLM (Large Language Model) to detect and classify financial transactions, and visualizes your spending through an interactive web dashboard. It consists of three components: an Android companion app, a FastAPI ML backend, and a CodeIgniter 4 web dashboard.
                             </div>
                         </div>
                     </div>
@@ -136,7 +136,7 @@
                         </div>
                         <div class="collapse" id="faq4">
                             <div class="faq-answer text-muted pt-3 border-top mt-3">
-                                The app requires two permissions: <strong>SMS reading</strong> (to access M-Pesa messages) and <strong>Internet access</strong> (to upload encrypted data to the backend). Optionally, <strong>Notification access</strong> can be enabled for real-time sync of new SMS. Non-financial SMS are detected by the ML and never transmitted.
+                                The app requires two permissions: <strong>SMS reading</strong> (to access M-Pesa messages) and <strong>Internet access</strong> (to upload encrypted data to the backend). Optionally, <strong>Notification access</strong> can be enabled for real-time sync of new SMS. Once uploaded, the ML flags each sender as finance or non-finance, and you control what is kept or deleted.
                             </div>
                         </div>
                     </div>
@@ -174,7 +174,7 @@
                         </div>
                         <div class="collapse" id="faq7">
                             <div class="faq-answer text-muted pt-3 border-top mt-3">
-                                The fine-tuned LLM achieves high accuracy on common transaction types (send, receive, airtime, Fuliza, M-Shwari, KCB M-Pesa). For edge cases or unusual SMS formats, accuracy may vary. The system also provides a fallback rule-based classification for messages the ML is uncertain about.
+                                The local LLM achieves high accuracy on common transaction types (send, receive, airtime, Fuliza, M-Shwari, KCB M-Pesa). Known finance senders are recognised instantly from a curated list; unknown senders are classified by the LLM. For edge cases or unusual SMS formats, accuracy may vary.
                             </div>
                         </div>
                     </div>
@@ -186,7 +186,7 @@
                         </div>
                         <div class="collapse" id="faq8">
                             <div class="faq-answer text-muted pt-3 border-top mt-3">
-                                The ML model first determines whether each SMS is finance-related. Non-financial messages (promotions, OTPs, personal messages, bank marketing, etc.) are discarded immediately and never stored in the database. Only messages classified as financial are processed and retained. This is a core privacy feature.
+                                Every SMS you sync is kept so no transaction is ever missed. The ML engine flags each sender as finance-related or not: <strong>good SMS</strong> (finance senders) feed your analytics, while <strong>bad SMS</strong> (non-finance senders) are stored separately. You can review them on the dashboard and permanently delete all non-finance SMS from <strong>Data Management</strong> (type DELETE to confirm) while keeping your finance data intact.
                             </div>
                         </div>
                     </div>
@@ -224,7 +224,7 @@
                         </div>
                         <div class="collapse" id="faq11">
                             <div class="faq-answer text-muted pt-3 border-top mt-3">
-                                Yes. From the Info & Auth page in the dashboard, you can delete your account and all associated data. You can also revoke individual device tokens to stop data collection from specific phones without deleting your entire account.
+                                Yes. From <strong>Data Management</strong> in the dashboard you can delete non-finance SMS, purge data older than a chosen period, or remove specific upload batches. To delete your account and all associated data, use the Info &amp; Auth page. You can also revoke individual device tokens to stop data collection from specific phones without deleting your entire account.
                             </div>
                         </div>
                     </div>
@@ -262,7 +262,7 @@
                         </div>
                         <div class="collapse" id="faq14">
                             <div class="faq-answer text-muted pt-3 border-top mt-3">
-                                ML processing speed depends on your server's CPU/GPU and the volume of SMS. Each message takes 1-3 seconds. If the process appears stuck, check that the FastAPI service (port :9050) is running. You can click "Full" rescan to restart the process from scratch if needed.
+                                ML processing speed depends on your server's CPU/GPU and the volume of SMS. Processing is batched, so large volumes are handled efficiently. If processing appears stopped, an admin can check the <strong>Auto Jobs</strong> toggle in the ML console (when disabled, no ML jobs run) and confirm the FastAPI service on port :9050 is healthy. You can also click <strong>Full</strong> rescan to restart classification from scratch.
                             </div>
                         </div>
                     </div>
