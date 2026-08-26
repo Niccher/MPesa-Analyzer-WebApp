@@ -42,6 +42,12 @@
 <?= $this->endSection() ?>
 <?= $this->section('content') ?>
 
+<div class="card settings-card mb-4">
+    <div class="card-body p-4 pb-0">
+        <?= view('Admin/System/_nav', ['active' => 'backup']) ?>
+    </div>
+</div>
+
 <div class="row g-4">
     <!-- Database Info Card -->
     <div class="col-lg-4">
@@ -92,9 +98,27 @@
                         </div>
                     </div>
                 </div>
-                <div class="path-box p-3">
+                <div class="path-box p-3 mb-3">
                     <div class="text-secondary small fw-semibold mb-1"><i class="fa-solid fa-folder-open text-primary me-1"></i> Backup directory</div>
                     <code><?= WRITEPATH ?>backups/</code>
+                </div>
+
+                <?php
+                $freeBytes = @disk_free_space(WRITEPATH) ?: 0;
+                $totalBytes = @disk_total_space(WRITEPATH) ?: 1;
+                $usedBytes = $totalBytes - $freeBytes;
+                $pct = round(($usedBytes / $totalBytes) * 100, 1);
+                $freeGB = round($freeBytes / 1024 / 1024 / 1024, 1);
+                $totalGB = round($totalBytes / 1024 / 1024 / 1024, 1);
+                ?>
+                <div class="p-3 bg-light rounded border">
+                    <div class="d-flex justify-content-between mb-1 small text-dark fw-semibold">
+                        <span><i class="fa-solid fa-hard-drive text-secondary me-1"></i> Disk Safeguard</span>
+                        <span><?= $freeGB ?> GB free of <?= $totalGB ?> GB</span>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar <?= $pct > 85 ? 'bg-danger' : 'bg-success' ?>" role="progressbar" style="width: <?= $pct ?>%" aria-valuenow="<?= $pct ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -232,7 +256,10 @@
                         <i class="fa-solid fa-folder-open fs-1 d-block mb-2 opacity-50"></i>
                         No backups yet. Create one above to get started.
                     </div>
-                <?php else: ?>
+                <?php else: 
+                    $topHistory = array_slice($backup_history, 0, 5);
+                    $restHistory = array_slice($backup_history, 5);
+                ?>
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light">
@@ -245,7 +272,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($backup_history as $idx => $backup): ?>
+                                <?php foreach ($topHistory as $idx => $backup): ?>
                                     <tr class="backup-row">
                                         <td class="text-secondary small"><?= $idx + 1 ?></td>
                                         <td>
@@ -255,7 +282,7 @@
                                         <td><?= esc($backup['modified']) ?></td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
-                                                <a href="<?= base_url('admin/backup/download-file/' . urlencode($backup['name'])) ?>" class="btn btn-outline-primary" title="Download">
+                                                <a href="<?= base_url('admin/system/backup/download-file/' . urlencode($backup['name'])) ?>" class="btn btn-outline-primary" title="Download">
                                                     <i class="fa-solid fa-download"></i>
                                                 </a>
                                                 <button type="button" class="btn btn-outline-danger btn-delete-backup" data-file="<?= esc($backup['name']) ?>" title="Delete">
@@ -266,8 +293,51 @@
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
+                            <?php if (!empty($restHistory)): ?>
+                                <tbody class="collapse" id="olderBackups">
+                                    <?php foreach ($restHistory as $idx => $backup): ?>
+                                        <tr class="backup-row">
+                                            <td class="text-secondary small"><?= $idx + 6 ?></td>
+                                            <td>
+                                                <i class="fa-solid fa-file-zipper text-secondary me-1"></i><code><?= esc($backup['name']) ?></code>
+                                            </td>
+                                            <td class="text-center"><?= esc($backup['human_size']) ?></td>
+                                            <td><?= esc($backup['modified']) ?></td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <a href="<?= base_url('admin/system/backup/download-file/' . urlencode($backup['name'])) ?>" class="btn btn-outline-primary" title="Download">
+                                                        <i class="fa-solid fa-download"></i>
+                                                    </a>
+                                                    <button type="button" class="btn btn-outline-danger btn-delete-backup" data-file="<?= esc($backup['name']) ?>" title="Delete">
+                                                        <i class="fa-solid fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            <?php endif; ?>
                         </table>
                     </div>
+                    <?php if (!empty($restHistory)): ?>
+                        <div class="text-center mt-3">
+                            <button class="btn btn-outline-primary btn-sm px-4 rounded-pill" type="button" data-bs-toggle="collapse" data-bs-target="#olderBackups" aria-expanded="false" id="toggleOlderBtn">
+                                <i class="fa-solid fa-chevron-down me-1"></i> Show Older Backups (<?= count($restHistory) ?>)
+                            </button>
+                        </div>
+                        <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const btn = document.getElementById('toggleOlderBtn');
+                            const collapseEl = document.getElementById('olderBackups');
+                            collapseEl.addEventListener('show.bs.collapse', function() {
+                                btn.innerHTML = '<i class="fa-solid fa-chevron-up me-1"></i> Hide Older Backups';
+                            });
+                            collapseEl.addEventListener('hide.bs.collapse', function() {
+                                btn.innerHTML = '<i class="fa-solid fa-chevron-down me-1"></i> Show Older Backups (<?= count($restHistory) ?>)';
+                            });
+                        });
+                        </script>
+                    <?php endif; ?>
                 <?php endif; ?>
             </div>
         </div>
@@ -304,7 +374,7 @@ document.getElementById('backupForm').addEventListener('submit', async function(
     }
 
     try {
-        const response = await fetch('<?= base_url('admin/backup/download') ?>?' + params);
+        const response = await fetch('<?= base_url('admin/system/backup/download') ?>?' + params);
         if (!response.ok) {
             const err = await response.json();
             throw new Error(err.message || 'Backup failed');
@@ -345,7 +415,7 @@ document.querySelectorAll('.btn-delete-backup').forEach(btn => {
         row.style.opacity = '0.5';
         
         try {
-            const res = await fetch('<?= base_url('admin/backup/delete') ?>', {
+            const res = await fetch('<?= base_url('admin/system/backup/delete') ?>', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: 'file=' + encodeURIComponent(file)

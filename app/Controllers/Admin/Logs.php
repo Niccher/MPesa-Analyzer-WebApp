@@ -211,11 +211,11 @@ class Logs extends BaseController
     private function highlightLine(string $line): string
     {
         $colors = [
-            'DEBUG'     => '#6c757d',
-            'INFO'      => '#0d6efd',
-            'WARNING'   => '#ffc107',
-            'ERROR'     => '#dc3545',
-            'CRITICAL'  => '#721c24',
+            'DEBUG'     => '#94a3b8',
+            'INFO'      => '#38bdf8',
+            'WARNING'   => '#fbbf24',
+            'ERROR'     => '#f87171',
+            'CRITICAL'  => '#fda4af',
         ];
 
         foreach ($colors as $level => $color) {

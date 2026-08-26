@@ -2,7 +2,7 @@
 
 namespace App\Controllers;
 
-use App\Models\ModUploads;
+use App\Models\UploadModel;
 
 class Info extends BaseController
 {
@@ -10,7 +10,7 @@ class Info extends BaseController
     {
         helper('mpesa_date');
         $db = \Config\Database::connect();
-        $mod_uploads = new ModUploads();
+        $mod_uploads = new UploadModel();
         $user = auth()->user();
         
         // Fetch last upload details
@@ -66,7 +66,7 @@ class Info extends BaseController
 
             // Persist the raw token → user link so uploaded data stays
             // attributable even after this Shield token is revoked.
-            $modUploads = new ModUploads();
+            $modUploads = new UploadModel();
             $modUploads->linkDevice((int)$user->id, $rawToken, 'Android App Device');
             
             return redirect()->to(url_to('Info::index'))->with('new_token', $rawToken);

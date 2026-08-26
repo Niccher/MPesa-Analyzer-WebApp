@@ -1,3 +1,10 @@
+<?php
+$versionData = [];
+if (file_exists(APPPATH . 'Config/version.json')) {
+    $versionData = json_decode(file_get_contents(APPPATH . 'Config/version.json'), true);
+}
+$systemVersion = $versionData['version'] ?? '3.2.0';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -247,7 +254,7 @@
             </div>
             <hr class="mt-4 mb-4 opacity-25">
             <div class="row align-items-center">
-                <div class="col-md-6 text-center text-md-start"><p class="mb-0 opacity-75 small">&copy; <?= date('Y') ?> Mpesa Analyzer. All rights reserved.</p></div>
+                <div class="col-md-6 text-center text-md-start"><p class="mb-0 opacity-75 small">&copy; <?= date('Y') ?> Mpesa Analyzer v<?= esc($systemVersion) ?>. All rights reserved.</p></div>
                 <div class="col-md-6 text-center text-md-end mt-2 mt-md-0"><p class="mb-0 opacity-75 small">Built with <i class="fa-solid fa-heart text-danger"></i> for financial freedom</p></div>
             </div>
         </div>

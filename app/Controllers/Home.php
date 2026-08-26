@@ -43,14 +43,35 @@ class Home extends BaseController
             $dbStatus = 'error: ' . $e->getMessage();
         }
 
+        $version = '3.2.0';
+        $jsonPath = APPPATH . 'Config/version.json';
+        if (file_exists($jsonPath)) {
+            $versionData = json_decode(file_get_contents($jsonPath), true);
+            $version = $versionData['version'] ?? '3.2.0';
+        }
+
         $data = [
             'status'    => $dbStatus === 'ok' ? 'ok' : 'degraded',
             'database'  => $dbStatus,
             'timestamp' => date('c'),
             'app'       => 'Mpesa Analyzer',
-            'version'   => '2.1.0',
+            'version'   => $version,
         ];
 
+        return $this->response->setJSON($data);
+    }
+
+    public function systemVersion()
+    {
+        $jsonPath = APPPATH . 'Config/version.json';
+        if (!file_exists($jsonPath)) {
+            return $this->response->setJSON([
+                'version' => '3.2.0',
+                'github_url' => 'https://github.com/niccher/Mpesa_Analyzer_App',
+                'changelog' => []
+            ]);
+        }
+        $data = json_decode(file_get_contents($jsonPath), true);
         return $this->response->setJSON($data);
     }
 

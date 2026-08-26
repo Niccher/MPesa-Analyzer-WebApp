@@ -4,7 +4,7 @@ namespace App\Models;
 
 use CodeIgniter\Model;
 
-class ModRecurring extends Model
+class RecurringPaymentModel extends Model
 {
     protected $table      = 'tbl_Recurring_Transactions';
     protected $primaryKey = 'id';

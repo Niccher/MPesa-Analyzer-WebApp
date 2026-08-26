@@ -21,6 +21,12 @@
 <?= $this->endSection() ?>
 <?= $this->section('content') ?>
 
+<div class="card settings-card mb-4">
+    <div class="card-body p-4 pb-0">
+        <?= view('Admin/System/_nav', ['active' => 'logs']) ?>
+    </div>
+</div>
+
 <div class="row g-4">
     <div class="col-lg-4">
         <div class="card settings-card h-100">
@@ -56,14 +62,15 @@
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                     <h5 class="fw-bold mb-0" style="color: var(--primary);"><i class="fa-solid fa-terminal me-2"></i> <span id="currentFileName">Select a log file</span></h5>
-                    <div class="d-flex gap-2 flex-wrap">
+                    <div class="d-flex gap-2 flex-wrap align-items-center">
                         <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshBtn" title="Refresh"><i class="fa-solid fa-rotate"></i></button>
+                        <button type="button" class="btn btn-outline-success btn-sm" id="copyBtn" title="Copy to Clipboard" disabled><i class="fa-solid fa-copy"></i></button>
                         <button type="button" class="btn btn-outline-primary btn-sm" id="downloadBtn" title="Download" disabled><i class="fa-solid fa-download"></i></button>
                         <button type="button" class="btn btn-outline-danger btn-sm" id="deleteFileBtn" title="Delete this file" disabled><i class="fa-solid fa-trash"></i></button>
                         <button type="button" class="btn btn-outline-danger btn-sm" id="deleteAllBtn" title="Delete all log files"><i class="fa-solid fa-trash-can"></i></button>
-                        <div class="form-check form-switch d-flex align-items-center">
+                        <div class="form-check form-switch d-flex align-items-center mb-0">
                             <input class="form-check-input" type="checkbox" id="autoRefresh" value="1">
-                            <label class="form-check-label small fw-semibold ms-1" for="autoRefresh">Auto (5s)</label>
+                            <label class="form-check-label small fw-semibold ms-1 mb-0" for="autoRefresh">Auto (5s)</label>
                         </div>
                     </div>
                 </div>
@@ -99,6 +106,17 @@
                     </div>
                 </div>
 
+                <!-- Quick Filter Level Pills -->
+                <div class="mb-3 align-items-center gap-1 flex-wrap" id="levelPillsContainer" style="display: none !important;">
+                    <span class="text-secondary small fw-semibold me-1">Quick Levels:</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 active pill-level" data-level="">All</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 pill-level" data-level="DEBUG">Debug</button>
+                    <button type="button" class="btn btn-sm btn-outline-info py-0 px-2 pill-level" data-level="INFO">Info</button>
+                    <button type="button" class="btn btn-sm btn-outline-warning py-0 px-2 pill-level" data-level="WARNING">Warning</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 pill-level" data-level="ERROR">Error</button>
+                    <button type="button" class="btn btn-sm btn-danger text-white py-0 px-2 pill-level" data-level="CRITICAL">Critical</button>
+                </div>
+
                 <div class="log-output" id="logOutput" tabindex="0">
                     <div class="text-muted text-center p-4" style="color: #64748b;">
                         <i class="fa-solid fa-file-lines fs-1 d-block mb-2"></i>
@@ -131,6 +149,7 @@ const fileList = document.getElementById('fileList');
 const logOutput = document.getElementById('logOutput');
 const currentFileName = document.getElementById('currentFileName');
 const downloadBtn = document.getElementById('downloadBtn');
+const copyBtn = document.getElementById('copyBtn');
 const deleteFileBtn = document.getElementById('deleteFileBtn');
 const deleteAllBtn = document.getElementById('deleteAllBtn');
 const refreshBtn = document.getElementById('refreshBtn');
@@ -140,6 +159,7 @@ const searchInput = document.getElementById('searchInput');
 const applyFiltersBtn = document.getElementById('applyFiltersBtn');
 const autoRefresh = document.getElementById('autoRefresh');
 const controls = document.getElementById('controls');
+const levelPillsContainer = document.getElementById('levelPillsContainer');
 
 function loadLog(file) {
     currentFile = file;
@@ -152,15 +172,28 @@ function loadLog(file) {
     logOutput.innerHTML = '<div class="text-center text-muted p-4"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">Loading...</div></div>';
     currentFileName.textContent = file;
     downloadBtn.disabled = false;
+    copyBtn.disabled = false;
     deleteFileBtn.disabled = false;
     controls.style.display = 'flex';
+    if (levelPillsContainer) {
+        levelPillsContainer.style.setProperty('display', 'flex', 'important');
+    }
 
-    fetch('<?= base_url('admin/logs/view') ?>/' + encodeURIComponent(file) + '?' + params)
+    fetch('<?= base_url('admin/system/logs/view') ?>/' + encodeURIComponent(file) + '?' + params)
         .then(r => r.json())
         .then(res => {
             if (res.status === 'success') {
                 logOutput.innerHTML = res.content || '<div class="text-muted text-center p-4">No matching lines.</div>';
                 logOutput.scrollTop = logOutput.scrollHeight;
+                
+                // Sync quick level pills active state
+                document.querySelectorAll('.pill-level').forEach(btn => {
+                    if (btn.dataset.level === levelSelect.value) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
             } else {
                 logOutput.innerHTML = '<div class="text-danger p-4">Error: ' + res.message + '</div>';
             }
@@ -187,6 +220,29 @@ fileList?.addEventListener('click', e => {
     loadLog(btn.dataset.file);
 });
 
+// Quick level pills filtering
+document.querySelectorAll('.pill-level').forEach(btn => {
+    btn.addEventListener('click', function() {
+        levelSelect.value = this.dataset.level;
+        if (currentFile) loadLog(currentFile);
+    });
+});
+
+// Copy to clipboard handler
+copyBtn?.addEventListener('click', () => {
+    if (!currentFile) return;
+    const text = logOutput.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        Swal.fire({
+            title: 'Copied!',
+            text: 'Log traces copied to clipboard.',
+            icon: 'success',
+            timer: 1500,
+            showConfirmButton: false
+        });
+    });
+});
+
 [linesSelect, levelSelect, searchInput].forEach(el => {
     el.addEventListener('change', () => {
         if (currentFile) loadLog(currentFile);
@@ -203,7 +259,7 @@ refreshBtn?.addEventListener('click', () => {
 
 downloadBtn?.addEventListener('click', () => {
     if (currentFile) {
-        window.location.href = '<?= base_url('admin/logs/download') ?>/' + encodeURIComponent(currentFile);
+        window.location.href = '<?= base_url('admin/system/logs/download') ?>/' + encodeURIComponent(currentFile);
     }
 });
 
@@ -218,7 +274,7 @@ deleteFileBtn?.addEventListener('click', async () => {
     if (!result.isConfirmed) return;
 
     try {
-        const res = await fetch('<?= base_url('admin/logs/delete') ?>', {
+        const res = await fetch('<?= base_url('admin/system/logs/delete') ?>', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: 'file=' + encodeURIComponent(currentFile)
@@ -254,7 +310,7 @@ deleteAllBtn?.addEventListener('click', async () => {
     if (!result.isConfirmed) return;
 
     try {
-        const res = await fetch('<?= base_url('admin/logs/delete-all') ?>', { method: 'POST' });
+        const res = await fetch('<?= base_url('admin/system/logs/delete-all') ?>', { method: 'POST' });
         const data = await res.json();
         if (data.status === 'success') {
             Swal.fire('Deleted!', data.message, 'success');

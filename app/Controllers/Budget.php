@@ -2,14 +2,14 @@
 
 namespace App\Controllers;
 
-use App\Models\ModBudget;
+use App\Models\BudgetModel;
 
 class Budget extends BaseController
 {
     public function index()
     {
         $userId  = auth()->user()->id;
-        $mod     = new ModBudget();
+        $mod     = new BudgetModel();
         $budgets = $mod->getBudgets($userId);
         $progress = $mod->getBudgetProgress($budgets);
 
@@ -30,7 +30,7 @@ class Budget extends BaseController
     public function save()
     {
         $userId = auth()->user()->id;
-        $mod    = new ModBudget();
+        $mod    = new BudgetModel();
         $post   = $this->request->getPost();
 
         if (empty($post['category']) || empty($post['amount_limit'])) {
@@ -55,7 +55,7 @@ class Budget extends BaseController
     {
         $id = (int)$this->request->getPost('id');
         if ($id > 0) {
-            $mod = new ModBudget();
+            $mod = new BudgetModel();
             $mod->deleteBudget($id);
         }
         return redirect()->to('/dashboard/budget')->with('success', 'Budget removed.');

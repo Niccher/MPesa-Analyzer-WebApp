@@ -4,7 +4,7 @@ namespace App\Models;
 
 use CodeIgniter\Model;
 
-class ModGoals extends Model
+class GoalModel extends Model
 {
     protected $table      = 'tbl_Spending_Goals';
     protected $primaryKey = 'id';

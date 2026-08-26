@@ -141,7 +141,7 @@ foreach ($trigger_meta as $m) {
                                     <div class="table-responsive">
                                         <table class="table table-sm align-middle">
                                             <thead>
-                                                <tr><th>Event</th><th>Description</th><th class="text-center" style="width: 110px;">Enabled</th><?php if (!empty($custom_triggers)): ?><th style="width: 60px;"></th><?php endif; ?></tr>
+                                                <tr><th>Event</th><th>Description</th><th class="text-center" style="width: 110px;">Enabled</th></tr>
                                             </thead>
                                             <tbody>
                                                 <?php foreach ($grouped as $group => $items): ?>
@@ -158,63 +158,16 @@ foreach ($trigger_meta as $m) {
                                                                 <input class="form-check-input" type="checkbox" name="triggers[<?= esc($meta['key']) ?>]" value="1" role="switch" <?= !empty($triggers[$meta['key']]) ? 'checked' : '' ?>>
                                                             </div>
                                                         </td>
-                                                        <?php if (!empty($custom_triggers)): ?><td></td><?php endif; ?>
                                                     </tr>
                                                     <?php endforeach; ?>
                                                     <?php if ($group !== array_key_last($grouped)): ?>
-                                                    <tr><td colspan="4" class="border-0"></td></tr>
+                                                    <tr><td colspan="3" class="border-0"></td></tr>
                                                     <?php endif; ?>
                                                 <?php endforeach; ?>
-                                                <?php if (!empty($custom_triggers)): ?>
-                                                <?php foreach ($custom_triggers as $custom): ?>
-                                                    <tr>
-                                                        <td>
-                                                            <strong><?= esc($custom['label']) ?></strong>
-                                                            <br><small class="text-muted text-uppercase" style="font-size: 10px;">CUSTOM</small>
-                                                            <br><code><?= esc($custom['key']) ?></code>
-                                                        </td>
-                                                        <td class="text-muted small"><?= esc($custom['description'] ?: 'Custom trigger.') ?></td>
-                                                        <td class="text-center">
-                                                            <div class="form-check form-switch d-inline-block">
-                                                                <input class="form-check-input" type="checkbox" name="triggers[<?= esc($custom['key']) ?>]" value="1" role="switch" <?= !empty($triggers[$custom['key']]) ? 'checked' : '' ?>>
-                                                            </div>
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <button type="button" class="btn btn-outline-danger btn-sm btn-delete-trigger" data-key="<?= esc($custom['key']) ?>" data-label="<?= esc($custom['label'], 'attr') ?>" title="Delete trigger"><i class="fa-solid fa-trash"></i></button>
-                                                        </td>
-                                                    </tr>
-                                                <?php endforeach; ?>
-                                                <?php endif; ?>
                                             </tbody>
                                         </table>
                                     </div>
                                     <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold"><i class="fa-solid fa-floppy-disk me-1"></i> Save Triggers</button>
-                                </form>
-                            </div>
-                        </div>
-
-                        <div class="card settings-card">
-                            <div class="card-body p-4">
-                                <h5 class="fw-bold mb-1" style="color: var(--primary);"><i class="fa-solid fa-plus me-2"></i> Add a Trigger</h5>
-                                <p class="text-muted small mb-3">Register a new event that can email your users, e.g. <code>migration_complete</code>. Fired from application code with <code>Notifier::isTriggerEnabled('migration_complete')</code>.</p>
-                                <form id="addTriggerForm" class="row g-3 align-items-end">
-                                    <?= csrf_field() ?>
-                                    <div class="col-md-3">
-                                        <label class="form-label fw-semibold">Key</label>
-                                        <input type="text" class="form-control" name="trigger_key" placeholder="e.g. migration_complete" required>
-                                        <small class="text-muted">lowercase letters, numbers, underscores</small>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label fw-semibold">Label</label>
-                                        <input type="text" class="form-control" name="trigger_label" placeholder="New Device Connected" required>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-semibold">Description</label>
-                                        <input type="text" class="form-control" name="trigger_description" placeholder="Emails users when a new device connects to their account">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold w-100"><i class="fa-solid fa-plus me-1"></i> Add</button>
-                                    </div>
                                 </form>
                             </div>
                         </div>
@@ -331,39 +284,6 @@ document.querySelectorAll('[data-toggle-pass]').forEach(btn => {
         const input = document.querySelector('input[name="' + btn.dataset.togglePass + '"]');
         input.type = input.type === 'password' ? 'text' : 'password';
         btn.innerHTML = input.type === 'password' ? '<i class="fa-solid fa-eye"></i>' : '<i class="fa-solid fa-eye-slash"></i>';
-    });
-});
-
-document.getElementById('addTriggerForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const body = new FormData(this);
-    const btn = this.querySelector('button[type="submit"]');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Adding...';
-    fetch('<?= base_url('admin/notifications/add-trigger') ?>', { method: 'POST', body })
-        .then(r => r.json())
-        .then(res => {
-            showAlert('Email Notifications', res.message, res.status === 'success' ? 'success' : 'danger');
-            if (res.status === 'success') setTimeout(() => location.reload(), 600);
-        })
-        .finally(() => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-plus me-1"></i> Add';
-        });
-});
-
-document.querySelectorAll('.btn-delete-trigger').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const label = this.dataset.label;
-        if (!confirm('Delete trigger "' + label + '"? This cannot be undone.')) return;
-        const body = new FormData();
-        body.append('trigger_key', this.dataset.key);
-        fetch('<?= base_url('admin/notifications/delete-trigger') ?>', { method: 'POST', body })
-            .then(r => r.json())
-            .then(res => {
-                showAlert('Email Notifications', res.message, res.status === 'success' ? 'success' : 'danger');
-                if (res.status === 'success') setTimeout(() => location.reload(), 600);
-            });
     });
 });
 </script>

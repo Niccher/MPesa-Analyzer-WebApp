@@ -1,3 +1,10 @@
+<?php
+$versionData = [];
+if (file_exists(APPPATH . 'Config/version.json')) {
+    $versionData = json_decode(file_get_contents(APPPATH . 'Config/version.json'), true);
+}
+$systemVersion = $versionData['version'] ?? '3.2.0';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -133,15 +140,14 @@
                                 <p class="text-muted mb-3">The access token securely links your Android app to your web account. It's generated from the dashboard and entered into the phone app.</p>
                                 <ol class="text-muted small" style="line-height: 2;">
                                     <li>Log in to the web dashboard at <a href="<?= url_to('login') ?>" class="fw-semibold">/login</a></li>
-                                    <li>Navigate to <strong>Info & Auth</strong> in the sidebar menu</li>
-                                    <li>In the <strong>Access Tokens</strong> section, click <strong>Generate New Token</strong></li>
-                                    <li>Give the token a name (e.g., "My Galaxy S23") to identify the device</li>
-                                    <li><strong>Copy the token immediately</strong> — it will only be shown once for security</li>
-                                    <li>The token is a long alphanumeric string — paste it somewhere safe temporarily</li>
+                                    <li>Navigate to <strong>Info</strong> in the sidebar menu</li>
+                                    <li>In the <strong>API Token</strong> section, click <strong>Generate Token</strong></li>
+                                    <li><strong>Copy the 12-character token immediately</strong> — it will be shown at the top of the page</li>
+                                    <li>The token is a short alphanumeric string (e.g., <code>aB1cD2eF3g4h</code>)</li>
                                 </ol>
                                 <div class="bg-danger bg-opacity-10 p-3 rounded-3 small text-danger">
                                     <i class="fa-solid fa-shield me-2"></i>
-                                    <strong>Security Note:</strong> Never share your access token. It provides full access to your financial data. If compromised, revoke it immediately from the Info & Auth page.
+                                    <strong>Security Note:</strong> Never share your access token. It provides full access to your financial data. If compromised, nullify it immediately from the Info page.
                                 </div>
                             </div>
                         </div>
@@ -149,19 +155,18 @@
                         <div class="d-flex gap-4 mb-5">
                             <span class="step-number">4</span>
                             <div>
-                                <h4 class="fw-bold mb-2">Link Your Device</h4>
-                                <p class="text-muted mb-3">Connecting your phone to your account is done through the dashboard. This step authorizes the Android app to upload data under your account.</p>
+                                <h4 class="fw-bold mb-2">Link Your Android App</h4>
+                                <p class="text-muted mb-3">Authorize the Android app to upload data under your account by pasting the token inside the app settings.</p>
                                 <ol class="text-muted small" style="line-height: 2;">
-                                    <li>From the dashboard home page, click the <strong>Link Device</strong> button</li>
-                                    <li>In the modal that appears, paste the <strong>Device Token</strong> you copied in step 3</li>
-                                    <li>Optionally enter a <strong>Device Name</strong> (e.g., "Galaxy S23") for easy identification</li>
-                                    <li>Click <strong>Save Link</strong> — the device is now authorized</li>
-                                    <li>On your Android app, enter the same token in the settings screen</li>
-                                    <li>The app will confirm a successful connection with the backend</li>
+                                    <li>Open the Mpesa Analyzer app on your Android device</li>
+                                    <li>Navigate to the **Settings** or link prompt screen</li>
+                                    <li>Paste the <strong>12-character Access Token</strong> you copied in step 3</li>
+                                    <li>Click **Save / Link** — the app will perform a handshake and confirm connection with the backend</li>
+                                    <li>The device is now fully linked and authorized to upload encrypted payloads</li>
                                 </ol>
                                 <div class="bg-light p-3 rounded-3 small">
                                     <i class="fa-solid fa-lightbulb text-warning me-2"></i>
-                                    <strong>Tip:</strong> You can link multiple devices to one account. Each device token is unique. Use the device filter on the dashboard to view data per device.
+                                    <strong>Tip:</strong> You can link one active device token at a time. Each generated token automatically revokes any previous sessions for security.
                                 </div>
                             </div>
                         </div>
@@ -318,7 +323,7 @@
             </div>
             <hr class="mt-4 mb-4 opacity-25">
             <div class="row align-items-center">
-                <div class="col-md-6 text-center text-md-start"><p class="mb-0 opacity-75 small">&copy; <?= date('Y') ?> Mpesa Analyzer. All rights reserved.</p></div>
+                <div class="col-md-6 text-center text-md-start"><p class="mb-0 opacity-75 small">&copy; <?= date('Y') ?> Mpesa Analyzer v<?= esc($systemVersion) ?>. All rights reserved.</p></div>
                 <div class="col-md-6 text-center text-md-end mt-2 mt-md-0"><p class="mb-0 opacity-75 small">Built with <i class="fa-solid fa-heart text-danger"></i> for financial freedom</p></div>
             </div>
         </div>

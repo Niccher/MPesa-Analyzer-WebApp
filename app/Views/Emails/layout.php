@@ -208,6 +208,8 @@
             <tr>
                 <td class="footer">
                     <div class="timestamp">
+                        <strong>Tracking ID:</strong> <code><?= esc($trackingNumber ?? 'N/A') ?></code>
+                        &middot;
                         <strong>Email ID:</strong> <code><?= esc($emailId ?? 'unknown') ?></code>
                         &middot;
                         <strong>As at:</strong> <?= esc($sentAt ?? date('Y-m-d H:i:s T')) ?>

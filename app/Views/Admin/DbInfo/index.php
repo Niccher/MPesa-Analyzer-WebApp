@@ -37,6 +37,12 @@
 <?= $this->endSection() ?>
 <?= $this->section('content') ?>
 
+<div class="card settings-card mb-4">
+    <div class="card-body p-4 pb-0">
+        <?= view('Admin/System/_nav', ['active' => 'db-info']) ?>
+    </div>
+</div>
+
 <!-- Overview stat tiles -->
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-lg-3">
@@ -97,29 +103,32 @@
     </div>
 </div>
 
-<!-- Server info + Storage engines -->
-<div class="row g-4">
-    <div class="col-lg-7">
-        <div class="card settings-card glass-card h-100">
-            <div class="card-body p-4">
-                <div class="section-head">
-                    <div class="head-icon"><i class="fa-solid fa-server"></i></div>
-                    <div>
-                        <h5 class="fw-bold mb-0">Server Information</h5>
-                        <small class="text-secondary">Configuration of the database server</small>
-                    </div>
+<!-- Diagnostic Health Bar & System Specs Toggle -->
+<div class="card settings-card glass-card mb-4">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="fs-4 text-success"><i class="fa-solid fa-heart-pulse"></i></span>
+                <div>
+                    <h6 class="fw-bold mb-0">Database Health Status</h6>
+                    <small class="text-secondary">Basic status metrics</small>
                 </div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap align-items-center">
+                <span class="badge bg-success py-2 px-3 fs-7"><i class="fa-solid fa-circle-check me-1"></i> Connection: Active</span>
+                <span class="badge bg-primary py-2 px-3 fs-7"><i class="fa-solid fa-database me-1"></i> Version: <?= esc($server['version']) ?></span>
+                <span class="badge bg-info text-dark py-2 px-3 fs-7"><i class="fa-solid fa-table me-1"></i> Engine: InnoDB Default</span>
+                <button class="btn btn-outline-primary btn-sm px-3" type="button" data-bs-toggle="collapse" data-bs-target="#systemSpecsCollapse" aria-expanded="false">
+                    <i class="fa-solid fa-sliders me-1"></i> View System Specs
+                </button>
+            </div>
+        </div>
+        
+        <!-- Collapsible System Specs -->
+        <div class="collapse mt-3" id="systemSpecsCollapse">
+            <div class="border-top pt-3 mt-3">
                 <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="metric">
-                            <span class="metric-icon text-primary"><i class="fa-solid fa-tag"></i></span>
-                            <div class="min-w-0">
-                                <div class="metric-label">Version</div>
-                                <div class="metric-value"><?= esc($server['version']) ?></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="metric">
                             <span class="metric-icon text-primary"><i class="fa-solid fa-network-wired"></i></span>
                             <div class="min-w-0">
@@ -128,7 +137,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="metric">
                             <span class="metric-icon text-primary"><i class="fa-solid fa-gears"></i></span>
                             <div class="min-w-0">
@@ -137,33 +146,57 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="metric">
                             <span class="metric-icon text-primary"><i class="fa-solid fa-font"></i></span>
                             <div class="min-w-0">
                                 <div class="metric-label">Charset</div>
-                                <div class="metric-value"><?= esc($server['charset'] ?: '—') ?></div>
+                                <div class="metric-value"><?= esc($server['charset'] ?: '—') ?> (<?= esc($server['collation'] ?: '—') ?>)</div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="metric">
-                            <span class="metric-icon text-primary"><i class="fa-solid fa-arrow-down-short-wide"></i></span>
-                            <div class="min-w-0">
-                                <div class="metric-label">Collation</div>
-                                <div class="metric-value"><?= esc($server['collation'] ?: '—') ?></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Storage Engine & Table footprint -->
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card settings-card glass-card h-100">
+            <div class="card-body p-4">
+                <div class="section-head">
+                    <div class="head-icon"><i class="fa-solid fa-chart-pie"></i></div>
+                    <div>
+                        <h5 class="fw-bold mb-0">Table Storage Footprint</h5>
+                        <small class="text-secondary">Proportional table sizes relative to total database size</small>
+                    </div>
+                </div>
+                
+                <?php
+                // Sort tables by size to get top ones
+                $topTables = array_slice($tables, 0, 5);
+                $totalDbSize = 0;
+                foreach ($tables as $t) {
+                    $totalDbSize += $t['size_bytes'];
+                }
+                ?>
+                
+                <div class="d-flex flex-column gap-3">
+                    <?php foreach ($topTables as $t): 
+                        $percentage = $totalDbSize > 0 ? round(($t['size_bytes'] / $totalDbSize) * 100, 1) : 0;
+                    ?>
+                        <div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="fw-bold text-dark small"><code><?= esc($t['name']) ?></code></span>
+                                <span class="text-secondary small fw-semibold"><?= esc($t['size_human']) ?> (<?= $percentage ?>%)</span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-primary" role="progressbar" style="width: <?= $percentage ?>%" aria-valuenow="<?= $percentage ?>" aria-valuemin="0" aria-valuemax="100"></div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="metric">
-                            <span class="metric-icon text-primary"><i class="fa-solid fa-comment"></i></span>
-                            <div class="min-w-0">
-                                <div class="metric-label">Server Comment</div>
-                                <div class="metric-value trunc" title="<?= esc($server['comment']) ?>"><?= esc($server['comment'] ?: '—') ?></div>
-                            </div>
-                        </div>
-                    </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </div>

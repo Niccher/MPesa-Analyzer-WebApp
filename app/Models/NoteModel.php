@@ -4,7 +4,7 @@ namespace App\Models;
 
 use CodeIgniter\Model;
 
-class ModNotes extends Model
+class NoteModel extends Model
 {
     protected $table      = 'tbl_Transaction_Notes';
     protected $primaryKey = 'id';

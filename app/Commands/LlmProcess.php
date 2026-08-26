@@ -31,7 +31,7 @@ class LlmProcess extends BaseCommand
         foreach ($processingJobs as $pJob) {
             $pJobId = $pJob['id'];
             $pUserId = $pJob['user_id'];
-            $startedAt = strtotime($pJob['started_at'] ?? $pJob['created_at']);
+            $startedAt = strtotime(($pJob['started_at'] ?? $pJob['created_at']) . ' UTC');
             $now = time();
 
             // Resolve user tokens to query latest processed_at timestamp
@@ -60,7 +60,7 @@ class LlmProcess extends BaseCommand
                     ->getRow();
 
                 if ($latestProcessed && !empty($latestProcessed->processed_at)) {
-                    $latestActivity = max($latestActivity, strtotime($latestProcessed->processed_at));
+                    $latestActivity = max($latestActivity, strtotime($latestProcessed->processed_at . ' UTC'));
                 }
             }
 
@@ -74,7 +74,7 @@ class LlmProcess extends BaseCommand
                     ->update([
                         'status' => 'failed',
                         'errors' => 1,
-                        'completed_at' => date('Y-m-d H:i:s'),
+                        'completed_at' => gmdate('Y-m-d H:i:s'),
                         'metadata' => json_encode($meta),
                     ]);
 
@@ -105,7 +105,7 @@ class LlmProcess extends BaseCommand
 
             $db->table('tbl_Processing_Jobs')
                 ->where('id', $jobId)
-                ->update(['status' => 'processing', 'started_at' => date('Y-m-d H:i:s')]);
+                ->update(['status' => 'processing', 'started_at' => gmdate('Y-m-d H:i:s')]);
 
             try {
                 $mlBase = (string) config('MlBackend')->baseUrl;
@@ -138,7 +138,7 @@ class LlmProcess extends BaseCommand
                     ->where('id', $jobId)
                     ->update([
                         'status' => $status,
-                        'completed_at' => date('Y-m-d H:i:s'),
+                        'completed_at' => gmdate('Y-m-d H:i:s'),
                         'duration_seconds' => $duration,
                         'messages_processed' => $messagesProcessed,
                         'errors' => $errors,
@@ -157,6 +157,9 @@ class LlmProcess extends BaseCommand
                         if (!empty($userEmail)) {
                             \App\Libraries\Notifier::sendTrigger($userEmail, 'ml_complete', [
                                 'messagesProcessed' => $messagesProcessed,
+                                'newTransactions'   => (int)($meta['sms_finance'] ?? 0),
+                                'categoriesFound'   => count((array)($meta['category_counts'] ?? [])),
+                                'duration'          => $duration . ' seconds',
                             ]);
                         }
                     }
@@ -175,7 +178,7 @@ class LlmProcess extends BaseCommand
                         'status' => 'failed',
                         'errors' => 1,
                         'duration_seconds' => $duration,
-                        'completed_at' => date('Y-m-d H:i:s'),
+                        'completed_at' => gmdate('Y-m-d H:i:s'),
                         'metadata' => json_encode($meta),
                     ]);
                 CLI::write('Job #' . $jobId . ' (user ' . $userId . '): ' . $e->getMessage(), 'red');

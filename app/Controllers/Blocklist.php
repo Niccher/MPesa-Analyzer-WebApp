@@ -2,15 +2,15 @@
 
 namespace App\Controllers;
 
-use App\Models\ModUploads;
+use App\Models\UploadModel;
 
 class Blocklist extends BaseController
 {
-    private ModUploads $uploadsModel;
+    private UploadModel $uploadsModel;
 
     public function __construct()
     {
-        $this->uploadsModel = new ModUploads();
+        $this->uploadsModel = new UploadModel();
     }
 
     /**
@@ -51,6 +51,18 @@ class Blocklist extends BaseController
             }
         }
         
+        $blockedSmsCount = 0;
+        if (!empty($tokens)) {
+            $blockedRows = $db->table('tbl_Blocked_Senders')->where('user_id', $userId)->get()->getResultArray();
+            $blockedSendersList = array_map(static fn($r) => strtoupper(trim($r['sender'])), $blockedRows);
+            if (!empty($blockedSendersList)) {
+                $blockedSmsCount = $db->table('tbl_Sms')
+                    ->whereIn('sms_owner', $tokens)
+                    ->whereIn('sms_number', $blockedSendersList)
+                    ->countAllResults();
+            }
+        }
+        
         $data = [
             'bg_color' => '#B1B8ED',
             'active_tab' => 'status',
@@ -63,6 +75,7 @@ class Blocklist extends BaseController
                 'finance_senders' => $counts['allowed'],
                 'unverified_senders' => $counts['unknown'],
                 'blocked_senders' => $counts['blocked'],
+                'blocked_sms' => $blockedSmsCount,
             ]
         ];
 
@@ -93,8 +106,8 @@ class Blocklist extends BaseController
         }
         
         $db = \Config\Database::connect();
-        $blockedRows = $db->table('tbl_Blocked_Senders')->where('bs_owner', $userId)->get()->getResultArray();
-        $blockedSenders = array_map(static fn($r) => strtoupper(trim($r['bs_sender'])), $blockedRows);
+        $blockedRows = $db->table('tbl_Blocked_Senders')->where('user_id', $userId)->get()->getResultArray();
+        $blockedSenders = array_map(static fn($r) => strtoupper(trim($r['sender'])), $blockedRows);
         
         if (empty($blockedSenders)) {
             return $this->response->setJSON(['status' => 'error', 'message' => 'No blocked senders to delete messages from.']);
@@ -105,7 +118,7 @@ class Blocklist extends BaseController
         $smsRows = $db->table('tbl_Sms')
             ->select('id')
             ->whereIn('sms_owner', $tokens)
-            ->whereIn('sms_sender', $blockedSenders)
+            ->whereIn('sms_number', $blockedSenders)
             ->get()
             ->getResultArray();
             

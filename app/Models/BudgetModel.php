@@ -4,7 +4,7 @@ namespace App\Models;
 
 use CodeIgniter\Model;
 
-class ModBudget extends Model
+class BudgetModel extends Model
 {
     protected $table      = 'tbl_Budgets';
     protected $primaryKey = 'id';

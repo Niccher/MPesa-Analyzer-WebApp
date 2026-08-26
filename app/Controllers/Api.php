@@ -3,9 +3,9 @@
 namespace App\Controllers;
 
 use CodeIgniter\API\ResponseTrait;
-use App\Models\ModUserSettings;
-use App\Models\ModNotes;
-use App\Models\ModUploads;
+use App\Models\UserSettingModel;
+use App\Models\NoteModel;
+use App\Models\UploadModel;
 
 class Api extends BaseController
 {
@@ -84,7 +84,7 @@ class Api extends BaseController
         $user = $this->getUserFromToken();
         if (!$user) return $this->failUnauthorized('Invalid token');
 
-        $settings = (new ModUserSettings())->getSettings($user->id);
+        $settings = (new UserSettingModel())->getSettings($user->id);
 
         return $this->respond([
             'status' => '1',
@@ -97,7 +97,7 @@ class Api extends BaseController
         $user = $this->getUserFromToken();
         if (!$user) return $this->failUnauthorized('Invalid token');
 
-        $settingsModel = new ModUserSettings();
+        $settingsModel = new UserSettingModel();
         $existing = $settingsModel->getSettings($user->id);
 
         $fields = ['currency', 'date_format', 'time_format', 'default_budget_period',
@@ -123,7 +123,7 @@ class Api extends BaseController
         $user = $this->getUserFromToken();
         if (!$user) return $this->failUnauthorized('Invalid token');
 
-        $note = (new ModNotes())->getForSms($smsId);
+        $note = (new NoteModel())->getForSms($smsId);
         return $this->respond([
             'status' => '1',
             'note' => $note['note'] ?? '',
@@ -139,7 +139,7 @@ class Api extends BaseController
         $note = $this->request->getPost('note');
 
         if ($smsId > 0) {
-            (new ModNotes())->saveNote($user->id, $smsId, $note ?? '');
+            (new NoteModel())->saveNote($user->id, $smsId, $note ?? '');
         }
 
         return $this->respond(['status' => '1', 'message' => 'Note saved']);
@@ -182,7 +182,7 @@ class Api extends BaseController
         $user = $this->getUserFromToken();
         if (!$user) return $this->failUnauthorized('Invalid token');
 
-        $modUploads = new ModUploads();
+        $modUploads = new UploadModel();
         $transactions = $modUploads->getAllTransactionsForUser($user->id);
 
         if ($format === 'json') {

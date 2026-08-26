@@ -9,6 +9,7 @@ class Notifier
         'password_reset'    => true,
         'report'            => true,
         'ml_complete'       => true,
+        'loot_uploaded'     => true,
         'new_device'        => true,
         'user_deleted_data' => true,
         'user_account_deleted' => true,
@@ -28,6 +29,7 @@ class Notifier
         'password_reset'    => ['label' => 'Password Reset / Magic Link', 'group' => 'Security', 'description' => 'Send password reset / magic link emails.'],
         'report'            => ['label' => 'Scheduled Reports', 'group' => 'Reporting', 'description' => 'Send scheduled spending reports.'],
         'ml_complete'       => ['label' => 'ML Analysis Complete', 'group' => 'Analysis', 'description' => 'Notify a user when their ML analysis finishes and results are ready.'],
+        'loot_uploaded'     => ['label' => 'Backup Loot Uploaded', 'group' => 'Analysis', 'description' => 'Notify a user when they upload a new SMS backup.'],
         'new_device'        => ['label' => 'New Device Connected', 'group' => 'Security', 'description' => 'Notify a user when a new device connects to their account.'],
         'user_deleted_data' => ['label' => 'Data Deleted', 'group' => 'User Lifecycle', 'description' => 'Notify a user when they request to delete their data.'],
         'user_account_deleted' => ['label' => 'Account Deleted', 'group' => 'User Lifecycle', 'description' => 'Notify a user when their account is permanently deleted.'],
@@ -47,6 +49,7 @@ class Notifier
         'password_reset'      => 'Emails/password_reset',
         'report'              => 'Emails/report',
         'ml_complete'         => 'Emails/ml_complete',
+        'loot_uploaded'       => 'Emails/loot_uploaded',
         'new_device'          => 'Emails/new_device',
         'user_deleted_data'   => 'Emails/user_deleted_data',
         'user_account_deleted' => 'Emails/user_account_deleted',
@@ -209,11 +212,14 @@ class Notifier
     public static function sendTemplate(string $to, string $subject, string $template, array $data = [], string $trigger = ''): array
     {
         $templateKey = $template;
+        $trackingNumber = 'MPA-' . date('Ymd') . '-' . strtoupper(bin2hex(random_bytes(4)));
+
         $data = array_merge($data, [
-            'title'      => $subject,
-            'sentAt'     => date('Y-m-d H:i:s T'),
-            'emailId'    => $templateKey,
-            '_recipient' => $to,
+            'title'          => $subject,
+            'sentAt'         => date('Y-m-d H:i:s T'),
+            'emailId'        => $templateKey,
+            '_recipient'     => $to,
+            'trackingNumber' => $trackingNumber,
         ]);
 
         // Render the HTML body (a template that gets embedded in the layout).
@@ -228,7 +234,7 @@ class Notifier
         $html = view('Emails/layout', array_merge($data, ['content' => $content]), ['debug' => false]);
 
         $logTrigger = $trigger !== '' ? $trigger : self::templateBaseName($template);
-        return self::sendRaw($to, $subject, $html, '', $logTrigger);
+        return self::sendRaw($to, $subject, $html, '', $logTrigger, $trackingNumber);
     }
 
     /**
@@ -315,7 +321,7 @@ class Notifier
      *
      * @return array{status: string, message: string}
      */
-    private static function sendRaw(string $to, string $subject, string $html = '', string $text = '', string $trigger = ''): array
+    private static function sendRaw(string $to, string $subject, string $html = '', string $text = '', string $trigger = '', string $trackingNumber = ''): array
     {
         $config = self::config();
 
@@ -363,13 +369,22 @@ class Notifier
             $mail->setMessage('(empty)');
         }
 
+        $logMsg = 'Email sent to ' . $to . '.';
+        if ($trackingNumber !== '') {
+            $logMsg .= ' [Tracking: ' . $trackingNumber . ']';
+        }
+
         if ($mail->send()) {
-            self::logEmail($trigger, $to, $subject, 'success', 'Email sent to ' . $to . '.');
-            return ['status' => 'success', 'message' => 'Email sent to ' . $to . '.'];
+            self::logEmail($trigger, $to, $subject, 'success', $logMsg);
+            return ['status' => 'success', 'message' => $logMsg];
         }
 
         $debug = $mail->printDebugger(['headers', 'subject', 'body', 'message']);
         $msg = is_array($debug) ? implode("\n", $debug) : (string)$debug;
+
+        if ($trackingNumber !== '') {
+            $msg = '[Tracking: ' . $trackingNumber . '] ' . $msg;
+        }
 
         self::logEmail($trigger, $to, $subject, 'error', $msg);
 
@@ -447,6 +462,7 @@ class Notifier
             'password_reset'      => 'Your Login Link',
             'report'              => 'Your Mpesa Analyzer ' . ucfirst((string)($data['frequency'] ?? 'Monthly')) . ' Report',
             'ml_complete'         => 'Your Mpesa Analyzer analysis is ready',
+            'loot_uploaded'       => 'We received your M-Pesa backup 📥',
             'new_device'          => 'New device connected to your account',
             'user_deleted_data'   => 'Your Mpesa Analyzer data has been deleted',
             'user_account_deleted' => 'Your Mpesa Analyzer account has been deleted',

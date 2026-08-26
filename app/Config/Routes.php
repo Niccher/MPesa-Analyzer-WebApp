@@ -29,25 +29,26 @@ $routes->set404Override();
 
 // We get a performance increase by specifying the default
 // route since we don't have to scan directories.
-//$routes->get('/', 'Auths::index');
+//$routes->get('/', 'AuthController::index');
 $routes->get('/', 'Home::index');
 $routes->get('/health', 'Home::health');
-$routes->get('/dashboard', 'Dash::index', ['filter' => 'session']);
+$routes->get('/api/v1/system/version', 'Home::systemVersion');
+$routes->get('/dashboard', 'DashboardController::index', ['filter' => 'session']);
 $routes->get('/dashboard/graph', 'Graph::index', ['filter' => 'session']);
 $routes->get('/dashboard/graph/category-details', 'Graph::categoryDetails', ['filter' => 'session']);
 $routes->addRedirect('/dashboard/search', '/dashboard/transactions');
 $routes->post('/dashboard/rescan', 'Home::rescan', ['filter' => 'session']);
 $routes->post('/dashboard/rescan/all', 'Home::rescanAll', ['filter' => 'session']);
 $routes->get('/dashboard/rescan/progress', 'Home::progress', ['filter' => 'session']);
-$routes->post('/dashboard/device/link', 'Dash::linkDevice', ['filter' => 'session']);
-$routes->get('/dashboard/analyse', 'Analyse::index', ['filter' => 'session']);
-$routes->post('/dashboard/analyse/rule', 'Analyse::saveRule', ['filter' => 'session']);
+$routes->post('/dashboard/device/link', 'DashboardController::linkDevice', ['filter' => 'session']);
+$routes->get('/dashboard/analyse', 'AnalysisCallbackController::index', ['filter' => 'session']);
+$routes->post('/dashboard/analyse/rule', 'AnalysisCallbackController::saveRule', ['filter' => 'session']);
 $routes->get('/dashboard/errors/test/(:num)', 'Debug::error/$1');
 $routes->get('/dashboard/transactions', 'Transactions::index', ['filter' => 'session']);
 $routes->get('/dashboard/transactions/export', 'Transactions::export', ['filter' => 'session']);
-    $routes->get('/dashboard/history', 'History::index', ['filter' => 'session']);
-    $routes->get('/dashboard/history/jobs', 'History::jobs', ['filter' => 'session']);
-    $routes->post('/dashboard/history/jobs/stop', 'History::stopJob', ['filter' => 'session']);
+    $routes->get('/dashboard/history', 'HistoryController::index', ['filter' => 'session']);
+    $routes->get('/dashboard/history/jobs', 'HistoryController::jobs', ['filter' => 'session']);
+    $routes->post('/dashboard/history/jobs/stop', 'HistoryController::stopJob', ['filter' => 'session']);
 $routes->get('/dashboard/info', 'Info::index', ['filter' => 'session']);
 $routes->post('/dashboard/info/generate-token', 'Info::generateToken', ['filter' => 'session']);
 $routes->post('/dashboard/info/revoke-token', 'Info::revokeToken', ['filter' => 'session']);
@@ -117,8 +118,8 @@ $routes->get('/dashboard/settings/report-schedule', 'Settings::reportSchedule', 
 $routes->post('/dashboard/settings/report-schedule/save', 'Settings::saveReportSchedule', ['filter' => 'session']);
 
 // Analytics & Insights
-$routes->get('/dashboard/reports', 'Reports::index', ['filter' => 'session']);
-$routes->get('/dashboard/reports/print', 'Reports::printView', ['filter' => 'session']);
+$routes->get('/dashboard/reports', 'ReportsController::index', ['filter' => 'session']);
+$routes->get('/dashboard/reports/print', 'ReportsController::printView', ['filter' => 'session']);
 $routes->get('/dashboard/budget', 'Budget::index', ['filter' => 'session']);
 $routes->match(['get', 'post'], '/dashboard/budget/save', 'Budget::save', ['filter' => 'session']);
 $routes->match(['get', 'post'], '/dashboard/budget/delete', 'Budget::delete', ['filter' => 'session']);
@@ -130,49 +131,52 @@ $routes->get('/setup', 'Home::setup');
 $routes->get('/faq', 'Home::faq');
 
 $routes->group('auth', function ($routes) {
-    $routes->add('login', 'Auths::login');
-    $routes->add('register', 'Auths::register');
-    $routes->add('search', 'Auths::user_info');
-    $routes->add('logout', 'Auths::user_logout');
+    $routes->add('login', 'AuthController::login');
+    $routes->add('register', 'AuthController::register');
+    $routes->add('search', 'AuthController::user_info');
+    $routes->add('logout', 'AuthController::user_logout');
 });
 
-$routes->group('auth', function ($routes) {
-    $routes->add('auth_login', 'UserAuth::user_login');
-    $routes->add('auth_register', 'UserAuth::user_register');
-    $routes->add('verify_token', 'UserAuth::verify_token');
+$routes->group('api/v1', ['namespace' => 'App\Controllers\Api\V1'], function ($routes) {
+    // Auth & Core Device Endpoints
+    $routes->post('auth/login', 'AuthController::login');
+    $routes->post('auth/register', 'AuthController::register');
+    $routes->post('auth/verify', 'AuthController::verifyToken');
+    $routes->post('upload', 'UploadsController::upload');
+    $routes->post('device', 'AuthController::devicePrint');
+
+    // Sync & Scan Process
+    $routes->post('process/scan', 'UploadsController::scanTrigger');
+    $routes->post('process/progress', 'UploadsController::scanProgress');
+
+    // Financial Aggregations & List Endpoints
+    $routes->post('financial/overview', 'AnalyticsController::financialOverview');
+    $routes->post('financial/categories', 'AnalyticsController::transactionsByCategory');
+    $routes->post('financial/senders', 'AnalyticsController::senderProfiles');
+    $routes->post('financial/uploads', 'UploadsController::uploadListing');
+    $routes->post('financial/uploads-count', 'UploadsController::lootUploadedCount');
+    $routes->post('financial/uploads-summary', 'UploadsController::uploadSummaryCalculation');
+
+    // NEW Financial Analyst Endpoints
+    $routes->post('financial/health', 'AnalyticsController::financialHealth');
+    $routes->post('financial/alerts', 'AnalyticsController::financialAlerts');
+    $routes->post('financial/recurring', 'AnalyticsController::financialRecurring');
+    $routes->post('financial/trends', 'AnalyticsController::financialTrends');
+    $routes->post('financial/insights', 'AnalyticsController::financialInsights');
+
+    // User Settings & Utilities
+    $routes->post('settings/profile', 'SettingsController::profile');
+    $routes->post('settings/profile/update', 'SettingsController::updateProfile');
+    $routes->post('settings/preferences', 'SettingsController::preferences');
+    $routes->post('settings/preferences/save', 'SettingsController::savePreferences');
+    $routes->post('settings/delete-account', 'UploadsController::deleteAccount');
+    $routes->post('settings/delete-data', 'UploadsController::deleteData');
+    
+    $routes->get('notes/get/(:num)', 'NotesController::noteGet/$1');
+    $routes->post('notes/save', 'NotesController::noteSave');
+    $routes->get('export/(:any)', 'UploadsController::export/$1');
 });
 
-$routes->add('/process/upload', 'Upload::upload');
-$routes->add('/process/device', 'Upload::device_print');
-$routes->add('/process/get/my_uploads', 'Upload::upload_listing');
-$routes->add('/process/get/my_uploads_count', 'Upload::loot_uploaded_count');
-$routes->add('/process/get/my_uploads_category_count', 'Upload::loot_uploaded_category_count');
-    $routes->add('/process/get/my_uploads_graph', 'Upload::loot_uploaded_graph');
-    $routes->add('/process/set/delete_loot_by_uuid', 'Upload::loot_delete_by_uuid');
-    $routes->add('/process/get/user_info', 'Auths::user_info');
-
-    $routes->add('/process/get/my_summary', 'Upload::upload_summary');
-$routes->add('/process/get/my_summary_calculations', 'Upload::upload_summary_calculation');
-    $routes->add('/process/get/list_all_sms_in_category', 'Upload::list_all_sms_in_category');
-    $routes->add('/process/get/my_financial_overview', 'Upload::financial_overview');
-    $routes->add('/process/get/my_transactions_by_category', 'Upload::transactions_by_category');
-    $routes->add('/process/get/my_sender_profiles', 'Upload::sender_profiles');
-
-$routes->add('/api/settings/profile', 'Api::profile');
-$routes->add('/api/settings/profile/update', 'Api::updateProfile');
-$routes->add('/api/settings/preferences', 'Api::preferences');
-$routes->add('/api/settings/preferences/save', 'Api::savePreferences');
-$routes->add('/api/transactions/notes/get/(:num)', 'Api::noteGet/$1');
-$routes->add('/api/transactions/notes/save', 'Api::noteSave');
-$routes->add('/api/process/scan', 'Api::scanTrigger');
-$routes->add('/api/process/progress', 'Api::scanProgress');
-$routes->add('/api/export/(:any)', 'Api::export/$1');
-
-$routes->add('/process/test', 'Testar::random');
-$routes->add('/process/test_data', 'Upload::prepare_dataset');
-$routes->add('/process/verify_token', 'UserAuth::verify_token');
-$routes->add('/process/delete_account', 'UserAuth::delete_account');
-$routes->add('/process/delete_data', 'UserAuth::delete_data');
 
 // Admin routes
 $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
@@ -207,11 +211,7 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
     $routes->post('ml/allowed/bulk-remove', 'Admin\Ml::allowedBulkRemove');
     $routes->post('ml/allowed/seed', 'Admin\Ml::allowedSeed');
 
-    // Maintenance
-    $routes->post('maintenance/save-retention', 'Admin\Maintenance::saveRetention');
 
-    // Database info
-    $routes->get('db-info', 'Admin\DbInfo::index');
 
     // Cron jobs
     $routes->get('crons', 'Admin\Crons::index');
@@ -237,28 +237,28 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
     $routes->post('notifications/save-config', 'Admin\Notifications::saveConfig');
     $routes->post('notifications/send-test-email', 'Admin\Notifications::sendTestEmail');
     $routes->post('notifications/save-triggers', 'Admin\Notifications::saveTriggers');
-    $routes->post('notifications/add-trigger', 'Admin\Notifications::addTrigger');
-    $routes->post('notifications/delete-trigger', 'Admin\Notifications::deleteTrigger');
 
-    // Log viewer
-    $routes->get('logs', 'Admin\Logs::index');
-    $routes->get('logs/view/(:any)', 'Admin\Logs::view/$1');
-    $routes->get('logs/download/(:any)', 'Admin\Logs::download/$1');
-    $routes->post('logs/delete', 'Admin\Logs::delete');
-    $routes->post('logs/delete-all', 'Admin\Logs::deleteAll');
+    // System Utilities
+    $routes->get('system', 'Admin\DbInfo::index');
+    $routes->get('system/db-info', 'Admin\DbInfo::index');
 
-    // Cache & Sessions
-    $routes->get('maintenance', 'Admin\Maintenance::index');
-    $routes->post('maintenance/clear-cache', 'Admin\Maintenance::clearCache');
-    $routes->post('maintenance/clear-sessions', 'Admin\Maintenance::clearSessions');
-    $routes->post('maintenance/clean-expired-sessions', 'Admin\Maintenance::cleanExpiredSessions');
+    $routes->get('system/logs', 'Admin\Logs::index');
+    $routes->get('system/logs/view/(:any)', 'Admin\Logs::view/$1');
+    $routes->get('system/logs/download/(:any)', 'Admin\Logs::download/$1');
+    $routes->post('system/logs/delete', 'Admin\Logs::delete');
+    $routes->post('system/logs/delete-all', 'Admin\Logs::deleteAll');
 
-    // Database Backup
-    $routes->get('backup', 'Admin\Backup::index');
-    $routes->get('backup/download', 'Admin\Backup::download');
-    $routes->get('backup/scheduled', 'Admin\Backup::scheduled');
-    $routes->get('backup/download-file/(:any)', 'Admin\Backup::downloadFile/$1');
-    $routes->post('backup/delete', 'Admin\Backup::delete');
+    $routes->get('system/maintenance', 'Admin\Maintenance::index');
+    $routes->post('system/maintenance/clear-cache', 'Admin\Maintenance::clearCache');
+    $routes->post('system/maintenance/clear-sessions', 'Admin\Maintenance::clearSessions');
+    $routes->post('system/maintenance/clean-expired-sessions', 'Admin\Maintenance::cleanExpiredSessions');
+    $routes->post('system/maintenance/save-retention', 'Admin\Maintenance::saveRetention');
+
+    $routes->get('system/backup', 'Admin\Backup::index');
+    $routes->get('system/backup/download', 'Admin\Backup::download');
+    $routes->get('system/backup/scheduled', 'Admin\Backup::scheduled');
+    $routes->get('system/backup/download-file/(:any)', 'Admin\Backup::downloadFile/$1');
+    $routes->post('system/backup/delete', 'Admin\Backup::delete');
 
     // Audit Trail
     $routes->get('audit', 'Admin\Audit::index');

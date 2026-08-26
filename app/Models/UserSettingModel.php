@@ -4,7 +4,7 @@ namespace App\Models;
 
 use CodeIgniter\Model;
 
-class ModUserSettings extends Model
+class UserSettingModel extends Model
 {
     protected $table      = 'tbl_User_Settings';
     protected $primaryKey = 'id';

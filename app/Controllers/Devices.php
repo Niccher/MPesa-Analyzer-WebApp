@@ -3,7 +3,7 @@
 namespace App\Controllers;
 
 use App\Controllers\BaseController;
-use App\Models\ModDevices;
+use App\Models\DeviceModel;
 
 class Devices extends BaseController
 {
@@ -15,7 +15,7 @@ class Devices extends BaseController
     public function index()
     {
         $userId = auth()->user()->id;
-        $mod    = new ModDevices();
+        $mod    = new DeviceModel();
 
         $devices = $mod->getUserDevices($userId);
 
@@ -31,7 +31,7 @@ class Devices extends BaseController
     public function detail(string $deviceUuid)
     {
         $userId = auth()->user()->id;
-        $mod    = new ModDevices();
+        $mod    = new DeviceModel();
 
         $metrics = $mod->getDeviceMetrics($userId, $deviceUuid);
         if ($metrics === null) {
@@ -50,7 +50,7 @@ class Devices extends BaseController
     public function tokenUsage()
     {
         $userId = auth()->user()->id;
-        $mod    = new ModDevices();
+        $mod    = new DeviceModel();
 
         $data = [
             'tokens'   => $mod->getTokenUsage($userId),
@@ -64,7 +64,7 @@ class Devices extends BaseController
     public function apiActivity()
     {
         $userId = auth()->user()->id;
-        $mod    = new ModDevices();
+        $mod    = new DeviceModel();
         $limit  = (int) ($this->request->getGet('limit') ?: 25);
         $limit  = max(10, min($limit, 200));
 

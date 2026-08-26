@@ -14,7 +14,7 @@ class UploadsCleanup extends BaseCommand
     public function run(array $params)
     {
         $db = \Config\Database::connect();
-        $uploadDir = WRITEPATH . 'uploads/txt_loot/';
+        $uploadDir = WRITEPATH . 'uploads/payloads/';
 
         $orphaned = 0;
         if (is_dir($uploadDir)) {

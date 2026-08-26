@@ -3,7 +3,7 @@
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
-use App\Models\ModDevices;
+use App\Models\DeviceModel;
 use CodeIgniter\API\ResponseTrait;
 
 class Devices extends BaseController
@@ -12,7 +12,7 @@ class Devices extends BaseController
 
     public function index()
     {
-        $mod = new ModDevices();
+        $mod = new DeviceModel();
         $all = $mod->getAllDevices();
 
         $data = [
@@ -26,7 +26,7 @@ class Devices extends BaseController
 
     public function detail(string $deviceUuid)
     {
-        $mod     = new ModDevices();
+        $mod     = new DeviceModel();
         $metrics = $mod->getDeviceMetrics(null, $deviceUuid);
 
         if ($metrics === null) {

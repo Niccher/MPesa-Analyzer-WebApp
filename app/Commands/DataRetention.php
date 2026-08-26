@@ -50,7 +50,7 @@ class DataRetention extends BaseCommand
             return;
         }
 
-        $uploadDir = WRITEPATH . 'uploads/txt_loot/';
+        $uploadDir = WRITEPATH . 'uploads/payloads/';
         $stats = [
             'uploads'    => 0,
             'files'      => 0,

@@ -172,7 +172,12 @@
                     <div class="fw-bold small text-dark">Delete SMS from Unwanted (Blocked) Senders</div>
                     <div class="text-muted small">This will search all your uploaded SMS and delete messages sent by any address currently in your Blocked tab.</div>
                 </div>
-                <button type="button" id="btnDeleteUnwanted" class="btn btn-danger btn-sm rounded px-3 fw-semibold">
+                <button type="button" id="btnDeleteUnwanted" class="btn btn-danger btn-sm rounded px-3 fw-semibold"
+                        data-blocked-sms="<?= (int)($stats['blocked_sms'] ?? 0) ?>"
+                        data-blocked-senders="<?= (int)($stats['blocked_senders'] ?? 0) ?>"
+                        data-all-sms="<?= (int)($stats['all_sms'] ?? 0) ?>"
+                        data-good-sms="<?= (int)($stats['good_sms'] ?? 0) ?>"
+                        data-bad-sms="<?= (int)($stats['bad_sms'] ?? 0) ?>">
                     <i class="fa-solid fa-trash me-1"></i>Delete Messages
                 </button>
             </div>
@@ -215,9 +220,66 @@ if (statusExplanationModal) {
 }
 
 document.getElementById('btnDeleteUnwanted')?.addEventListener('click', function() {
+    const blockedSms = parseInt(this.getAttribute('data-blocked-sms')) || 0;
+    const blockedSenders = parseInt(this.getAttribute('data-blocked-senders')) || 0;
+    const allSms = parseInt(this.getAttribute('data-all-sms')) || 0;
+    const goodSms = parseInt(this.getAttribute('data-good-sms')) || 0;
+    const badSms = parseInt(this.getAttribute('data-bad-sms')) || 0;
+
+    if (blockedSms === 0) {
+        Swal.fire({
+            title: 'No Messages to Delete',
+            text: 'There are currently 0 messages in your database from senders on your Blocked list.',
+            icon: 'info',
+            confirmButtonColor: '#6c757d'
+        });
+        return;
+    }
+
+    const formatNum = (num) => new Intl.NumberFormat().format(num);
+
     Swal.fire({
         title: 'Delete Unwanted SMS?',
-        text: 'This will permanently delete all SMS from senders currently in your Blocked list. This action cannot be undone!',
+        html: `
+            <div class="text-start">
+                <p class="mb-3 text-secondary small">This will permanently delete all SMS from senders currently in your Blocked list. This action cannot be undone.</p>
+                
+                <div class="alert alert-danger py-2 px-3 small d-flex align-items-center gap-2 mb-3">
+                    <i class="fa-solid fa-triangle-exclamation fs-5"></i>
+                    <div>
+                        <strong>To be deleted:</strong> <span class="badge bg-danger">${formatNum(blockedSms)} SMS</span> from <strong>${formatNum(blockedSenders)} blocked sender(s)</strong>.
+                    </div>
+                </div>
+                
+                <h6 class="fw-bold mb-2 text-dark small" style="letter-spacing:0.05em; text-transform:uppercase;">Database Impact Statistics</h6>
+                <table class="table table-sm table-bordered text-center small mb-0 align-middle">
+                    <thead>
+                        <tr class="table-light">
+                            <th>Metric</th>
+                            <th>Before</th>
+                            <th>After Deletion</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="text-start fw-semibold">Total SMS</td>
+                            <td>${formatNum(allSms)}</td>
+                            <td class="text-danger fw-bold">${formatNum(allSms - blockedSms)}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-start fw-semibold">Finance SMS</td>
+                            <td class="text-success">${formatNum(goodSms)}</td>
+                            <td class="text-success fw-semibold">${formatNum(goodSms)}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-start fw-semibold">Non-Finance SMS</td>
+                            <td class="text-muted">${formatNum(badSms)}</td>
+                            <td class="text-danger fw-bold">${formatNum(badSms - blockedSms)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        `,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#dc3545',

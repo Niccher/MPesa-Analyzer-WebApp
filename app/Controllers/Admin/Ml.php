@@ -78,10 +78,9 @@ class Ml extends BaseController
         }
 
         // Auto-cleanup zombie jobs that are stuck in active statuses for more than 30 minutes
-        $thirtyMinsAgo = date('Y-m-d H:i:s', time() - 1800);
         $db->table('tbl_Processing_Jobs')
             ->whereIn('status', ['processing', 'starting', 'queued'])
-            ->where('created_at <', $thirtyMinsAgo)
+            ->where('created_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)')
             ->update(['status' => 'failed']);
 
         $jobs = $db->table('tbl_Processing_Jobs')
@@ -899,7 +898,7 @@ class Ml extends BaseController
         $startedAt = $job['started_at'] ?? $job['created_at'] ?? null;
         $duration = null;
         if (!empty($startedAt)) {
-            $duration = max(0, time() - strtotime($startedAt));
+            $duration = max(0, time() - strtotime($startedAt . ' UTC'));
         }
         $md['duration_seconds'] = $duration;
 
@@ -907,7 +906,7 @@ class Ml extends BaseController
             ->where('id', $jobId)
             ->update([
                 'status' => 'failed',
-                'completed_at' => date('Y-m-d H:i:s'),
+                'completed_at' => gmdate('Y-m-d H:i:s'),
                 'duration_seconds' => $duration,
                 'metadata' => json_encode($md)
             ]);

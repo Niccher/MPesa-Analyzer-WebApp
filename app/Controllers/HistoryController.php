@@ -2,7 +2,7 @@
 
 namespace App\Controllers;
 
-class History extends BaseController
+class HistoryController extends BaseController
 {
     public function index()
     {
@@ -313,7 +313,7 @@ class History extends BaseController
         $startedAt = $job['started_at'] ?? $job['created_at'] ?? null;
         $duration = null;
         if (!empty($startedAt)) {
-            $duration = max(0, time() - strtotime($startedAt));
+            $duration = max(0, time() - strtotime($startedAt . ' UTC'));
         }
         $md['duration_seconds'] = $duration;
 
@@ -321,7 +321,7 @@ class History extends BaseController
             ->where('id', $jobId)
             ->update([
                 'status' => 'failed',
-                'completed_at' => date('Y-m-d H:i:s'),
+                'completed_at' => gmdate('Y-m-d H:i:s'),
                 'duration_seconds' => $duration,
                 'metadata' => json_encode($md)
             ]);

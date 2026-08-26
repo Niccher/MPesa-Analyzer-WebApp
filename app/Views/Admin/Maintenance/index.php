@@ -40,6 +40,12 @@
 <?= $this->endSection() ?>
 <?= $this->section('content') ?>
 
+<div class="card settings-card mb-4">
+    <div class="card-body p-4 pb-0">
+        <?= view('Admin/System/_nav', ['active' => 'maintenance']) ?>
+    </div>
+</div>
+
 <div class="row g-4">
     <!-- Cache Section -->
     <div class="col-lg-6">
@@ -168,14 +174,18 @@
                     </div>
                 </div>
                 <div class="action-bar mb-2">
-                    <button type="button" class="btn btn-warning btn-action" id="cleanExpiredBtn">
+                    <button type="button" class="btn btn-outline-warning btn-action" id="cleanExpiredBtn">
                         <i class="fa-solid fa-broom me-1"></i> Clean Expired (2h+)
                     </button>
                     <button type="button" class="btn btn-danger btn-action" id="clearSessionsBtn">
                         <i class="fa-solid fa-user-slash me-1"></i> Clear ALL Sessions
                     </button>
                 </div>
-                <span class="text-secondary small" id="sessionStatus"></span>
+                <div class="alert alert-warning py-2 px-3 mt-2 mb-0 d-flex align-items-center gap-2" style="font-size: 0.78rem;">
+                    <i class="fa-solid fa-triangle-exclamation text-warning fs-6"></i>
+                    <span><strong>Warning:</strong> Clearing all sessions immediately logs out everyone, including you!</span>
+                </div>
+                <span class="text-secondary small mt-2 d-block" id="sessionStatus"></span>
             </div>
         </div>
     </div>
@@ -309,7 +319,7 @@ document.getElementById('clearCacheBtn').addEventListener('click', async functio
     showStatus(status, 'Clearing cache...', 'info');
 
     try {
-        const res = await fetch('<?= base_url('admin/maintenance/clear-cache') ?>', { method: 'POST' });
+        const res = await fetch('<?= base_url('admin/system/maintenance/clear-cache') ?>', { method: 'POST' });
         const data = await res.json();
         showStatus(status, data.message, data.status === 'success' ? 'success' : 'error');
         if (data.status === 'success') {
@@ -337,7 +347,7 @@ document.getElementById('cleanExpiredBtn').addEventListener('click', async funct
     showStatus(status, 'Cleaning expired sessions...', 'info');
 
     try {
-        const res = await fetch('<?= base_url('admin/maintenance/clean-expired-sessions') ?>', { method: 'POST' });
+        const res = await fetch('<?= base_url('admin/system/maintenance/clean-expired-sessions') ?>', { method: 'POST' });
         const data = await res.json();
         showStatus(status, data.message, data.status === 'success' ? 'success' : 'error');
         if (data.status === 'success') {
@@ -365,7 +375,7 @@ document.getElementById('clearSessionsBtn').addEventListener('click', async func
     showStatus(status, 'Clearing all sessions...', 'info');
 
     try {
-        const res = await fetch('<?= base_url('admin/maintenance/clear-sessions') ?>', { method: 'POST' });
+        const res = await fetch('<?= base_url('admin/system/maintenance/clear-sessions') ?>', { method: 'POST' });
         const data = await res.json();
         showStatus(status, data.message, data.status === 'success' ? 'success' : 'error');
         if (data.status === 'success') {
@@ -387,7 +397,7 @@ document.getElementById('retentionForm').addEventListener('submit', async functi
     setLoading(btn, true);
     showStatus(status, 'Saving retention period...', 'info');
     try {
-        const res = await fetch('<?= base_url('admin/maintenance/save-retention') ?>', { method: 'POST', body: data });
+        const res = await fetch('<?= base_url('admin/system/maintenance/save-retention') ?>', { method: 'POST', body: data });
         const r = await res.json();
         showStatus(status, r.message, r.status === 'success' ? 'success' : 'error');
         Swal.fire(r.status === 'success' ? 'Saved!' : 'Error', r.message, r.status === 'success' ? 'success' : 'error');

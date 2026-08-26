@@ -3,10 +3,10 @@
 namespace App\Models;
 
 use CodeIgniter\Model;
-use App\Models\ModCryption;
+use App\Libraries\CryptoHelper;
 use ZipArchive;
 
-class ModUploads extends Model
+class UploadModel extends Model
 {
     protected $table = "tbl_Loot";
     protected $primaryKey = "loot_Id";
@@ -27,8 +27,6 @@ class ModUploads extends Model
         return date('Y-m-d H:i:s', $timestamp ?: time());
     }
 
-    // (No more MPESA-specific pattern categories — all SMS processed equally)
-
     // ============ PUBLIC METHODS ============ //
 
     public function file_upload(array $data): bool {
@@ -38,7 +36,7 @@ class ModUploads extends Model
     public function loot_zip_extract(string $zipFilePath): bool {
         $this->validate_zip_file($zipFilePath);
 
-        $extractPath = WRITEPATH . 'uploads/txt_loot/';
+        $extractPath = WRITEPATH . 'uploads/payloads/';
         $this->ensure_directory_exists($extractPath);
 
         $zip = new ZipArchive();
@@ -128,6 +126,26 @@ class ModUploads extends Model
             }
 
             $this->db->transCommit();
+
+            // Send notification email
+            if ($userId !== null && \App\Libraries\Notifier::isTriggerEnabled('loot_uploaded')) {
+                try {
+                    $users = model(\CodeIgniter\Shield\Models\UserModel::class);
+                    $user = $users->findById($userId);
+                    $userEmail = $user ? $user->email : '';
+                    if (!empty($userEmail)) {
+                        $financial = $this->get_upload_financial_summary($loot_uuid);
+                        \App\Libraries\Notifier::sendTrigger($userEmail, 'loot_uploaded', [
+                            'totalMessages'    => $processed['inserted_count'],
+                            'financialSenders' => (int)($financial['counterparties'] ?? 0),
+                            'inflowAmount'     => (float)($financial['inflow_amount'] ?? 0.0),
+                            'outflowAmount'    => (float)($financial['outflow_amount'] ?? 0.0),
+                        ]);
+                    }
+                } catch (\Throwable $ex) {
+                    log_message('error', 'Loot Uploaded Email Alert Failed: ' . $ex->getMessage());
+                }
+            }
 
             return [
                 'status' => 'success',
@@ -312,7 +330,9 @@ class ModUploads extends Model
             ->get()
             ->getRow();
         return $result ? $this->normalizeDate($result->sms_time) : null;
-    }    /**
+    }
+
+    /**
      * Get aggregated metrics for the dashboard within 30 days of last upload
      */
     public function getDashboardMetrics30Days(string $lastDate, ?string $deviceToken = null): array {
@@ -808,7 +828,7 @@ class ModUploads extends Model
         }
 
         $fileName = $query->getRow()->loot_Name;
-        $filePath = WRITEPATH . "uploads/txt_loot/" . $fileName;
+        $filePath = WRITEPATH . "uploads/payloads/" . $fileName;
 
         if (!file_exists($filePath)) {
             throw new \RuntimeException("Loot file not found");
@@ -821,14 +841,14 @@ class ModUploads extends Model
     }
 
     protected function decrypt_loot_file(string $path): string {
-        $modCryption = new ModCryption();
+        $cryptoHelper = new CryptoHelper();
         $content = file_get_contents($path);
         
         log_message('debug', 'File path: ' . $path);
         log_message('debug', 'File size: ' . filesize($path));
         log_message('debug', 'File content first 32 bytes: ' . bin2hex(substr($content, 0, 32)));
         
-        $decrypted = $modCryption->decode_content($content);
+        $decrypted = $cryptoHelper->decode_content($content);
 
         if (empty($decrypted)) {
             throw new \RuntimeException("Failed to decrypt file");
@@ -871,7 +891,6 @@ class ModUploads extends Model
         string $device,
         ?int $userId = null
     ): array {
-        // Process ALL SMS equally — no MPESA-specific filter or pattern matching
         $inserted = 0;
         $total = count($smsData);
 
@@ -933,7 +952,6 @@ class ModUploads extends Model
      * Save upload summary — total SMS count + LLM direction/transaction_type breakdowns.
      */
     protected function save_summary_data(array $counters, string $uuid, int|string $date, ?int $userId = null): bool {
-        // Compute direction breakdown from classified SMS for this loot
         $directionBreakdown = $this->get_direction_breakdown_for_loot($uuid);
         $transactionTypeBreakdown = $this->get_transaction_type_breakdown_for_loot($uuid);
 
@@ -1373,16 +1391,19 @@ class ModUploads extends Model
     public function get_upload_financial_summary(string $lootUuid): array {
         $row = $this->db->query("
             SELECT
-                COALESCE(SUM(a.amount), 0) as total_amount,
-                COUNT(DISTINCT a.counterparty) as counterparties,
-                COUNT(a.id) as analyzed_count
-            FROM tbl_Analyzed_Transactions a
-            INNER JOIN tbl_Sms s ON s.id = a.orig_sms_int_id OR s.sms__id = a.orig_sms_id
-            WHERE s.sms_loot_source = ?
+                COALESCE(SUM(s.sms_amount), 0) as total_amount,
+                COALESCE(SUM(CASE WHEN LOWER(s.sms_direction) IN ('incoming', 'received', 'money in') THEN s.sms_amount ELSE 0 END), 0) as inflow_amount,
+                COALESCE(SUM(CASE WHEN LOWER(s.sms_direction) IN ('outgoing', 'sent', 'money out') THEN s.sms_amount ELSE 0 END), 0) as outflow_amount,
+                COUNT(DISTINCT s.sms_counterparty) as counterparties,
+                COUNT(s.id) as analyzed_count
+            FROM tbl_Sms s
+            WHERE s.sms_loot_source = ? AND s.sms_is_transactional = 1 AND s.sms_amount IS NOT NULL
         ", [$lootUuid])->getRow();
 
         return [
             'total_amount' => (float)($row->total_amount ?? 0),
+            'inflow_amount' => (float)($row->inflow_amount ?? 0),
+            'outflow_amount' => (float)($row->outflow_amount ?? 0),
             'counterparties' => (int)($row->counterparties ?? 0),
             'analyzed_count' => (int)($row->analyzed_count ?? 0),
         ];
@@ -1443,6 +1464,26 @@ class ModUploads extends Model
             $breakdown[$row->transaction_type] = (int)$row->count;
         }
         return $breakdown;
+    }
+
+    /**
+     * Get top counterparties by volume for a specific upload batch
+     */
+    public function get_upload_top_counterparties(string $lootUuid): array {
+        $rows = $this->db->query("
+            SELECT a.counterparty, SUM(a.amount) as total_amount, COUNT(*) as trans_count
+            FROM tbl_Analyzed_Transactions a
+            INNER JOIN tbl_Sms s ON s.id = a.orig_sms_int_id OR s.sms__id = a.orig_sms_id
+            WHERE s.sms_loot_source = ?
+              AND a.counterparty IS NOT NULL
+              AND a.counterparty != ''
+              AND a.counterparty != 'Unknown'
+            GROUP BY a.counterparty
+            ORDER BY total_amount DESC
+            LIMIT 5
+        ", [$lootUuid])->getResultArray();
+
+        return $rows;
     }
 
     public function getAllTransactionsForUser(int $userId): array

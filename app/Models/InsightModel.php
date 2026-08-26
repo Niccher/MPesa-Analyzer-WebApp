@@ -4,7 +4,7 @@ namespace App\Models;
 
 use CodeIgniter\Model;
 
-class ModInsights extends Model
+class InsightModel extends Model
 {
     private function normalizeTimestamp($smsTime, $transDate = null): int {
         if (!empty($transDate) && strlen($transDate) >= 10) {

@@ -8,7 +8,7 @@ if (!function_exists('user_settings')) {
             return $key ? null : [];
         }
 
-        $model = new \App\Models\ModUserSettings();
+        $model = new \App\Models\UserSettingModel();
         $settings = $model->getSettings($userId);
 
         if ($key) {

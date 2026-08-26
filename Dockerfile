@@ -2,7 +2,6 @@
 FROM php:8.3-apache
 
 # ── System dependencies ────────────────────────────────────────────────────────
-# cron stays as a runtime dep — it drives the CodeIgniter scheduler.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
@@ -15,9 +14,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         unzip \
         cron \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) intl mysqli pdo_mysql zip gd \
-    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
-       libicu-dev libzip-dev libpng-dev libjpeg-dev libfreetype6-dev
+    && docker-php-ext-install -j$(nproc) intl mysqli pdo_mysql zip gd
 
 # Enable Apache modules
 RUN a2enmod rewrite headers
@@ -41,7 +38,7 @@ WORKDIR /var/www/html
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY composer.json composer.lock ./
 RUN --mount=type=cache,target=/root/.composer/cache \
-    composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist \
+    composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --ignore-platform-reqs \
     && rm /usr/bin/composer
 
 # ── Application code ──────────────────────────────────────────────────────────

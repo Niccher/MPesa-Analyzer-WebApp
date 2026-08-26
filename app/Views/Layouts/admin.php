@@ -1,3 +1,12 @@
+<?php
+$versionData = [];
+if (file_exists(APPPATH . 'Config/version.json')) {
+    $versionData = json_decode(file_get_contents(APPPATH . 'Config/version.json'), true);
+}
+$systemVersion = $versionData['version'] ?? '3.2.0';
+$systemChangelog = $versionData['changelog'] ?? [];
+$systemGithub = $versionData['github_url'] ?? 'https://github.com/niccher/Mpesa_Analyzer_App';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -224,7 +233,7 @@
             <ul class="nav flex-column mt-3">
                 <?php $currentURL = uri_string(); ?>
                 <li class="nav-item">
-                    <a class="nav-link <?= ($currentURL == 'dashboard' || $currentURL == '') ? 'active' : '' ?>" href="<?= url_to('Dash::index') ?>">
+                    <a class="nav-link <?= ($currentURL == 'dashboard' || $currentURL == '') ? 'active' : '' ?>" href="<?= url_to('DashboardController::index') ?>">
                         <i class="fa-solid fa-house"></i> Home
                     </a>
                 </li>
@@ -254,7 +263,7 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?= strpos($currentURL, 'dashboard/history') !== false ? 'active' : '' ?>" href="<?= url_to('History::index') ?>">
+                    <a class="nav-link <?= strpos($currentURL, 'dashboard/history') !== false ? 'active' : '' ?>" href="<?= url_to('HistoryController::index') ?>">
                         <i class="fa-solid fa-clock-rotate-left"></i> History
                     </a>
                 </li>
@@ -401,55 +410,68 @@
                                  let engineText = '—';
 
                                  if (data.job) {
-                                     const j = data.job;
-                                     if (j.started_at) {
-                                         startedText = j.started_at;
-                                         const startMs = new Date(j.started_at.replace(/-/g, '/')).getTime();
-                                         const nowMs = new Date().getTime();
-                                         const elapsedSec = Math.max(1, Math.round((nowMs - startMs) / 1000));
+                                      const j = data.job;
+                                      const isTerminal = ['completed', 'done', 'failed', 'error', 'cancelled'].includes(j.status);
+                                      if (j.started_at) {
+                                          startedText = j.started_at;
+                                          const dateStr = j.started_at.trim().replace(' ', 'T');
+                                          const startMs = new Date(dateStr.indexOf('Z') === -1 && dateStr.indexOf('+') === -1 ? dateStr + 'Z' : dateStr).getTime();
+                                          
+                                          // Use completed_at if terminal and available, otherwise current local time in UTC
+                                          let endMs = new Date().getTime();
+                                          if (isTerminal && j.completed_at) {
+                                              const compDateStr = j.completed_at.trim().replace(' ', 'T');
+                                              endMs = new Date(compDateStr.indexOf('Z') === -1 && compDateStr.indexOf('+') === -1 ? compDateStr + 'Z' : compDateStr).getTime();
+                                          }
+                                          
+                                          const elapsedSec = Math.max(1, Math.round((endMs - startMs) / 1000));
 
-                                         const financeSms = data.finance_sms || 0;
-                                         const completed = data.completed || 0;
+                                          const financeSms = data.finance_sms || 0;
+                                          const completed = data.completed || 0;
 
-                                         if (processed > 0) {
-                                             const overallSpeed = (processed / elapsedSec).toFixed(1);
-                                             
-                                             // Compute financial SMS processing speed and base ETA on remaining financial SMS
-                                             if (completed > 0) {
-                                                 const extractionSpeed = completed / elapsedSec; // financial SMS per second
-                                                 speedText = overallSpeed + ' SMS/s <br><small class="text-muted" style="font-size:0.7rem;">(' + (extractionSpeed * 60).toFixed(1) + ' finance/min)</small>';
+                                          if (processed > 0) {
+                                              const overallSpeed = (processed / elapsedSec).toFixed(1);
+                                              
+                                              // Compute financial SMS processing speed and base ETA on remaining financial SMS
+                                              if (completed > 0) {
+                                                  const extractionSpeed = completed / elapsedSec; // financial SMS per second
+                                                  speedText = overallSpeed + ' SMS/s <br><small class="text-muted" style="font-size:0.7rem;">(' + (extractionSpeed * 60).toFixed(1) + ' finance/min)</small>';
 
-                                                 if (financeSms > completed) {
-                                                     const remainingFinance = financeSms - completed;
-                                                     const etaSec = Math.round(remainingFinance / extractionSpeed);
-                                                     if (etaSec < 60) {
-                                                         etaText = etaSec + 's';
-                                                     } else {
-                                                         const mins = Math.floor(etaSec / 60);
-                                                         const secs = etaSec % 60;
-                                                         etaText = mins + 'm ' + secs + 's';
-                                                     }
-                                                 } else {
-                                                     etaText = 'Done';
-                                                 }
-                                             } else {
-                                                 speedText = overallSpeed + ' SMS/s';
-                                                 if (total > processed) {
-                                                     const remaining = total - processed;
-                                                     const etaSec = Math.round(remaining / (processed / elapsedSec));
-                                                     if (etaSec < 60) {
-                                                         etaText = etaSec + 's';
-                                                     } else {
-                                                         const mins = Math.floor(etaSec / 60);
-                                                         const secs = etaSec % 60;
-                                                         etaText = mins + 'm ' + secs + 's';
-                                                     }
-                                                 } else {
-                                                     etaText = 'Done';
-                                                 }
-                                             }
-                                         }
-                                     }
+                                                  if (isTerminal) {
+                                                      etaText = (j.status === 'completed' || j.status === 'done') ? 'Done' : '—';
+                                                  } else if (financeSms > completed) {
+                                                      const remainingFinance = financeSms - completed;
+                                                      const etaSec = Math.round(remainingFinance / extractionSpeed);
+                                                      if (etaSec < 60) {
+                                                          etaText = etaSec + 's';
+                                                      } else {
+                                                          const mins = Math.floor(etaSec / 60);
+                                                          const secs = etaSec % 60;
+                                                          etaText = mins + 'm ' + secs + 's';
+                                                      }
+                                                  } else {
+                                                      etaText = 'Done';
+                                                  }
+                                              } else {
+                                                  speedText = overallSpeed + ' SMS/s';
+                                                  if (isTerminal) {
+                                                      etaText = (j.status === 'completed' || j.status === 'done') ? 'Done' : '—';
+                                                  } else if (total > processed) {
+                                                      const remaining = total - processed;
+                                                      const etaSec = Math.round(remaining / (processed / elapsedSec));
+                                                      if (etaSec < 60) {
+                                                          etaText = etaSec + 's';
+                                                      } else {
+                                                          const mins = Math.floor(etaSec / 60);
+                                                          const secs = etaSec % 60;
+                                                          etaText = mins + 'm ' + secs + 's';
+                                                      }
+                                                  } else {
+                                                      etaText = 'Done';
+                                                  }
+                                              }
+                                          }
+                                      }
 
                                      // Parse metadata for Engine details and Current Senders
                                      if (j.metadata) {
@@ -716,10 +738,10 @@
                             &copy; <?= date('Y') ?> <span class="fw-bold text-primary">Mpesa Analyzer</span>. 
                             <span class="d-none d-sm-inline">All rights reserved.</span>
                         </div>
-                        <div class="d-flex gap-3">
-                            <span><i class="fa-solid fa-code-branch me-1"></i> v2.1.0</span>
-                            <a href="<?= base_url('setup') ?>" class="text-dark text-decoration-none"><i class="fa-solid fa-book-open me-1"></i> Docs</a>
-                            <a href="<?= base_url('android-app') ?>" class="text-dark text-decoration-none"><i class="fa-solid fa-download me-1"></i> App</a>
+                        <div class="d-flex gap-3 align-items-center">
+                            <a href="#" class="text-dark text-decoration-none" data-bs-toggle="modal" data-bs-target="#changelogModal"><i class="fa-solid fa-code-branch me-1"></i> v<?= esc($systemVersion) ?></a>
+                            <a href="#" class="text-dark text-decoration-none" data-bs-toggle="modal" data-bs-target="#docsModal"><i class="fa-solid fa-book-open me-1"></i> Docs</a>
+                            <a href="#" class="text-dark text-decoration-none" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-html="true" data-bs-content="<div class='text-center p-2'><p class='mb-2 fw-semibold small'>Scan to Download APK</p><img src='https://api.qrserver.com/v1/create-qr-code/?size=120x120&amp;data=<?= urlencode(base_url('android-app')) ?>' class='img-fluid mb-2 rounded border' style='max-width: 120px;'><br><a href='<?= esc($systemGithub) ?>' target='_blank' class='btn btn-dark btn-sm rounded-pill py-1 px-3 mt-1' style='font-size: 11px;'><i class='fa-brands fa-github me-1'></i> GitHub Repo</a></div>" title="Get Android Client"><i class="fa-solid fa-download me-1"></i> App</a>
                         </div>
                     </div>
                 </footer>
@@ -949,6 +971,119 @@
         });
     });
     </script>
+
+    <!-- Changelog Modal -->
+    <div class="modal fade" id="changelogModal" tabindex="-1" aria-labelledby="changelogModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="changelogModalLabel" style="color: var(--primary);"><i class="fa-solid fa-clock-rotate-left me-2"></i> System Changelog</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2 fw-semibold">Current Version: v<?= esc($systemVersion) ?></span>
+                    </div>
+                    <ul class="list-group list-group-flush small">
+                        <?php foreach ($systemChangelog as $change): ?>
+                            <li class="list-group-item px-0 py-3 border-light d-flex align-items-start">
+                                <i class="fa-solid fa-circle-check text-success me-2 mt-1"></i>
+                                <div><?= esc($change) ?></div>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Documentation Tabbed Modal -->
+    <div class="modal fade" id="docsModal" tabindex="-1" aria-labelledby="docsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="docsModalLabel" style="color: var(--primary);"><i class="fa-solid fa-book-open me-2"></i> App Guide & Documentation</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Nav Tabs -->
+                    <ul class="nav nav-tabs border-light mb-3" id="docsTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-semibold" id="link-tab" data-bs-toggle="tab" data-bs-target="#link-tab-pane" type="button" role="tab" aria-controls="link-tab-pane" aria-selected="true"><i class="fa-solid fa-mobile-screen me-1"></i> App Linking</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-semibold" id="crypto-tab" data-bs-toggle="tab" data-bs-target="#crypto-tab-pane" type="button" role="tab" aria-controls="crypto-tab-pane" aria-selected="false"><i class="fa-solid fa-lock me-1"></i> Security</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-semibold" id="api-tab" data-bs-toggle="tab" data-bs-target="#api-tab-pane" type="button" role="tab" aria-controls="api-tab-pane" aria-selected="false"><i class="fa-solid fa-gears me-1"></i> REST API</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-semibold" id="ml-tab" data-bs-toggle="tab" data-bs-target="#ml-tab-pane" type="button" role="tab" aria-controls="ml-tab-pane" aria-selected="false"><i class="fa-solid fa-brain me-1"></i> ML Engine</button>
+                        </li>
+                    </ul>
+                    
+                    <!-- Tab Content -->
+                    <div class="tab-content small" id="docsTabContent">
+                        <!-- Tab 1: App Linking -->
+                        <div class="tab-pane fade show active" id="link-tab-pane" role="tabpanel" aria-labelledby="link-tab" tabindex="0">
+                            <h6 class="fw-bold mb-2">Connecting Your Android Device</h6>
+                            <ol class="ps-3 mb-3">
+                                <li>Download the **APK file** (using the App download link in the footer or by scanning the QR code).</li>
+                                <li>Install the application on your Android device and open it.</li>
+                                <li>Navigate to **Settings > Security** inside the WebApp dashboard to retrieve your unique authorization token.</li>
+                                <li>Enter the token in the Android app to establish a secure handshake. The device automatically generates and stores a secure device fingerprint key to protect access.</li>
+                            </ol>
+                            <p class="text-muted">Note: Once paired, future uploads are linked exclusively to your device fingerprint signature to prevent token leakage.</p>
+                        </div>
+                        
+                        <!-- Tab 2: Security & Encryption -->
+                        <div class="tab-pane fade" id="crypto-tab-pane" role="tabpanel" aria-labelledby="crypto-tab" tabindex="0">
+                            <h6 class="fw-bold mb-2">Cryptographic Pipeline (AES-128-CBC)</h6>
+                            <p>To secure raw SMS data during upload, the Android app generates a cryptographically secure random 16-byte initialization vector (IV) using `SecureRandom` on every single sync session.</p>
+                            <div class="bg-light p-3 rounded-3 mb-3 font-monospace" style="font-size: 11px;">
+                                Payload Layout: [16-byte Raw IV] + [AES-128-CBC Encrypted ciphertext]
+                            </div>
+                            <p>Upon receiving the backup file, the backend CryptoHelper extracts the first 16 bytes of the stream to extract the session-unique IV, decryption is then safely processed, and only parsed transaction records are stored in the MySQL schema.</p>
+                        </div>
+                        
+                        <!-- Tab 3: REST API client -->
+                        <div class="tab-pane fade" id="api-tab-pane" role="tabpanel" aria-labelledby="api-tab" tabindex="0">
+                            <h6 class="fw-bold mb-2">V1 Client API Specifications</h6>
+                            <p>The Android application communicates with the web backend using type-safe Retrofit calls targeting these core resource modules:</p>
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr><th>Endpoint</th><th>Method</th><th>Action</th></tr>
+                                </thead>
+                                <tbody style="font-size: 11px;">
+                                    <tr><td>`/api/v1/auth/login`</td><td>POST</td><td>Pairs device using secure token validation.</td></tr>
+                                    <tr><td>`/api/v1/uploads/store`</td><td>POST</td><td>Uploads encrypted payload streams.</td></tr>
+                                    <tr><td>`/api/v1/analytics/overview`</td><td>GET</td><td>Fetches sync states and database metrics.</td></tr>
+                                    <tr><td>`/api/v1/settings/preferences`</td><td>POST</td><td>Updates notification toggle preferences.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Tab 4: ML Classifier -->
+                        <div class="tab-pane fade" id="ml-tab-pane" role="tabpanel" aria-labelledby="ml-tab" tabindex="0">
+                            <h6 class="fw-bold mb-2">Local LLM Classification Pipeline</h6>
+                            <p>Once raw transaction data is received and parsed into database schemas, the processing worker queues a classification request.</p>
+                            <ul class="ps-3 mb-3">
+                                <li>The classifier uses an async pipeline querying the local FastAPI engine model (`qwen2.5-1.5b-instruct` GGUF).</li>
+                                <li>SMS contents are mapped to strict category definitions (Mobile Money, Sacco, Bank, Fintech, Insurance, Payments/Govt, etc.).</li>
+                                <li>Calculated transaction amounts, counterparties, directions, and health scores are instantly generated and synced.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <?= $this->renderSection('scripts') ?>

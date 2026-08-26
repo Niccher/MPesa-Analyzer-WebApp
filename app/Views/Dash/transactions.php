@@ -289,7 +289,7 @@
                     <p class="text-secondary small mb-3">Create an auto-replace rule for this counterparty to override the LLM category. Future scans will map it automatically.</p>
                     <div class="mb-3">
                         <label class="small text-secondary fw-bold text-uppercase">Counterparty</label>
-                        <input type="text" id="rule_counterparty" class="form-control bg-light" name="counterparty" readonly>
+                        <input type="text" id="rule_counterparty" class="form-control bg-light" name="keyword" readonly>
                     </div>
                     <div class="mb-3">
                         <label class="small text-secondary fw-bold text-uppercase">Override Category</label>
@@ -298,6 +298,14 @@
                                 <option value="<?= htmlspecialchars($c) ?>"><?= htmlspecialchars($c) ?></option>
                             <?php endforeach; ?>
                         </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small text-secondary fw-bold text-uppercase">Match Type</label>
+                        <select name="match_type" class="form-select">
+                            <option value="exact" selected>Exact — only match this exact name</option>
+                            <option value="contains">Contains — match any name that includes this keyword</option>
+                        </select>
+                        <div class="form-text text-muted">Use <strong>Contains</strong> to catch name variations (e.g., "Naivas Westlands", "Naivas Gateway" with keyword "naivas").</div>
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">

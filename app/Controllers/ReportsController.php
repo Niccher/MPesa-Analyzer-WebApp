@@ -2,17 +2,17 @@
 
 namespace App\Controllers;
 
-use App\Models\ModUploads;
-use App\Models\ModInsights;
+use App\Models\UploadModel;
+use App\Models\InsightModel;
 
-class Reports extends BaseController
+class ReportsController extends BaseController
 {
     public function index()
     {
         helper('mpesa_date');
         $db = \Config\Database::connect();
-        $mod = new ModUploads();
-        $modInsights = new ModInsights();
+        $mod = new UploadModel();
+        $modInsights = new InsightModel();
 
         $year  = (int)($this->request->getGet('year')  ?? date('Y'));
         $month = (int)($this->request->getGet('month') ?? date('m'));
@@ -64,7 +64,7 @@ class Reports extends BaseController
     {
         helper('mpesa_date');
         $db = \Config\Database::connect();
-        $mod = new ModUploads();
+        $mod = new UploadModel();
 
         $year  = (int)($this->request->getGet('year')  ?? date('Y'));
         $month = (int)($this->request->getGet('month') ?? date('m'));

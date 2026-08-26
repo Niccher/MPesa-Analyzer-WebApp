@@ -2,7 +2,7 @@
 
 namespace App\Controllers;
 
-use App\Models\ModUploads;
+use App\Models\UploadModel;
 
 class Transactions extends BaseController
 {
@@ -12,7 +12,7 @@ class Transactions extends BaseController
     {
         helper(['mpesa_date', 'form']);
         $db = \Config\Database::connect();
-        $mod_uploads = new ModUploads();
+        $mod_uploads = new UploadModel();
 
         $page    = (int)($this->request->getGet('page') ?? 1);
         $page    = max(1, $page);
@@ -96,7 +96,7 @@ class Transactions extends BaseController
 
     public function export()
     {
-        $mod_uploads = new ModUploads();
+        $mod_uploads = new UploadModel();
 
         $filters = [
             'category'         => $this->request->getGet('category') ?? '',

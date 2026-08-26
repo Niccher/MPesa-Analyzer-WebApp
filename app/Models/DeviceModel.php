@@ -3,9 +3,9 @@
 namespace App\Models;
 
 use CodeIgniter\Model;
-use App\Models\ModUploads;
+use App\Models\UploadModel;
 
-class ModDevices extends Model
+class DeviceModel extends Model
 {
     protected $table            = 'tbl_Devices';
     protected $primaryKey       = 'id';
@@ -79,7 +79,7 @@ class ModDevices extends Model
      */
     public function getUserRawTokens(int $userId): array
     {
-        $modUploads = new ModUploads();
+        $modUploads = new UploadModel();
         $tokens     = $modUploads->getOwnedRawTokens($userId);
 
         $linked = $this->db->table('tbl_User_Devices')->where('user_id', $userId)->get()->getResultArray();

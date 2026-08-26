@@ -24,6 +24,7 @@ class Filters extends BaseConfig
         'admin'         => \App\Filters\AdminFilter::class,
         'user-area'     => \App\Filters\UserAreaFilter::class,
         'maintenance'   => \App\Filters\MaintenanceFilter::class,
+        'json'          => \App\Filters\ForceJsonResponseFilter::class,
     ];
 
     /**
@@ -35,11 +36,11 @@ class Filters extends BaseConfig
             // 'honeypot',
             // 'csrf',
             // 'invalidchars',
-            'session' => ['except' => ['/', '/home', 'android-app', 'ml-backend', 'setup', 'faq', 'auth/*', 'process/*', 'login', 'register', 'auth_login', 'auth_register']],
+            'session' => ['except' => ['/', '/home', 'android-app', 'ml-backend', 'setup', 'faq', 'auth/*', 'process/*', 'login', 'register', 'auth_login', 'auth_register', 'api/v1/*']],
             'maintenance' => ['except' => [
                 'login', 'register', 'logout', 'magic-link', 'magic-link/*',
                 'auth', 'auth/*',
-                'process', 'process/*', 'api', 'api/*',
+                'process', 'process/*', 'api', 'api/*', 'api/v1/*',
                 'health', 'ml-backend', 'android-app',
             ]],
         ],
@@ -72,5 +73,6 @@ class Filters extends BaseConfig
      */
     public array $filters = [
         'user-area' => ['before' => ['dashboard', 'dashboard/*']],
+        'json'      => ['before' => ['api/v1/*'], 'after' => ['api/v1/*']],
     ];
 }

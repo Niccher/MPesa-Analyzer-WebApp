@@ -57,7 +57,7 @@
             <i class="fa-solid fa-link"></i> Link Device
         </button>
 
-        <button id="runAnalysis" class="btn btn-success btn-sm rounded-pill px-3 shadow-sm">
+        <button class="btn btn-success btn-sm rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#analyzeConfirmModal">
             <i class="fa-solid fa-microchip me-1"></i> Analyze
         </button>
         <a href="<?= base_url('dashboard/search') ?>" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm">
@@ -93,6 +93,26 @@
                     <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">Save Link</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Analyze Confirm Modal -->
+<div class="modal fade" id="analyzeConfirmModal" tabindex="-1" aria-labelledby="analyzeConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-lg">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="analyzeConfirmModalLabel"><i class="fa-solid fa-microchip text-success me-2"></i>Run Rules Analysis</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small">This action executes your custom user-defined category rules and regex patterns against all new/unprocessed transactions instantly.</p>
+                <p class="text-muted small mb-0">It helps group your spending accurately before triggering the deep LLM classifier.</p>
+            </div>
+            <div class="modal-footer border-0 pt-0 rounded-bottom-4" style="background: var(--card-bg);">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="runAnalysis" class="btn btn-success rounded-pill px-4 fw-bold shadow-sm">Proceed Anyway</button>
+            </div>
         </div>
     </div>
 </div>
@@ -408,6 +428,11 @@ usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
         const analysisBtn = document.getElementById('runAnalysis');
         if (analysisBtn) {
             analysisBtn.addEventListener('click', function() {
+                // Dismiss the confirmation modal
+                const modalEl = document.getElementById('analyzeConfirmModal');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) modalInstance.hide();
+
                 const originalText = analysisBtn.innerHTML;
                 analysisBtn.disabled = true;
                 analysisBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Analysing...';

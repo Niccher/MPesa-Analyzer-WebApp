@@ -8,7 +8,7 @@ use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Shield\Result;
 use CodeIgniter\API\ResponseTrait;
 
-class UserAuth extends BaseController{
+class UserAuthController extends BaseController{
 
     use ResponseTrait;
 
@@ -39,7 +39,7 @@ class UserAuth extends BaseController{
 
             // Persist the raw token → user link so uploaded data stays
             // attributable even after this Shield token is revoked.
-            $modUploads = new \App\Models\ModUploads();
+            $modUploads = new \App\Models\UploadModel();
             $modUploads->linkDevice((int)$userinfo->id, $user_auth_token, 'Android App Device');
 
             return $this->respond(["status" => "Valid","token" => $user_auth_token]);
@@ -272,7 +272,7 @@ class UserAuth extends BaseController{
             if ($db->tableExists('tbl_Loot')) {
                 $loots = $db->table('tbl_Loot')->whereIn('loot_Owner', $rawTokens)->get()->getResult();
                 foreach ($loots as $loot) {
-                    $filePathTxt = WRITEPATH . 'uploads/txt_loot/' . ltrim($loot->loot_Name, '/');
+                    $filePathTxt = WRITEPATH . 'uploads/payloads/' . ltrim($loot->loot_Name, '/');
                     $filePathJson = str_replace('.txt', '.json', $filePathTxt);
                     if (file_exists($filePathTxt)) unlink($filePathTxt);
                     if (file_exists($filePathJson)) unlink($filePathJson);
@@ -331,7 +331,7 @@ class UserAuth extends BaseController{
             if ($db->tableExists('tbl_Loot')) {
                 $orphanLoots = $db->query("SELECT loot_Name FROM tbl_Loot WHERE SHA2(loot_Owner, 256) NOT IN ($registeredSub)")->getResult();
                 foreach ($orphanLoots as $loot) {
-                    $filePathTxt = WRITEPATH . 'uploads/txt_loot/' . ltrim($loot->loot_Name, '/');
+                    $filePathTxt = WRITEPATH . 'uploads/payloads/' . ltrim($loot->loot_Name, '/');
                     $filePathJson = str_replace('.txt', '.json', $filePathTxt);
                     if (file_exists($filePathTxt)) @unlink($filePathTxt);
                     if (file_exists($filePathJson)) @unlink($filePathJson);

@@ -106,7 +106,8 @@ This ecosystem uses a **hybrid approach**:
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/process/upload` | POST | Receive encrypted `.txt` loot file from Android, decrypt (AES-128-CBC), parse JSON, insert SMS + classifications |
+| `/process/upload` | POST | Receive encrypted payload stream (`loot_[uuid].enc`) from Android, decrypt (AES-128-CBC with dynamic IV), parse JSON, insert SMS + classifications |
+| `/api/v1/system/version` | GET | Public dynamic endpoint returning ecosystem release version, changelogs, and APK details |
 | `/process/device` | POST | Register or identify an Android device by 15-field hardware fingerprint |
 | `/process/get/my_uploads` | POST | List all upload batches for a user/device with per-batch counts and formatted dates |
 | `/process/get/my_summary_calculations` | POST | Detailed summary stats for a single upload UUID (sent/received/balance/fuliza/errors breakdown) |
@@ -177,7 +178,7 @@ Two parallel auth systems:
 
 | Feature | Detail |
 |---|---|
-| **AES-128-CBC decryption** | Hardcoded key/IV (matching Android) — `openssl_decrypt()` on received loot files |
+| **AES-128-CBC decryption** | Secure dynamic IV protocol — Backend extracts the first 16 bytes of the upload stream to use as the session IV for `openssl_decrypt()` |
 | **CSRF protection** | Enabled globally; token auto-refresh |
 | **Session driver** | File-based (writable/session/), 30-day cookie expiry |
 | **Password rules** | Min 8 chars, composition + dictionary checks |

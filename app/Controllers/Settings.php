@@ -2,23 +2,23 @@
 
 namespace App\Controllers;
 
-use App\Models\ModUserSettings;
-use App\Models\ModUploads;
-use App\Models\ModTags;
-use App\Models\ModNotes;
-use App\Models\ModGoals;
-use App\Models\ModRecurring;
+use App\Models\UserSettingModel;
+use App\Models\UploadModel;
+use App\Models\TagModel;
+use App\Models\NoteModel;
+use App\Models\GoalModel;
+use App\Models\RecurringPaymentModel;
 
 class Settings extends BaseController
 {
-    private ModUserSettings $settingsModel;
-    private ModUploads $uploadsModel;
+    private UserSettingModel $settingsModel;
+    private UploadModel $uploadsModel;
 
     public function __construct()
     {
         helper('mpesa_date');
-        $this->settingsModel = new ModUserSettings();
-        $this->uploadsModel  = new ModUploads();
+        $this->settingsModel = new UserSettingModel();
+        $this->uploadsModel  = new UploadModel();
     }
 
     public function index()
@@ -358,7 +358,7 @@ class Settings extends BaseController
     public function exportCsv()
     {
         $userId = auth()->user()->id;
-        $modUploads = new ModUploads();
+        $modUploads = new UploadModel();
         $transactions = $modUploads->getAllTransactionsForUser($userId);
 
         $filename = 'mpesa_transactions_' . date('Y-m-d') . '.csv';
@@ -387,7 +387,7 @@ class Settings extends BaseController
     public function exportJson()
     {
         $userId = auth()->user()->id;
-        $modUploads = new ModUploads();
+        $modUploads = new UploadModel();
         $transactions = $modUploads->getAllTransactionsForUser($userId);
 
         $filename = 'mpesa_transactions_' . date('Y-m-d') . '.json';
@@ -607,7 +607,7 @@ class Settings extends BaseController
     public function tags()
     {
         $userId = auth()->user()->id;
-        $modTags = new ModTags();
+        $modTags = new TagModel();
         $data = [
             'tags'   => $modTags->getForUser($userId),
             'bg_color' => '#B1B8ED',
@@ -618,7 +618,7 @@ class Settings extends BaseController
     public function saveTag()
     {
         $userId = auth()->user()->id;
-        $modTags = new ModTags();
+        $modTags = new TagModel();
         $modTags->saveTag($userId, [
             'name'  => $this->request->getPost('name'),
             'color' => $this->request->getPost('color') ?? '#5D5FEF',
@@ -631,7 +631,7 @@ class Settings extends BaseController
         $userId = auth()->user()->id;
         $id = (int)$this->request->getPost('id');
         if ($id > 0) {
-            $modTags = new ModTags();
+            $modTags = new TagModel();
             $modTags->deleteTag($id, $userId);
         }
         return redirect()->to('/dashboard/settings/tags')->with('message', 'Tag deleted.');
@@ -645,7 +645,7 @@ class Settings extends BaseController
         $smsId = (int)$this->request->getPost('sms_id');
         $note  = $this->request->getPost('note');
         if ($smsId > 0) {
-            $modNotes = new ModNotes();
+            $modNotes = new NoteModel();
             $modNotes->saveNote($userId, $smsId, $note);
         }
         return $this->response->setJSON(['status' => 'ok']);
@@ -653,7 +653,7 @@ class Settings extends BaseController
 
     public function getNote(int $smsId)
     {
-        $modNotes = new ModNotes();
+        $modNotes = new NoteModel();
         $note = $modNotes->getForSms($smsId);
         return $this->response->setJSON($note ?: ['note' => '']);
     }
@@ -663,7 +663,7 @@ class Settings extends BaseController
     public function goals()
     {
         $userId = auth()->user()->id;
-        $modGoals = new ModGoals();
+        $modGoals = new GoalModel();
         $goals = $modGoals->getForUser($userId);
         $progress = $modGoals->getProgress($goals);
 
@@ -682,7 +682,7 @@ class Settings extends BaseController
     public function saveGoal()
     {
         $userId = auth()->user()->id;
-        $modGoals = new ModGoals();
+        $modGoals = new GoalModel();
         $modGoals->save([
             'user_id'      => $userId,
             'category'     => $this->request->getPost('category'),
@@ -698,7 +698,7 @@ class Settings extends BaseController
     {
         $id = (int)$this->request->getPost('id');
         if ($id > 0) {
-            (new ModGoals())->delete($id);
+            (new GoalModel())->delete($id);
         }
         return redirect()->to('/dashboard/settings/goals')->with('message', 'Goal deleted.');
     }
@@ -708,7 +708,7 @@ class Settings extends BaseController
     public function recurring()
     {
         $userId = auth()->user()->id;
-        $modRecurring = new ModRecurring();
+        $modRecurring = new RecurringPaymentModel();
         $recurring = $modRecurring->getForUser($userId);
         $detected = $modRecurring->detectRecurring($userId);
 
@@ -723,7 +723,7 @@ class Settings extends BaseController
     public function saveRecurring()
     {
         $userId = auth()->user()->id;
-        $modRecurring = new ModRecurring();
+        $modRecurring = new RecurringPaymentModel();
 
         $day = (int)($this->request->getPost('day_of_period') ?? 1);
         $frequency = $this->request->getPost('frequency') ?? 'monthly';
@@ -748,7 +748,7 @@ class Settings extends BaseController
     {
         $id = (int)$this->request->getPost('id');
         if ($id > 0) {
-            (new ModRecurring())->delete($id);
+            (new RecurringPaymentModel())->delete($id);
         }
         return redirect()->to('/dashboard/settings/recurring')->with('message', 'Recurring transaction removed.');
     }

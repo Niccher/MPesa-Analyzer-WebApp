@@ -4,7 +4,7 @@ namespace App\Models;
 
 use CodeIgniter\Model;
 
-class ModTags extends Model
+class TagModel extends Model
 {
     protected $table      = 'tbl_Transaction_Tags';
     protected $primaryKey = 'id';

@@ -2,7 +2,7 @@
 
 namespace App\Controllers;
 
-use App\Models\ModUploads;
+use App\Models\UploadModel;
 
 class Search extends BaseController
 {
@@ -40,7 +40,7 @@ class Search extends BaseController
         $senders = array_unique(array_column($senders, 'sender'));
 
         // Count total
-        $mod_uploads = new ModUploads();
+        $mod_uploads = new UploadModel();
         $total = $mod_uploads->countFilteredTransactions($filters);
 
         // Fetch just this page

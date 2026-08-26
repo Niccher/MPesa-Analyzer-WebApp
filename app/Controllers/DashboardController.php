@@ -3,15 +3,15 @@
 namespace App\Controllers;
 
 use App\Controllers\BaseController;
-use App\Models\ModUploads;
-use App\Models\ModBudget;
-use App\Models\ModInsights;
+use App\Models\UploadModel;
+use App\Models\BudgetModel;
+use App\Models\InsightModel;
 
-class Dash extends BaseController
+class DashboardController extends BaseController
 {
     public function index()
     {
-        $mod_uploads = new ModUploads();
+        $mod_uploads = new UploadModel();
         helper('mpesa_date');
         
         $userId = auth()->user()->id;
@@ -29,8 +29,8 @@ class Dash extends BaseController
         $received_summary = $mod_uploads->getReceivedSummary30Days($lastDate, $deviceToken);
         $recent_transactions = $mod_uploads->getRecentTransactions(10, $deviceToken);
         
-        $modBudget   = new ModBudget();
-        $modInsights = new ModInsights();
+        $modBudget   = new BudgetModel();
+        $modInsights = new InsightModel();
 
         // Refresh budget threshold values
         $mod_uploads->evaluate_budgets_for_user($userId);
@@ -65,7 +65,7 @@ class Dash extends BaseController
         if (empty($deviceName)) $deviceName = 'My Device';
         
         if (!empty($deviceToken)) {
-            $mod_uploads = new ModUploads();
+            $mod_uploads = new UploadModel();
             $mod_uploads->linkDevice($userId, $deviceToken, $deviceName);
         }
         return redirect()->to(base_url('dashboard'))->with('message', 'Device linked successfully');

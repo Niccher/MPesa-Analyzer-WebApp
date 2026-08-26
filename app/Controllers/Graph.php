@@ -2,16 +2,16 @@
 
 namespace App\Controllers;
 
-use App\Models\ModUploads;
-use App\Models\ModInsights;
+use App\Models\UploadModel;
+use App\Models\InsightModel;
 
 class Graph extends BaseController
 {
     public function index()
     {
         helper('mpesa_date');
-        $mod_uploads  = new ModUploads();
-        $mod_insights = new ModInsights();
+        $mod_uploads  = new UploadModel();
+        $mod_insights = new InsightModel();
 
         $lastDate      = $mod_uploads->getLatestTransactionDate() ?? date('Y-m-d H:i:s');
         $analytics     = $mod_uploads->getAnalyticsData30Days($lastDate);
