@@ -23,9 +23,6 @@ class Database extends Config
 
     /**
      * The default database connection.
-     * 'username' => 'chegecac_mpesa',
-    'password' => '9*5Uhv)GsDME',
-    'database' => 'chegecac_My_Mpesa',
      */
     public array $default = [
         'DSN'      => '',

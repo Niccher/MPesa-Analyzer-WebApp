@@ -259,11 +259,11 @@ php spark serve
 │   ├── Controllers/     # Home, Dash, Graph, Search, Transactions, History, Reports, Budget,
 │   │                    # Analyse, Upload, UserAuth, Auths, Settings, Blocklist, Debug, Api,
 │   │                    # Admin/* (Ml, Overview, Users, Logs, Crons, ...)
-│   ├── Commands/        # Spark CLI commands (LlmProcess, CronRun, DataRetention, UploadsCleanup)
+│   ├── Commands/        # Spark CLI commands (LlmProcess, CronRun, DataRetention, UploadsCleanup, LogsPrune, RecurringRemind, WeeklyDigest)
 │   ├── Database/        # Migrations (created by php spark migrate)
 │   ├── Helpers/         # Custom helpers (mpesa_date_helper)
-│   ├── Libraries/       # Audit, Notifier, CronRunner, CronLogger, ModNotes, ...
-│   ├── Models/          # ModUploads, ModUser, ModBudget, ModCryption, ModInsights, ...
+│   ├── Libraries/       # Audit, Notifier, CronRunner, CronLogger, ModNotes, LlmRecurringAnalyzer, ProgressCalculator
+│   ├── Models/          # ModUploads, ModUser, ModBudget, ModCryption, ModInsights, BackupModel, ...
 │   └── Views/           # landing, Dash/* (+ _ml_jobs partial), Blocklist/*, Settings/*,
 │                        # Admin/Ml/* (models, config, prompts, jobs, senders, allowed),
 │                        # Reports/*, Budget/*, Layouts/*
@@ -280,6 +280,7 @@ php spark serve
 
 | Table | Purpose |
 |---|---|
+| `tbl_Backups` | Database backup metadata logs (filename, filepath, size, type, compressed) |
 | `tbl_Loot` | Uploaded file records (per-batch) |
 | `tbl_Sms` | All parsed individual SMS messages — **canonical record** holding both classification and parsed financial fields |
 | `tbl_Loot_Summary` | Per-upload summary stats |
