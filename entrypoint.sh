@@ -75,5 +75,9 @@ echo "Seeders complete."
 echo "Starting cron daemon..."
 cron
 
+echo "Fixing Apache MPM conflicts..."
+a2dismod mpm_event mpm_worker || true
+a2enmod mpm_prefork || true
+
 echo "Starting Apache..."
 exec apache2-foreground
