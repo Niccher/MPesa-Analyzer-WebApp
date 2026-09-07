@@ -43,7 +43,7 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-di
 # ── Application code ──────────────────────────────────────────────────────────
 COPY . /var/www/html
 
-RUN mkdir -p /var/www/html/writable \
+RUN mkdir -p /var/www/html/writable/cache /var/www/html/writable/session /var/www/html/writable/logs /var/www/html/writable/uploads \
     && chown -R www-data:www-data /var/www/html/writable \
     && chmod -R 775 /var/www/html/writable
 
