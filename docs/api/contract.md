@@ -1,0 +1,71 @@
+# Mobile API Contract (`/api/v1`) — Mpesa Analyzer WebApp
+
+This specification documents the REST API consumed by the Android mobile client (`Mpesa_Analyzer_App`).
+
+---
+
+## 1. Authentication & Device Handshake
+
+### `POST /api/v1/auth/login`
+Authenticates a user via email and password or token, returning a persistent session token.
+
+### `POST /api/v1/auth/verify`
+Validates an access token during app startup.
+- **Headers**: `Authorization: Bearer <token>`
+- **Response**: `{"status": "success", "user": {"id": 1, "username": "chege"}}`
+
+### `POST /api/v1/device`
+Registers an Android device hardware fingerprint (15 build attributes) and associates it with the authenticated account.
+
+---
+
+## 2. Ingestion & Data Sync
+
+### `POST /api/v1/upload`
+Accepts a binary stream containing client-side encrypted SMS payloads (`loot_[uuid].enc`).
+- **Headers**: `Content-Type: application/octet-stream`, `Authorization: Bearer <token>`
+- **Stream Format**: First 16 bytes contain the dynamic IV; remaining bytes contain AES-128-CBC cipher text.
+- **Response**:
+  ```json
+  {
+    "status": "success",
+    "loot_id": 142,
+    "uuid": "550e8400-e29b-41d4-a716-446655440000",
+    "sms_count": 85
+  }
+  ```
+
+### `POST /api/v1/process/scan`
+Triggers immediate processing of uploaded SMS data.
+
+### `POST /api/v1/process/progress`
+Returns real-time processing counts for active extraction jobs.
+
+---
+
+## 3. Financial Analytics Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|:------:|---------|
+| `/api/v1/financial/overview` | POST | High-level inflow/outflow, total balance, and recent transaction counts. |
+| `/api/v1/financial/categories` | POST | Aggregated spending grouped by M-Pesa category (PayBill, Buy Goods, etc.). |
+| `/api/v1/financial/senders` | POST | Transaction volume grouped by counterparty / sender. |
+| `/api/v1/financial/uploads` | POST | Paginated listing of historic batch upload jobs. |
+| `/api/v1/financial/uploads-summary`| POST | Detailed summary calculation for a specific upload UUID. |
+| `/api/v1/financial/health` | POST | Algorithmic financial health score based on savings vs burn rate. |
+| `/api/v1/financial/alerts` | POST | Automated alerts (budget overruns, sudden spikes, unusual fees). |
+| `/api/v1/financial/recurring` | POST | Detected recurring subscriptions and recurring utility payments. |
+| `/api/v1/financial/trends` | POST | Multi-month trend calculations for visual charts. |
+
+---
+
+## 4. Account & Settings Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|:------:|---------|
+| `/api/v1/settings/profile` | POST | Fetch user account profile information. |
+| `/api/v1/settings/profile/update` | POST | Update email, username, or contact preferences. |
+| `/api/v1/settings/preferences` | POST | Retrieve app synchronization and notification preferences. |
+| `/api/v1/settings/delete-data` | POST | Delete all financial records and uploaded SMS while keeping account. |
+| `/api/v1/settings/delete-account`| POST | Permanently purge user account, credentials, and data. |
+| `/api/v1/system/version` | GET | Public endpoint returning current ecosystem release version and changelogs. |
