@@ -48,6 +48,29 @@ php spark migrate --all 2>&1 || echo "WARNING: Migration encountered an issue. C
 
 echo "Migrations complete."
 
+# Seed required default data (all seeders are idempotent — safe on every restart)
+echo "Running database seeders..."
+
+# 1. Superadmin account (reads SUPERADMIN_EMAIL / _PASSWORD / _USERNAME from env)
+php spark db:seed SuperAdminSeeder
+
+# 2. Global app settings (app name, email, retention, maintenance, registration, etc.)
+php spark db:seed AppSettingsSeeder
+
+# 3. Cron job configurations (schedules + types read by the cron daemon)
+php spark db:seed CronSettingsSeeder
+
+# 4. Finance sender allowlist (ML backend reads this to classify finance SMS)
+php spark db:seed AllowedSendersSeeder
+
+# 5. M-Pesa keyword → category correction rules (used by AnalysisCallbackController)
+php spark db:seed CategoryRulesSeeder
+
+# 6. ML backend control flags (tuning defaults — overridden via admin panel)
+php spark db:seed MLControlsSeeder
+
+echo "Seeders complete."
+
 # Start the cron daemon so scheduled jobs run inside the container
 echo "Starting cron daemon..."
 cron

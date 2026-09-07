@@ -15,8 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && docker-php-ext-install -j$(nproc) intl mysqli pdo_mysql zip gd \
     && rm -rf /var/lib/apt/lists/*
 
-# Enable Apache modules
-RUN a2enmod rewrite headers
+# Enable Apache modules — swap to prefork (mod_php requires it; event is the default)
+RUN a2dismod mpm_event && a2enmod mpm_prefork rewrite headers
 
 # Move DocumentRoot to public/
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
