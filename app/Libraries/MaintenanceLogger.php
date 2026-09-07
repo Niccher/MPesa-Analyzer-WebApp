@@ -22,7 +22,7 @@ class MaintenanceLogger
     {
         $db = \Config\Database::connect();
 
-        $mode = (bool) ($config['maintenance_mode'] ?? false);
+        $mode = filter_var($config['maintenance_mode'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $active = $mode || self::inWindow($config);
         $newState = $active ? 'on' : 'off';
 
@@ -84,7 +84,7 @@ class MaintenanceLogger
 
     public static function inWindow(array $config): bool
     {
-        if (!(bool) ($config['maintenance_scheduled'] ?? false)) {
+        if (!filter_var($config['maintenance_scheduled'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
             return false;
         }
 

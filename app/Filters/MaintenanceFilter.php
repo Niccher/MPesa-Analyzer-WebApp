@@ -30,11 +30,11 @@ class MaintenanceFilter implements FilterInterface
         // Record start/stop transitions (manual toggle or scheduled window).
         \App\Libraries\MaintenanceLogger::sync($config);
 
-        $isMaintenance = (bool)($config['maintenance_mode'] ?? false);
+        $isMaintenance = filter_var($config['maintenance_mode'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $expectedEnd = $config['maintenance_schedule_end'] ?? '';
 
         // Scheduled maintenance window (when the manual toggle is off)
-        if (!$isMaintenance && (bool)($config['maintenance_scheduled'] ?? false)) {
+        if (!$isMaintenance && filter_var($config['maintenance_scheduled'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
             $start = $this->normalize($config['maintenance_schedule_start'] ?? '');
             $end = $this->normalize($config['maintenance_schedule_end'] ?? '');
             $now = gmdate('Y-m-d H:i:s'); // window times are stored as UTC

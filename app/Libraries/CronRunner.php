@@ -256,8 +256,8 @@ class CronRunner
             $config[$r['key']] = $r['value'];
         }
 
-        $active = (bool) ($config['maintenance_mode'] ?? false);
-        $scheduled = (bool) ($config['maintenance_scheduled'] ?? false);
+        $active = filter_var($config['maintenance_mode'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $scheduled = filter_var($config['maintenance_scheduled'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $start = str_replace('T', ' ', $config['maintenance_schedule_start'] ?? '');
         $end = str_replace('T', ' ', $config['maintenance_schedule_end'] ?? '');
         $now = gmdate('Y-m-d H:i:s');

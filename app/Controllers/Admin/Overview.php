@@ -37,8 +37,8 @@ class Overview extends BaseController
         $maintenanceMode = false;
         $maintenanceScheduled = false;
         foreach ($maintenance as $s) {
-            if ($s['key'] === 'maintenance_mode') $maintenanceMode = (bool)$s['value'];
-            if ($s['key'] === 'maintenance_scheduled') $maintenanceScheduled = (bool)$s['value'];
+            if ($s['key'] === 'maintenance_mode') $maintenanceMode = filter_var($s['value'], FILTER_VALIDATE_BOOLEAN);
+            if ($s['key'] === 'maintenance_scheduled') $maintenanceScheduled = filter_var($s['value'], FILTER_VALIDATE_BOOLEAN);
         }
 
         // ── ML backend status ─────────────────────────────────
