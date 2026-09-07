@@ -16,7 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Enable Apache modules — swap to prefork (mod_php requires it; event is the default)
-RUN a2dismod mpm_event && a2enmod mpm_prefork rewrite headers
+RUN a2dismod mpm_event mpm_worker mpm_prefork || true \
+    && a2enmod mpm_prefork rewrite headers
 
 # Move DocumentRoot to public/
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
