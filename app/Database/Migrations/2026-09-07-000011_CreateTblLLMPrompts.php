@@ -52,7 +52,7 @@ class CreateTblLLMPrompts extends Migration
 
         $this->forge->addPrimaryKey('id');
         $this->forge->addUniqueKey(['prompt_key', 'version'], 'uq_key_version');
-        $this->forge->addKey(['prompt_key', 'is_active'], 'idx_key_active');
+        $this->forge->addKey(['prompt_key', 'is_active'], false, false, 'idx_key_active');
         $this->forge->createTable('tbl_LLM_Prompts', true);
     }
 
