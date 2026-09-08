@@ -321,16 +321,43 @@ class Notifier
      *
      * @return array{status: string, message: string}
      */
+    /**
+     * Raw SMTP sender shared by both legacy send() and template-based sendTemplate().
+     * Auto-queues failed emails for deferred background retry via cron.
+     *
+     * @return array{status: string, message: string}
+     */
     private static function sendRaw(string $to, string $subject, string $html = '', string $text = '', string $trigger = '', string $trackingNumber = ''): array
+    {
+        $result = self::sendRawDirect($to, $subject, $html, $text, $trigger, $trackingNumber);
+
+        // If email failed to send or SMTP is unconfigured/disabled, queue it for deferred retry via cron
+        if ($result['status'] !== 'success') {
+            self::queueEmail($trigger, $to, $subject, $html, $text, $result['message']);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Direct raw SMTP sender without auto-queueing (used by processQueue to prevent infinite loops).
+     *
+     * @return array{status: string, message: string}
+     */
+    public static function sendRawDirect(string $to, string $subject, string $html = '', string $text = '', string $trigger = '', string $trackingNumber = ''): array
     {
         $config = self::config();
 
         if (!$config['enabled']) {
-            return ['status' => 'error', 'message' => 'Email notifications are disabled in the admin settings.'];
+            $msg = 'Email notifications are disabled in the admin settings.';
+            self::logEmail($trigger, $to, $subject, 'error', $msg);
+            return ['status' => 'error', 'message' => $msg];
         }
 
         if ($config['smtp_host'] === '') {
-            return ['status' => 'error', 'message' => 'SMTP host is not configured. Add it in Admin > Email Notifications.'];
+            $msg = 'SMTP host is not configured. Add it in Admin > Email Notifications.';
+            self::logEmail($trigger, $to, $subject, 'error', $msg);
+            return ['status' => 'error', 'message' => $msg];
         }
 
         $hasHtml = $html !== '';
@@ -507,5 +534,155 @@ class Notifier
         }
 
         return (int) $db->table('tbl_Email_Log')->selectCount('id')->get()->getRow()->id ?? 0;
+    }
+
+    /**
+     * Queue an unsent email for deferred background retry.
+     */
+    public static function queueEmail(string $trigger, string $to, string $subject, string $html = '', string $text = '', string $error = ''): bool
+    {
+        try {
+            $db = \Config\Database::connect();
+            if (!$db->tableExists('tbl_Email_Queue')) {
+                return false;
+            }
+
+            // Check if identical pending email is already queued to avoid duplicates
+            $existing = $db->table('tbl_Email_Queue')
+                ->where('to_email', $to)
+                ->where('subject', $subject)
+                ->where('status', 'pending')
+                ->get()
+                ->getRow();
+
+            if ($existing) {
+                return true;
+            }
+
+            $db->table('tbl_Email_Queue')->insert([
+                'trigger'      => $trigger,
+                'to_email'     => $to,
+                'subject'      => $subject,
+                'body_html'    => $html,
+                'body_text'    => $text,
+                'status'       => 'pending',
+                'attempts'     => 0,
+                'max_attempts' => 5,
+                'last_error'   => substr($error, 0, 1000),
+                'scheduled_at' => gmdate('Y-m-d H:i:s'),
+                'created_at'   => gmdate('Y-m-d H:i:s'),
+            ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            log_message('error', 'Failed to queue email: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Process pending emails from the queue (called via cron command: php spark email:process).
+     *
+     * @return array{processed: int, sent: int, failed: int, message: string}
+     */
+    public static function processQueue(int $limit = 20): array
+    {
+        $db = \Config\Database::connect();
+        if (!$db->tableExists('tbl_Email_Queue')) {
+            return ['processed' => 0, 'sent' => 0, 'failed' => 0, 'message' => 'tbl_Email_Queue table does not exist'];
+        }
+
+        $pending = $db->table('tbl_Email_Queue')
+            ->whereIn('status', ['pending', 'failed'])
+            ->where('attempts < max_attempts')
+            ->orderBy('id', 'ASC')
+            ->limit($limit)
+            ->get()
+            ->getResultArray();
+
+        if (empty($pending)) {
+            return ['processed' => 0, 'sent' => 0, 'failed' => 0, 'message' => 'No pending emails in queue'];
+        }
+
+        $processed = 0;
+        $sent = 0;
+        $failed = 0;
+
+        foreach ($pending as $item) {
+            $processed++;
+            $id = (int)$item['id'];
+            $attempts = (int)$item['attempts'] + 1;
+
+            $db->table('tbl_Email_Queue')->where('id', $id)->update([
+                'status'   => 'sending',
+                'attempts' => $attempts,
+            ]);
+
+            $result = self::sendRawDirect(
+                $item['to_email'],
+                $item['subject'],
+                $item['body_html'] ?? '',
+                $item['body_text'] ?? '',
+                $item['trigger']
+            );
+
+            if ($result['status'] === 'success') {
+                $sent++;
+                $db->table('tbl_Email_Queue')->where('id', $id)->update([
+                    'status'     => 'sent',
+                    'sent_at'    => gmdate('Y-m-d H:i:s'),
+                    'last_error' => null,
+                ]);
+            } else {
+                $failed++;
+                $newStatus = $attempts >= (int)$item['max_attempts'] ? 'failed' : 'pending';
+                $db->table('tbl_Email_Queue')->where('id', $id)->update([
+                    'status'     => $newStatus,
+                    'last_error' => substr($result['message'], 0, 1000),
+                ]);
+            }
+        }
+
+        return [
+            'processed' => $processed,
+            'sent'      => $sent,
+            'failed'    => $failed,
+            'message'   => "Processed {$processed} queued email(s). Sent: {$sent}, Failed: {$failed}.",
+        ];
+    }
+
+    /**
+     * Total number of entries in the email queue.
+     */
+    public static function queueCount(?string $status = null): int
+    {
+        $db = \Config\Database::connect();
+        if (!$db->tableExists('tbl_Email_Queue')) {
+            return 0;
+        }
+
+        $builder = $db->table('tbl_Email_Queue');
+        if ($status) {
+            $builder->where('status', $status);
+        }
+
+        return (int) $builder->selectCount('id')->get()->getRow()->id ?? 0;
+    }
+
+    /**
+     * Retrieve queue entries.
+     */
+    public static function queueEntries(int $limit = 50, int $offset = 0): array
+    {
+        $db = \Config\Database::connect();
+        if (!$db->tableExists('tbl_Email_Queue')) {
+            return [];
+        }
+
+        return $db->table('tbl_Email_Queue')
+            ->orderBy('id', 'DESC')
+            ->limit($limit, $offset)
+            ->get()
+            ->getResultArray();
     }
 }

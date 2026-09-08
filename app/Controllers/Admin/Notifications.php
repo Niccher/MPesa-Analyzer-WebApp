@@ -21,14 +21,17 @@ class Notifications extends BaseController
         }
 
         return view('Admin/Notifications/index', [
-            'bg_color'        => '#B1B8ED',
-            'config'          => $config,
-            'triggers'        => $triggers,
-            'trigger_meta'    => Notifier::triggerMeta(),
-            'custom_triggers' => Notifier::customTriggers(),
-            'shield'          => $shieldSettings,
-            'email_log'       => Notifier::logEntries(50),
-            'email_log_count' => Notifier::logCount(),
+            'bg_color'                  => '#B1B8ED',
+            'config'                    => $config,
+            'triggers'                  => $triggers,
+            'trigger_meta'              => Notifier::triggerMeta(),
+            'custom_triggers'           => Notifier::customTriggers(),
+            'shield'                    => $shieldSettings,
+            'email_log'                 => Notifier::logEntries(50),
+            'email_log_count'           => Notifier::logCount(),
+            'email_queue'               => Notifier::queueEntries(50),
+            'email_queue_count'         => Notifier::queueCount(),
+            'email_queue_pending_count' => Notifier::queueCount('pending'),
         ]);
     }
 

@@ -35,6 +35,11 @@ class CronRunner
                 'label' => 'Send Scheduled Reports',
                 'desc' => 'Sends scheduled spending reports to users who have them enabled (php spark reports:send).',
             ],
+            'email:process' => [
+                'group' => 'Spark Commands',
+                'label' => 'Process Deferred Email Queue',
+                'desc' => 'Processes pending email queue entries and retries failed email sends (php spark email:process).',
+            ],
             'db:backup' => [
                 'group' => 'Database',
                 'label' => 'Create Database Backup',
@@ -74,6 +79,7 @@ class CronRunner
                 case 'uploads:cleanup':
                 case 'data:retention':
                 case 'reports:send':
+                case 'email:process':
                     return self::runSpark($type);
 
                 case 'db:backup':
