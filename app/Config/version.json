@@ -1,15 +1,13 @@
 {
-  "version": "3.3.0",
+  "version": "3.4.0",
   "github_url": "https://github.com/niccher/Mpesa_Analyzer_App",
   "changelog": [
+    "🎨 Global Ace Admin Theme integration across all landing pages, Shield auth views, error templates, and admin dashboard.",
+    "🌓 Seamless Dark Mode support with persistent state and automatic system preference detection.",
+    "📧 Custom Ace-styled HTML email templates for 2FA, account activation, and magic link authentication.",
+    "📱 Android companion app Ace theme alignment (brand colors #438EB9, dynamic theme backgrounds, and dark mode support).",
+    "🔒 Standardized HTTP error pages (400, 401, 403, 404, 500, 503) and admin maintenance mode with Ace branding.",
     "🧠 Per-user category rules engine with exact/contains matching, hit telemetry, and isolated retroactive backfill.",
-    "🔒 Upgraded cryptographic exchange with secure dynamic IV generation on Android and backend.",
-    "🏗️ Refactored Web MVC controllers and singularized class names to meet PSR-4 patterns.",
-    "⚡ Standardized upload directory layout from txt_loot/ to uploads/payloads/.",
-    "📱 Android AppInfo screen now fetches server version and displays an update banner when behind.",
-    "🌐 Dynamic versioning API (/api/v1/system/version) serves changelog, version, and APK link.",
-    "📖 Setup guide corrected to match actual token generation and device linking flow.",
-    "🖱️ Analyze button now shows a confirmation modal explaining the rules engine before running.",
-    "🤖 Enhanced ML parsing metrics inside transaction completion emails."
+    "🌐 Dynamic versioning API (/api/v1/system/version) serving updated release metadata and changelogs."
   ]
 }
