@@ -54,6 +54,9 @@
                         <div class="input-group">
                             <span class="input-group-text cfg-ico"><i class="fa-solid fa-link"></i></span>
                             <input type="text" class="form-control" id="ml_backend_url" name="ml_backend_url" value="<?= esc($ml_backend_url ?? config('MlBackend')->baseUrl) ?>" placeholder="http://ml-mpesa-analyzer:9050">
+                            <button class="btn btn-outline-primary fw-semibold" type="button" id="btnTestBackendUrl">
+                                <i class="fa-solid fa-plug me-1"></i> Test Endpoint
+                            </button>
                         </div>
                         <div class="cfg-desc mt-1">The HTTP endpoint where the WebApp connects to the Python ML microservice (e.g., <code>http://ml-mpesa-analyzer:9050</code> or Railway internal URL).</div>
                     </div>
@@ -389,6 +392,67 @@ document.addEventListener('DOMContentLoaded', function() {
             .finally(() => {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fa-solid fa-plug me-1"></i> Test';
+            });
+    });
+
+    document.getElementById('btnTestBackendUrl')?.addEventListener('click', function() {
+        const btn = this;
+        const urlInput = document.getElementById('ml_backend_url');
+        const targetUrl = urlInput ? urlInput.value.trim() : '';
+
+        if (!targetUrl) {
+            Swal.fire({ title: 'Input Required', text: 'Please enter an ML Backend URL to test.', icon: 'warning' });
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Testing...';
+
+        const data = new FormData();
+        data.append('url', targetUrl);
+        data.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+
+        fetch('<?= base_url('admin/ml/config/test-url') ?>', { method: 'POST', body: data })
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === 'success') {
+                    if (res.db_configured) {
+                        Swal.fire({
+                            title: 'ML Backend Reachable!',
+                            html: `<div class="text-start p-2">
+                                <p class="mb-2 text-success"><i class="fa-solid fa-circle-check me-2"></i><strong>ML Service:</strong> Online (${res.latency_ms} ms)</p>
+                                <p class="mb-0 text-success"><i class="fa-solid fa-database me-2"></i><strong>Database Access:</strong> Healthy & Connected</p>
+                            </div>`,
+                            icon: 'success',
+                            confirmButtonText: 'Great'
+                        });
+                    } else {
+                        Swal.fire({
+                            title: 'DB Connection Failed',
+                            html: `<div class="text-start p-2">
+                                <p class="mb-2 text-success"><i class="fa-solid fa-circle-check me-2"></i><strong>ML Service:</strong> Online (${res.latency_ms} ms)</p>
+                                <p class="mb-1 text-danger"><i class="fa-solid fa-triangle-exclamation me-2"></i><strong>Database Access:</strong> FAILED (db_configured: false)</p>
+                                <small class="text-muted d-block mt-2">The ML microservice is up, but cannot access the MySQL database container. Check database environment variables (MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD) in your ML container configuration.</small>
+                            </div>`,
+                            icon: 'warning',
+                            confirmButtonText: 'Understood'
+                        });
+                    }
+                } else {
+                    Swal.fire({
+                        title: 'ML Backend Unreachable',
+                        text: res.message || 'Could not connect to the specified URL.',
+                        icon: 'error',
+                        confirmButtonText: 'Close'
+                    });
+                }
+            })
+            .catch(err => {
+                Swal.fire({ title: 'Error', text: err.message, icon: 'error', confirmButtonText: 'Close' });
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-plug me-1"></i> Test Endpoint';
             });
     });
 

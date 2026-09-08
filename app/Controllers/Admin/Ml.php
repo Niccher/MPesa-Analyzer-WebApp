@@ -624,6 +624,45 @@ class Ml extends BaseController
         }
     }
 
+    public function testBackendUrl()
+    {
+        $url = trim((string)$this->request->getPost('url'));
+        if (empty($url)) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Please enter an ML backend URL to test.',
+            ]);
+        }
+
+        $url = rtrim($url, '/');
+        $start = microtime(true);
+
+        try {
+            $resp = $this->client()->get($url . '/admin/status', ['timeout' => 8]);
+            $latency = round((microtime(true) - $start) * 1000);
+            $body = json_decode($resp->getBody(), true);
+
+            $dbOk = (bool)($body['db_configured'] ?? false);
+            $llamaStatus = $body['llama'] ?? 'unknown';
+
+            return $this->response->setJSON([
+                'status' => 'success',
+                'latency_ms' => $latency,
+                'db_configured' => $dbOk,
+                'llama_status' => $llamaStatus,
+                'app' => $body['app'] ?? [],
+                'message' => $dbOk
+                    ? "ML microservice reached at {$url} in {$latency}ms. Database connection is healthy!"
+                    : "ML microservice reached at {$url} in {$latency}ms, but DB connection failed (db_configured: false). Check ML microservice database credentials.",
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => "Could not reach ML microservice at '{$url}'. Error: " . $e->getMessage(),
+            ]);
+        }
+    }
+
     public function activateModel()
     {
         $filename = $this->request->getPost('filename');

@@ -85,7 +85,7 @@ if ($uptimeSec !== null) {
                     <div class="fw-bold small text-<?= $dbOk ? 'success' : 'danger' ?>">
                         <i class="fa-solid fa-<?= $dbOk ? 'check-circle' : 'circle-xmark' ?> me-1"></i><?= $dbOk ? 'OK' : 'ERR' ?>
                     </div>
-                    <div style="font-size:.65rem;" class="text-muted">Database</div>
+                    <div style="font-size:.65rem;" class="text-muted">DB Container</div>
                 </div>
             </div>
 
@@ -97,6 +97,13 @@ if ($uptimeSec !== null) {
                 </a>
             </div>
         </div>
+
+        <?php if (!$dbOk): ?>
+            <div class="alert alert-warning mb-0 border-0 rounded-0 border-top small px-4 py-2 text-dark">
+                <i class="fa-solid fa-triangle-exclamation text-warning me-2"></i>
+                <strong>DB Container Access Warning:</strong> The ML microservice is online, but it cannot connect to the MySQL database container (<code>db_configured: false</code>). Check database credentials in the ML container environment variables.
+            </div>
+        <?php endif; ?>
 
         <?php else: ?>
         <div class="d-flex align-items-center gap-3 p-4">

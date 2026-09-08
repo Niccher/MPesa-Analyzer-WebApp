@@ -195,6 +195,7 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
     $routes->get('ml/senders', 'Admin\Ml::senders');
     $routes->post('ml/config/save', 'Admin\Ml::saveConfig');
     $routes->post('ml/config/test', 'Admin\Ml::testConnection');
+    $routes->post('ml/config/test-url', 'Admin\Ml::testBackendUrl');
     $routes->post('ml/models/activate', 'Admin\Ml::activateModel');
     $routes->post('ml/models/upload', 'Admin\Ml::uploadModel');
     $routes->post('ml/models/delete', 'Admin\Ml::deleteModel');
