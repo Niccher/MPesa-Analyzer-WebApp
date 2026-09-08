@@ -37,13 +37,21 @@ class Notifications extends BaseController
 
     public function saveConfig()
     {
+        $fromEmail = trim((string)$this->request->getPost('from_email'));
+        $smtpUser  = trim((string)$this->request->getPost('smtp_user'));
+
+        // If from_email is omitted or default example.com, and smtp_user is a valid email, auto-match them
+        if (($fromEmail === '' || $fromEmail === 'noreply@example.com' || strpos($fromEmail, 'example.com') !== false) && filter_var($smtpUser, FILTER_VALIDATE_EMAIL)) {
+            $fromEmail = $smtpUser;
+        }
+
         $config = [
             'smtp_host'   => trim((string)$this->request->getPost('smtp_host')),
             'smtp_port'   => (int)$this->request->getPost('smtp_port') ?: 587,
-            'smtp_user'   => trim((string)$this->request->getPost('smtp_user')),
+            'smtp_user'   => $smtpUser,
             'smtp_pass'   => (string)$this->request->getPost('smtp_pass'),
             'smtp_crypto' => in_array($this->request->getPost('smtp_crypto'), ['tls', 'ssl', 'none'], true) ? $this->request->getPost('smtp_crypto') : 'tls',
-            'from_email'  => trim((string)$this->request->getPost('from_email')),
+            'from_email'  => $fromEmail,
             'from_name'   => trim((string)$this->request->getPost('from_name')),
             'enabled'     => (bool)$this->request->getPost('enabled'),
         ];

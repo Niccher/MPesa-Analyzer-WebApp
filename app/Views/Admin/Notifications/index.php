@@ -73,8 +73,13 @@ foreach ($trigger_meta as $m) {
                                                     </select>
                                                 </div>
                                                 <div class="col-md-6">
-                                                    <label class="form-label fw-semibold">From Email</label>
-                                                    <input type="email" class="form-control" name="from_email" value="<?= esc($config['from_email']) ?>" placeholder="noreply@example.com">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <label class="form-label fw-semibold mb-0">From Email</label>
+                                                        <button type="button" class="btn btn-link p-0 text-decoration-none small" id="btnMatchUsername" style="font-size: 0.78rem;">
+                                                            <i class="fa-solid fa-arrows-rotate me-1"></i> Match Username
+                                                        </button>
+                                                    </div>
+                                                    <input type="email" class="form-control" name="from_email" id="fromEmailInput" value="<?= esc($config['from_email']) ?>" placeholder="noreply@example.com">
                                                 </div>
                                                 <div class="col-md-6">
                                                     <label class="form-label fw-semibold">From Name</label>
@@ -255,6 +260,44 @@ function showAlert(title, message, type) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Auto-match From Email with Username
+    const smtpUserInput = document.querySelector('input[name="smtp_user"]');
+    const fromEmailInput = document.getElementById('fromEmailInput');
+    const btnMatchUsername = document.getElementById('btnMatchUsername');
+
+    if (smtpUserInput && fromEmailInput) {
+        smtpUserInput.addEventListener('input', function() {
+            const userVal = this.value.trim();
+            if (userVal.includes('@') && (fromEmailInput.value.trim() === '' || fromEmailInput.value.includes('example.com') || fromEmailInput.dataset.autoMatched === 'true')) {
+                fromEmailInput.value = userVal;
+                fromEmailInput.dataset.autoMatched = 'true';
+            }
+        });
+
+        fromEmailInput.addEventListener('input', function() {
+            delete this.dataset.autoMatched;
+        });
+    }
+
+    if (btnMatchUsername && smtpUserInput && fromEmailInput) {
+        btnMatchUsername.addEventListener('click', function() {
+            const userVal = smtpUserInput.value.trim();
+            if (!userVal) {
+                Swal.fire('Match Username', 'Please enter a Username first.', 'info');
+                return;
+            }
+            fromEmailInput.value = userVal;
+            fromEmailInput.dataset.autoMatched = 'true';
+            Swal.fire({
+                title: 'From Email Updated',
+                text: `From Email set to "${userVal}" to match SMTP Username.`,
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        });
+    }
+
     const smtpForm = document.getElementById('smtpForm');
     if (smtpForm) {
         smtpForm.addEventListener('submit', function(e) {

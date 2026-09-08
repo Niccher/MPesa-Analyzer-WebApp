@@ -98,6 +98,11 @@ class Notifier
             }
         }
 
+        // If from_email is unset or still default example.com, and smtp_user is an email address, match them
+        if ((empty($config['from_email']) || strpos($config['from_email'], 'example.com') !== false) && filter_var($config['smtp_user'], FILTER_VALIDATE_EMAIL)) {
+            $config['from_email'] = $config['smtp_user'];
+        }
+
         return $config;
     }
 
@@ -381,7 +386,13 @@ class Notifier
         $mail->setCRLF("\r\n");
         $mail->setNewline("\r\n");
 
-        $mail->setFrom($config['from_email'], $config['from_name']);
+        $fromEmail = $config['from_email'];
+        if (($fromEmail === '' || strpos($fromEmail, 'example.com') !== false) && filter_var($config['smtp_user'], FILTER_VALIDATE_EMAIL)) {
+            $fromEmail = $config['smtp_user'];
+        }
+        $fromName = $config['from_name'] ?: 'Mpesa Analyzer';
+
+        $mail->setFrom($fromEmail, $fromName);
         $mail->setTo($to);
         $mail->setSubject($subject);
 
