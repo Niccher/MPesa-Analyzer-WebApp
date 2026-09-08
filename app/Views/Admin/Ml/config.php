@@ -136,6 +136,46 @@
                 <!-- Local Engine Section -->
                 <div id="localEngineSection" class="mb-4">
                     <h5 class="fw-bold mb-3 text-primary border-bottom pb-2"><i class="fa-solid fa-desktop me-2"></i>Local Engine Configuration</h5>
+                    
+                    <?php
+                    $activeModel = null;
+                    foreach (($status['models'] ?? []) as $m) { if (!empty($m['active'])) { $activeModel = $m; break; } }
+                    $activeMd = $activeModel['metadata'] ?? [];
+                    ?>
+                    <div class="card bg-light border-0 mb-4 p-3 rounded-3">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="p-3 bg-white rounded-circle shadow-sm text-primary">
+                                    <i class="fa-solid fa-microchip fa-xl"></i>
+                                </div>
+                                <div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="fw-bold text-dark"><?= esc($activeModel['filename'] ?? ($cfg['llm_model'] ?? 'Local Model')) ?></span>
+                                        <?php if ($activeModel): ?>
+                                            <span class="badge bg-success small"><i class="fa-solid fa-circle-check me-1"></i>Active GGUF</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-secondary small">No GGUF Active</span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-3 mt-1">
+                                        <small class="text-muted"><i class="fa-solid fa-cube me-1"></i><?= esc($activeMd['n_params_label'] ?? '—') ?></small>
+                                        <small class="text-muted"><i class="fa-solid fa-sliders me-1"></i><?= esc($activeMd['quantization'] ?? '—') ?></small>
+                                        <small class="text-muted"><i class="fa-solid fa-arrows-left-right me-1"></i>ctx <?= esc($cfg['llm_ctx_size'] ?? ($activeMd['context_length'] ?? '8192')) ?></small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" id="btnTestLocalEngine" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                    <i class="fa-solid fa-plug me-1"></i> Test Local Engine
+                                </button>
+                                <a href="<?= base_url('admin/ml/models') ?>" class="btn btn-sm btn-primary rounded-pill px-3">
+                                    <i class="fa-solid fa-box-open me-1"></i> Manage Models
+                                </a>
+                            </div>
+                        </div>
+                        <div id="localTestFeedback" class="mt-2 d-none"></div>
+                    </div>
+
                     <div class="row g-4">
                         <?php foreach ($localFields as $name => [$label, $icon, $desc, $dflt, $type, $min, $max, $step]): ?>
                             <?php
@@ -214,7 +254,6 @@
                                         </div>
                                     <?php elseif ($name === 'llm_external_api_key'): ?>
                                         <input type="text" class="form-control" id="llm_external_api_key" name="llm_external_api_key" value="<?= esc($val ?? '') ?>" placeholder="API Key">
-                                        <button class="btn btn-outline-secondary" type="button" id="btnTestConnection"><i class="fa-solid fa-plug me-1"></i> Test</button>
                                     <?php else: ?>
                                         <input type="<?= esc($type) ?>" class="form-control" id="<?= esc($name) ?>" name="<?= esc($name) ?>" value="<?= esc($val ?? '') ?>" <?= $min !== null ? 'min="' . $min . '"' : '' ?> <?= $max !== null ? 'max="' . $max . '"' : '' ?> <?= $step !== null ? 'step="' . $step . '"' : '' ?>>
                                     <?php endif; ?>
@@ -225,6 +264,21 @@
                                 </div>
                             </div>
                         <?php endforeach; ?>
+
+                        <div class="col-12">
+                            <div class="card border bg-light p-3 rounded-3">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div>
+                                        <span class="fw-bold"><i class="fa-solid fa-vial-circle-check me-1 text-primary"></i> Test External API Connectivity</span>
+                                        <small class="text-muted d-block">Verifies authorization, model compatibility, and latency against the provider before saving.</small>
+                                    </div>
+                                    <button class="btn btn-outline-primary rounded-pill px-4 fw-semibold" type="button" id="btnTestConnection">
+                                        <i class="fa-solid fa-plug me-1"></i> Test Connection
+                                    </button>
+                                </div>
+                                <div id="externalTestFeedback" class="mt-2 d-none"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -398,35 +452,128 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    document.getElementById('btnTestConnection')?.addEventListener('click', function() {
+    document.getElementById('btnTestLocalEngine')?.addEventListener('click', function() {
         const btn = this;
-        if (!providerSelect || !extBaseUrlInput || !extApiKeyInput || !extModelInput) return;
+        const feedback = document.getElementById('localTestFeedback');
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Testing...';
+        if (feedback) {
+            feedback.classList.remove('d-none');
+            feedback.innerHTML = '<div class="alert alert-info py-2 px-3 small mb-0"><i class="fa-solid fa-spinner fa-spin me-2"></i>Pinging local engine and checking active model...</div>';
+        }
+
         const data = new FormData();
         const mlUrlInput = document.getElementById('ml_backend_url');
         if (mlUrlInput && mlUrlInput.value.trim()) {
             data.append('ml_backend_url', mlUrlInput.value.trim());
         }
-        data.append('provider', providerSelect.value);
-        data.append('base_url', extBaseUrlInput.value);
-        data.append('api_key', extApiKeyInput.value);
-        data.append('model', extModelInput.value);
+        data.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+
+        fetch('<?= base_url('admin/ml/config/test-local') ?>', { method: 'POST', body: data })
+            .then(r => safeFetchJson(r))
+            .then(res => {
+                if (res.status === 'ok') {
+                    if (feedback) {
+                        feedback.innerHTML = `<div class="alert alert-success py-2 px-3 small mb-0 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div><i class="fa-solid fa-circle-check me-2"></i><strong>Local Engine Online:</strong> Active model <code>${res.active_model || 'Loaded'}</code> (latency: <strong>${res.latency_ms} ms</strong>)</div>
+                            <span class="badge bg-success">llama.cpp: ${res.llama_status || 'healthy'}</span>
+                        </div>`;
+                    }
+                } else {
+                    if (feedback) {
+                        feedback.innerHTML = `<div class="alert alert-danger py-2 px-3 small mb-0">
+                            <i class="fa-solid fa-triangle-exclamation me-2"></i><strong>Local Test Failed:</strong> ${res.message || 'Could not connect.'}
+                        </div>`;
+                    }
+                }
+            })
+            .catch(err => {
+                if (feedback) {
+                    feedback.innerHTML = `<div class="alert alert-danger py-2 px-3 small mb-0"><i class="fa-solid fa-circle-xmark me-2"></i>${err.message}</div>`;
+                }
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-plug me-1"></i> Test Local Engine';
+            });
+    });
+
+    document.getElementById('btnTestConnection')?.addEventListener('click', function() {
+        const btn = this;
+        const feedback = document.getElementById('externalTestFeedback');
+        if (!providerSelect || !extBaseUrlInput || !extApiKeyInput || !extModelInput) return;
+
+        const provider = providerSelect.value;
+        const apiKey = extApiKeyInput.value.trim();
+        const model = extModelInput.value.trim();
+        const baseUrl = extBaseUrlInput.value.trim();
+
+        if (!apiKey) {
+            Swal.fire('API Key Required', `Please enter an API Key for ${providerSelect.options[providerSelect.selectedIndex]?.text || provider}.`, 'warning');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Testing API...';
+        if (feedback) {
+            feedback.classList.remove('d-none');
+            feedback.innerHTML = `<div class="alert alert-info py-2 px-3 small mb-0"><i class="fa-solid fa-spinner fa-spin me-2"></i>Contacting <strong>${providerSelect.options[providerSelect.selectedIndex]?.text}</strong> with model <code>${model}</code>...</div>`;
+        }
+
+        const data = new FormData();
+        const mlUrlInput = document.getElementById('ml_backend_url');
+        if (mlUrlInput && mlUrlInput.value.trim()) {
+            data.append('ml_backend_url', mlUrlInput.value.trim());
+        }
+        data.append('provider', provider);
+        data.append('base_url', baseUrl);
+        data.append('api_key', apiKey);
+        data.append('model', model);
+        data.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+
         fetch('<?= base_url('admin/ml/config/test') ?>', { method: 'POST', body: data })
             .then(r => safeFetchJson(r))
             .then(res => {
                 if (res.status === 'success') {
-                    Swal.fire({ title: 'Success!', text: 'Connection verified successfully. The API key is valid.', icon: 'success', confirmButtonText: 'Great' });
+                    if (feedback) {
+                        feedback.innerHTML = `<div class="alert alert-success py-2 px-3 small mb-0 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div><i class="fa-solid fa-circle-check me-2"></i><strong>Connected Successfully!</strong> Provider <strong>${provider}</strong> responded with model <code>${model}</code></div>
+                            <span class="badge bg-success">Status: OK</span>
+                        </div>`;
+                    }
+                    Swal.fire({
+                        title: 'Connection Successful!',
+                        html: `<div class="text-start p-2">
+                            <p class="mb-1 text-success"><i class="fa-solid fa-circle-check me-2"></i><strong>Provider:</strong> ${providerSelect.options[providerSelect.selectedIndex]?.text || provider}</p>
+                            <p class="mb-1 text-success"><i class="fa-solid fa-microchip me-2"></i><strong>Model:</strong> ${model}</p>
+                            <small class="text-muted d-block mt-2">API key is verified and authorized. You can save your configuration.</small>
+                        </div>`,
+                        icon: 'success',
+                        confirmButtonText: 'Great'
+                    });
                 } else {
-                    Swal.fire({ title: 'Connection Failed', text: res.message || 'The request was unsuccessful.', icon: 'error', confirmButtonText: 'Close' });
+                    if (feedback) {
+                        feedback.innerHTML = `<div class="alert alert-danger py-2 px-3 small mb-0">
+                            <i class="fa-solid fa-triangle-exclamation me-2"></i><strong>Connection Error:</strong> ${res.message || 'API connection failed.'}
+                        </div>`;
+                    }
+                    Swal.fire({
+                        title: 'Connection Failed',
+                        text: res.message || 'The external API provider rejected the connection or key.',
+                        icon: 'error',
+                        confirmButtonText: 'Close'
+                    });
                 }
             })
             .catch(err => {
+                if (feedback) {
+                    feedback.innerHTML = `<div class="alert alert-danger py-2 px-3 small mb-0"><i class="fa-solid fa-circle-xmark me-2"></i>${err.message}</div>`;
+                }
                 Swal.fire({ title: 'Error', text: err.message, icon: 'error', confirmButtonText: 'Close' });
             })
             .finally(() => {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-plug me-1"></i> Test';
+                btn.innerHTML = '<i class="fa-solid fa-plug me-1"></i> Test Connection';
             });
     });
 

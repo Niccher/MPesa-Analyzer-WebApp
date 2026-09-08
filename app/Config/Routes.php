@@ -198,7 +198,10 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
     $routes->post('ml/config/test-url', 'Admin\Ml::testBackendUrl');
     $routes->post('ml/models/activate', 'Admin\Ml::activateModel');
     $routes->post('ml/models/upload', 'Admin\Ml::uploadModel');
+    $routes->post('ml/models/download', 'Admin\Ml::modelDownload');
+    $routes->get('ml/models/download-status/(:segment)', 'Admin\Ml::modelDownloadStatus/$1');
     $routes->post('ml/models/delete', 'Admin\Ml::deleteModel');
+    $routes->post('ml/config/test-local', 'Admin\Ml::testLocal');
     $routes->post('ml/test/run', 'Admin\Ml::runTest');
     $routes->post('ml/senders/set-finance', 'Admin\Ml::setSenderFinance');
     $routes->get('ml/allowed', 'Admin\Ml::allowed');

@@ -21,49 +21,101 @@
 <div class="row g-4 mb-4">
     <div class="col-lg-4">
         <div class="card settings-card h-100">
-            <div class="card-body p-4">
-                <h6 class="fw-bold mb-3"><i class="fa-solid fa-cloud-arrow-up me-2" style="color: var(--primary);"></i> Upload Model</h6>
-                <p class="text-muted small mb-3">Add a <code>.gguf</code> or <code>.bin</code> model file. Large files stream to the backend.</p>
-                <?php if (!$status['reachable']): ?>
-                    <div class="alert alert-warning small mb-0">Backend offline — cannot upload.</div>
-                <?php else: ?>
-                    <div class="mb-3">
-                        <input type="file" id="modelFile" class="form-control" accept=".gguf,.bin">
-                    </div>
-                    <div id="uploadProgress" class="progress mb-3 d-none" style="height:6px;">
-                        <div class="progress-bar" role="progressbar" style="width:0%"></div>
-                    </div>
-                    <button type="button" id="uploadBtn" class="btn btn-primary rounded-pill px-4 fw-semibold w-100">
-                        <i class="fa-solid fa-upload me-1"></i> Upload
+            <div class="card-body p-4 d-flex flex-column justify-content-between">
+                <div>
+                    <h6 class="fw-bold mb-3"><i class="fa-solid fa-cloud-arrow-up me-2" style="color: var(--primary);"></i> Upload Model</h6>
+                    <p class="text-muted small mb-3">Upload a <code>.gguf</code> or <code>.bin</code> file from your computer.</p>
+                    <?php if (!$status['reachable']): ?>
+                        <div class="alert alert-warning small mb-0">Backend offline — cannot upload.</div>
+                    <?php else: ?>
+                        <div class="mb-3">
+                            <input type="file" id="modelFile" class="form-control" accept=".gguf,.bin">
+                        </div>
+                        <div id="uploadProgress" class="progress mb-3 d-none" style="height:8px; border-radius:4px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width:0%"></div>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <?php if ($status['reachable']): ?>
+                    <button type="button" id="uploadBtn" class="btn btn-primary rounded-pill px-4 fw-semibold w-100 mt-2">
+                        <i class="fa-solid fa-upload me-1"></i> Upload File
                     </button>
                 <?php endif; ?>
             </div>
         </div>
     </div>
-    <div class="col-lg-8">
+
+    <div class="col-lg-4">
         <div class="card settings-card h-100">
-            <div class="card-body p-4">
-                <h6 class="fw-bold mb-3"><i class="fa-solid fa-box-open me-2" style="color: var(--primary);"></i> Active Model</h6>
-                <?php
-                    $active = null;
-                    foreach (($status['models'] ?? []) as $m) { if (!empty($m['active'])) { $active = $m; break; } }
-                    if ($active): $md = $active['metadata'] ?? [];
-                ?>
-                    <div class="d-flex align-items-center gap-3 flex-wrap mb-2">
-                        <span class="badge bg-success">Active</span>
-                        <span class="fw-semibold"><?= esc($active['filename']) ?></span>
-                        <span class="text-muted small"><?= $active['size_mb'] ?> MB</span>
-                    </div>
-                    <div class="d-flex flex-wrap gap-2">
-                        <span class="meta-chip"><?= esc($md['n_params_label'] ?? '—') ?> params</span>
-                        <span class="meta-chip"><?= esc($md['quantization'] ?? '—') ?></span>
-                        <span class="meta-chip">ctx <?= esc($md['context_length'] ?? '—') ?></span>
-                        <span class="meta-chip"><?= esc($md['architecture'] ?? '—') ?></span>
-                        <span class="meta-chip"><?= esc($md['name'] ?? $active['filename']) ?></span>
-                    </div>
-                <?php else: ?>
-                    <div class="alert alert-info small mb-0">No model is currently active.</div>
+            <div class="card-body p-4 d-flex flex-column justify-content-between">
+                <div>
+                    <h6 class="fw-bold mb-3"><i class="fa-solid fa-cloud-arrow-down me-2 text-info"></i> Download from URL</h6>
+                    <p class="text-muted small mb-3">Download directly from Hugging Face or any public <code>.gguf</code> URL.</p>
+                    <?php if (!$status['reachable']): ?>
+                        <div class="alert alert-warning small mb-0">Backend offline — cannot download.</div>
+                    <?php else: ?>
+                        <div class="mb-2">
+                            <input type="url" id="downloadUrl" class="form-control form-control-sm" placeholder="https://huggingface.co/.../model.gguf">
+                        </div>
+                        <div class="mb-2">
+                            <input type="text" id="downloadFilename" class="form-control form-control-sm" placeholder="Filename (optional, e.g. model.gguf)">
+                        </div>
+                        <div class="mb-2">
+                            <input type="password" id="downloadHfToken" class="form-control form-control-sm" placeholder="Hugging Face Token (optional for gated models)">
+                        </div>
+                        <div id="downloadProgressContainer" class="d-none mt-2 mb-2">
+                            <div class="d-flex justify-content-between small text-muted mb-1">
+                                <span id="downloadStatusText">Downloading...</span>
+                                <span id="downloadProgressPct">0%</span>
+                            </div>
+                            <div class="progress" style="height:8px; border-radius:4px;">
+                                <div id="downloadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-info" role="progressbar" style="width:0%"></div>
+                            </div>
+                            <div id="downloadBytesText" class="small text-muted text-end mt-1" style="font-size:0.75rem;"></div>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <?php if ($status['reachable']): ?>
+                    <button type="button" id="btnStartDownload" class="btn btn-outline-info rounded-pill px-4 fw-semibold w-100 mt-2">
+                        <i class="fa-solid fa-download me-1"></i> Start Download
+                    </button>
                 <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card settings-card h-100">
+            <div class="card-body p-4 d-flex flex-column justify-content-between">
+                <div>
+                    <h6 class="fw-bold mb-3"><i class="fa-solid fa-microchip me-2" style="color: var(--primary);"></i> Active Model</h6>
+                    <?php
+                        $active = null;
+                        foreach (($status['models'] ?? []) as $m) { if (!empty($m['active'])) { $active = $m; break; } }
+                        if ($active): $md = $active['metadata'] ?? [];
+                    ?>
+                        <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                            <span class="badge bg-success"><i class="fa-solid fa-circle-check me-1"></i>Active</span>
+                            <span class="fw-semibold text-truncate" style="max-width:200px;" title="<?= esc($active['filename']) ?>"><?= esc($active['filename']) ?></span>
+                            <span class="badge bg-light text-dark border"><?= $active['size_mb'] ?> MB</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-1 mt-2">
+                            <span class="meta-chip"><i class="fa-solid fa-cube me-1"></i><?= esc($md['n_params_label'] ?? '—') ?></span>
+                            <span class="meta-chip"><i class="fa-solid fa-sliders me-1"></i><?= esc($md['quantization'] ?? '—') ?></span>
+                            <span class="meta-chip"><i class="fa-solid fa-arrows-left-right me-1"></i>ctx <?= esc($md['context_length'] ?? '—') ?></span>
+                            <span class="meta-chip"><?= esc($md['architecture'] ?? '—') ?></span>
+                        </div>
+                    <?php else: ?>
+                        <div class="alert alert-info small mb-0">
+                            <i class="fa-solid fa-info-circle me-1"></i> No local model is currently active. Upload or download a model to activate.
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div class="mt-3">
+                    <a href="<?= base_url('admin/ml/config') ?>" class="btn btn-sm btn-outline-secondary w-100 rounded-pill">
+                        <i class="fa-solid fa-gear me-1"></i> Configure Engine Settings
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -79,12 +131,12 @@
                 The ML backend is not reachable, so models cannot be listed.
             </div>
         <?php elseif (empty($status['models'])): ?>
-            <div class="alert alert-info mb-0">No model files reported by the backend. Upload one above.</div>
+            <div class="alert alert-info mb-0">No model files reported by the backend. Upload or download one above.</div>
         <?php else: ?>
             <div class="table-responsive">
                 <table id="modelTable" class="table table-sm table-striped align-middle">
                     <thead>
-                        <tr><th style="width:26%">Model</th><th>Params</th><th>Quant</th><th>Context</th><th>Size</th><th>Status</th><th>Actions</th></tr>
+                        <tr><th style="width:28%">Model</th><th>Params</th><th>Quant</th><th>Context</th><th>Size</th><th>Status</th><th>Actions</th></tr>
                     </thead>
                     <tbody>
                         <?php foreach ($status['models'] as $m): $md = $m['metadata'] ?? []; ?>
@@ -98,10 +150,10 @@
                             <td><?= esc($md['n_params_label'] ?? '—') ?></td>
                             <td><?= esc($md['quantization'] ?? '—') ?></td>
                             <td><?= esc($md['context_length'] ?? '—') ?></td>
-                            <td><?= $m['size_mb'] ?> MB</td>
+                            <td><span class="badge bg-light text-dark border"><?= $m['size_mb'] ?> MB</span></td>
                             <td>
                                 <?php if (!empty($m['active'])): ?>
-                                    <span class="badge bg-success">Active</span>
+                                    <span class="badge bg-success"><i class="fa-solid fa-check me-1"></i>Active</span>
                                 <?php else: ?>
                                     <span class="badge bg-secondary">Inactive</span>
                                 <?php endif; ?>
@@ -118,7 +170,7 @@
                                         <i class="fa-solid fa-trash me-1"></i>
                                     </button>
                                 <?php else: ?>
-                                    <span class="text-muted small">In use</span>
+                                    <span class="text-success small fw-semibold ms-2"><i class="fa-solid fa-circle-check me-1"></i>Active Model</span>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -140,76 +192,223 @@
             </div>
             <div class="alert alert-info mt-3 mb-0 small">
                 <i class="fa-solid fa-circle-info me-1"></i>
-                Activating a model updates the backend configuration. A llama.cpp restart is required for the new model (and context/batch/gpu changes) to actually be served.
+                Activating a model updates the backend configuration. A llama.cpp restart applies the new model (and context/batch/gpu changes).
             </div>
         <?php endif; ?>
     </div>
 </div>
 
 <script>
-const uploadBtn = document.getElementById('uploadBtn');
-if (uploadBtn) {
-    uploadBtn.addEventListener('click', function() {
-        const input = document.getElementById('modelFile');
-        const file = input.files && input.files[0];
-        if (!file) { showAlert('Upload', 'Please choose a model file.', 'warning'); return; }
-        if (!/\.(gguf|bin)$/i.test(file.name)) { showAlert('Upload', 'Only .gguf and .bin files are allowed.', 'danger'); return; }
-
-        const data = new FormData();
-        data.append('model', file);
-
-        this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Uploading...';
-        document.getElementById('uploadProgress').classList.remove('d-none');
-        const bar = document.querySelector('#uploadProgress .progress-bar');
-
-        fetch('<?= base_url('admin/ml/models/upload') ?>', { method: 'POST', body: data })
-            .then(r => { bar.style.width = '100%'; return r.json(); })
-            .then(res => {
-                showAlert('Upload', res.message, res.status === 'ok' ? 'success' : 'danger');
-                if (res.status === 'ok') setTimeout(() => window.location.reload(), 1500);
-            })
-            .catch(err => showAlert('Error', err.message, 'danger'))
-            .finally(() => {
-                setTimeout(() => {
-                    uploadBtn.disabled = false;
-                    uploadBtn.innerHTML = '<i class="fa-solid fa-upload me-1"></i> Upload';
-                    document.getElementById('uploadProgress').classList.add('d-none');
-                    bar.style.width = '0%';
-                }, 1500);
-            });
-    });
+async function safeFetchJson(response) {
+    const text = await response.text();
+    if (!text || !text.trim()) {
+        throw new Error(`Server returned empty response (HTTP ${response.status}).`);
+    }
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        const clean = text.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+        throw new Error(clean.substring(0, 250) || `Server error (HTTP ${response.status}).`);
+    }
 }
 
-document.querySelectorAll('.activate-model').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const filename = this.dataset.filename;
-        const llmModel = this.dataset.llmModel;
-        if (!confirm('Activate model "' + filename + '"? The change takes effect after the ML backend restarts.')) return;
-        const data = new FormData();
-        data.append('filename', filename);
-        data.append('llm_model', llmModel);
-        fetch('<?= base_url('admin/ml/models/activate') ?>', { method: 'POST', body: data })
-            .then(r => r.json()).then(res => {
-                showAlert('Model', res.message, res.status === 'ok' ? 'success' : 'danger');
-                if (res.status === 'ok') setTimeout(() => window.location.reload(), 1500);
-            })
-            .catch(err => showAlert('Error', err.message, 'danger'));
-    });
-});
+document.addEventListener('DOMContentLoaded', function() {
+    // Upload Handler
+    const uploadBtn = document.getElementById('uploadBtn');
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', function() {
+            const input = document.getElementById('modelFile');
+            const file = input.files && input.files[0];
+            if (!file) { Swal.fire('Upload', 'Please choose a model file.', 'warning'); return; }
+            if (!/\.(gguf|bin)$/i.test(file.name)) { Swal.fire('Upload', 'Only .gguf and .bin files are allowed.', 'error'); return; }
 
-document.querySelectorAll('.delete-model').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const filename = this.dataset.filename;
-        if (!confirm('Delete model "' + filename + '"? This permanently removes the file from the backend.')) return;
-        const data = new FormData();
-        data.append('filename', filename);
-        fetch('<?= base_url('admin/ml/models/delete') ?>', { method: 'POST', body: data })
-            .then(r => r.json()).then(res => {
-                showAlert('Delete', res.message, res.status === 'ok' ? 'success' : 'danger');
-                if (res.status === 'ok') setTimeout(() => window.location.reload(), 1500);
-            })
-            .catch(err => showAlert('Error', err.message, 'danger'));
+            const data = new FormData();
+            data.append('model', file);
+            data.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Uploading...';
+            document.getElementById('uploadProgress').classList.remove('d-none');
+            const bar = document.querySelector('#uploadProgress .progress-bar');
+            bar.style.width = '60%';
+
+            fetch('<?= base_url('admin/ml/models/upload') ?>', { method: 'POST', body: data })
+                .then(r => safeFetchJson(r))
+                .then(res => {
+                    bar.style.width = '100%';
+                    if (res.status === 'ok') {
+                        Swal.fire('Uploaded!', res.message, 'success').then(() => location.reload());
+                    } else {
+                        Swal.fire('Upload Failed', res.message, 'error');
+                    }
+                })
+                .catch(err => Swal.fire('Error', err.message, 'error'))
+                .finally(() => {
+                    uploadBtn.disabled = false;
+                    uploadBtn.innerHTML = '<i class="fa-solid fa-upload me-1"></i> Upload File';
+                    document.getElementById('uploadProgress').classList.add('d-none');
+                    bar.style.width = '0%';
+                });
+        });
+    }
+
+    // Download from URL Handler
+    const btnStartDownload = document.getElementById('btnStartDownload');
+    let downloadPollTimer = null;
+
+    if (btnStartDownload) {
+        btnStartDownload.addEventListener('click', function() {
+            const urlInput = document.getElementById('downloadUrl');
+            const filenameInput = document.getElementById('downloadFilename');
+            const hfTokenInput = document.getElementById('downloadHfToken');
+            const url = urlInput ? urlInput.value.trim() : '';
+
+            if (!url) {
+                Swal.fire('URL Required', 'Please enter a valid model download URL.', 'warning');
+                return;
+            }
+
+            btnStartDownload.disabled = true;
+            btnStartDownload.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Starting...';
+
+            const progressContainer = document.getElementById('downloadProgressContainer');
+            const progressBar = document.getElementById('downloadProgressBar');
+            const progressPct = document.getElementById('downloadProgressPct');
+            const statusText = document.getElementById('downloadStatusText');
+            const bytesText = document.getElementById('downloadBytesText');
+
+            progressContainer?.classList.remove('d-none');
+            if (progressBar) progressBar.style.width = '5%';
+            if (progressPct) progressPct.innerText = '0%';
+            if (statusText) statusText.innerText = 'Connecting...';
+
+            const data = new FormData();
+            data.append('url', url);
+            if (filenameInput && filenameInput.value.trim()) data.append('filename', filenameInput.value.trim());
+            if (hfTokenInput && hfTokenInput.value.trim()) data.append('hf_token', hfTokenInput.value.trim());
+            data.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+
+            fetch('<?= base_url('admin/ml/models/download') ?>', { method: 'POST', body: data })
+                .then(r => safeFetchJson(r))
+                .then(res => {
+                    if (res.status === 'started') {
+                        const taskId = res.task_id;
+                        btnStartDownload.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Downloading...';
+                        
+                        downloadPollTimer = setInterval(() => {
+                            fetch('<?= base_url('admin/ml/models/download-status') ?>/' + encodeURIComponent(taskId))
+                                .then(r => safeFetchJson(r))
+                                .then(pollRes => {
+                                    if (pollRes.status === 'downloading') {
+                                        const pct = pollRes.progress_pct || 0;
+                                        if (progressBar) progressBar.style.width = pct + '%';
+                                        if (progressPct) progressPct.innerText = pct + '%';
+                                        if (statusText) statusText.innerText = 'Downloading ' + (pollRes.filename || '');
+                                        if (bytesText && pollRes.total_bytes) {
+                                            const recMb = (pollRes.bytes_received / 1048576).toFixed(1);
+                                            const totMb = (pollRes.total_bytes / 1048576).toFixed(1);
+                                            bytesText.innerText = `${recMb} MB / ${totMb} MB`;
+                                        }
+                                    } else if (pollRes.status === 'done') {
+                                        clearInterval(downloadPollTimer);
+                                        if (progressBar) progressBar.style.width = '100%';
+                                        if (progressPct) progressPct.innerText = '100%';
+                                        if (statusText) statusText.innerText = 'Completed!';
+                                        Swal.fire({
+                                            title: 'Download Completed!',
+                                            text: pollRes.message || 'Model downloaded successfully.',
+                                            icon: 'success',
+                                            confirmButtonText: 'Great'
+                                        }).then(() => location.reload());
+                                    } else if (pollRes.status === 'error') {
+                                        clearInterval(downloadPollTimer);
+                                        btnStartDownload.disabled = false;
+                                        btnStartDownload.innerHTML = '<i class="fa-solid fa-download me-1"></i> Start Download';
+                                        progressContainer?.classList.add('d-none');
+                                        Swal.fire('Download Failed', pollRes.message || pollRes.error || 'Download encountered an error.', 'error');
+                                    }
+                                })
+                                .catch(err => {
+                                    console.warn('Poll error:', err);
+                                });
+                        }, 2000);
+                    } else {
+                        btnStartDownload.disabled = false;
+                        btnStartDownload.innerHTML = '<i class="fa-solid fa-download me-1"></i> Start Download';
+                        progressContainer?.classList.add('d-none');
+                        Swal.fire('Error', res.message || 'Could not start download.', 'error');
+                    }
+                })
+                .catch(err => {
+                    btnStartDownload.disabled = false;
+                    btnStartDownload.innerHTML = '<i class="fa-solid fa-download me-1"></i> Start Download';
+                    progressContainer?.classList.add('d-none');
+                    Swal.fire('Error', err.message, 'error');
+                });
+        });
+    }
+
+    // Model Activation
+    document.querySelectorAll('.activate-model').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const filename = this.dataset.filename;
+            const llmModel = this.dataset.llmModel;
+            Swal.fire({
+                title: 'Activate Model?',
+                text: `Set "${filename}" as active model? A llama.cpp restart is required to serve it.`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, activate',
+                cancelButtonText: 'Cancel'
+            }).then(result => {
+                if (!result.isConfirmed) return;
+                const data = new FormData();
+                data.append('filename', filename);
+                data.append('llm_model', llmModel);
+                data.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+                fetch('<?= base_url('admin/ml/models/activate') ?>', { method: 'POST', body: data })
+                    .then(r => safeFetchJson(r))
+                    .then(res => {
+                        if (res.status === 'ok') {
+                            Swal.fire('Model Activated', res.message, 'success').then(() => location.reload());
+                        } else {
+                            Swal.fire('Activation Failed', res.message, 'error');
+                        }
+                    })
+                    .catch(err => Swal.fire('Error', err.message, 'error'));
+            });
+        });
+    });
+
+    // Model Deletion
+    document.querySelectorAll('.delete-model').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const filename = this.dataset.filename;
+            Swal.fire({
+                title: 'Delete Model?',
+                text: `Permanently delete "${filename}" from the backend?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete',
+                cancelButtonText: 'Cancel'
+            }).then(result => {
+                if (!result.isConfirmed) return;
+                const data = new FormData();
+                data.append('filename', filename);
+                data.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+                fetch('<?= base_url('admin/ml/models/delete') ?>', { method: 'POST', body: data })
+                    .then(r => safeFetchJson(r))
+                    .then(res => {
+                        if (res.status === 'ok') {
+                            Swal.fire('Deleted', res.message, 'success').then(() => location.reload());
+                        } else {
+                            Swal.fire('Delete Failed', res.message, 'error');
+                        }
+                    })
+                    .catch(err => Swal.fire('Error', err.message, 'error'));
+            });
+        });
     });
 });
 </script>

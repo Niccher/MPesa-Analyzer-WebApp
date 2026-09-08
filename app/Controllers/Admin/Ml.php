@@ -777,6 +777,106 @@ class Ml extends BaseController
         }
     }
 
+    public function modelDownload()
+    {
+        $url = trim((string)$this->request->getPost('url'));
+        $filename = trim((string)$this->request->getPost('filename'));
+        $hfToken = trim((string)$this->request->getPost('hf_token'));
+
+        if ($url === '') {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Download URL is required.']);
+        }
+
+        try {
+            $resp = $this->client()->post($this->baseUrl() . '/admin/models/download', [
+                'json' => [
+                    'url' => $url,
+                    'filename' => $filename !== '' ? $filename : null,
+                    'hf_token' => $hfToken !== '' ? $hfToken : null,
+                ],
+                'timeout' => 15,
+            ]);
+            $body = json_decode((string)$resp->getBody(), true);
+            return $this->response->setJSON(is_array($body) ? $body : ['status' => 'error', 'message' => 'Invalid backend response']);
+        } catch (\Throwable $e) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Failed to initiate download on ML backend: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function modelDownloadStatus(string $taskId = '')
+    {
+        $taskId = trim($taskId);
+        if ($taskId === '') {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Task ID is required.']);
+        }
+
+        try {
+            $resp = $this->client()->get($this->baseUrl() . '/admin/models/download/' . urlencode($taskId), [
+                'timeout' => 10,
+            ]);
+            $body = json_decode((string)$resp->getBody(), true);
+            return $this->response->setJSON(is_array($body) ? $body : ['status' => 'error', 'message' => 'Invalid backend response']);
+        } catch (\Throwable $e) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Failed to check download status: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function testLocal()
+    {
+        $targetMlUrl = trim((string)$this->request->getPost('ml_backend_url'));
+        if ($targetMlUrl !== '') {
+            if (!preg_match('#^https?://#i', $targetMlUrl)) {
+                $targetMlUrl = 'http://' . $targetMlUrl;
+            }
+            $targetMlUrl = rtrim($targetMlUrl, '/');
+        } else {
+            $targetMlUrl = $this->baseUrl();
+        }
+
+        $tStart = microtime(true);
+        try {
+            $resp = $this->client()->get($targetMlUrl . '/admin/status', [
+                'timeout' => 10,
+            ]);
+            $latencyMs = (int) round((microtime(true) - $tStart) * 1000);
+            $rawBody = (string)$resp->getBody();
+            $body = json_decode($rawBody, true);
+
+            if (!is_array($body)) {
+                return $this->response->setJSON([
+                    'status' => 'error',
+                    'latency_ms' => $latencyMs,
+                    'tested_url' => $targetMlUrl,
+                    'message' => "ML microservice returned non-JSON response: " . substr($rawBody, 0, 150),
+                ]);
+            }
+
+            return $this->response->setJSON([
+                'status' => 'ok',
+                'latency_ms' => $latencyMs,
+                'tested_url' => $targetMlUrl,
+                'active_model' => $body['config']['llm_model'] ?? ($body['status']['llm_model'] ?? 'None'),
+                'engine' => $body['config']['llm_engine'] ?? 'local',
+                'llama_status' => $body['llama_status'] ?? 'unknown',
+                'models' => $body['models'] ?? [],
+            ]);
+        } catch (\Throwable $e) {
+            $latencyMs = (int) round((microtime(true) - $tStart) * 1000);
+            return $this->response->setJSON([
+                'status' => 'error',
+                'latency_ms' => $latencyMs,
+                'tested_url' => $targetMlUrl,
+                'message' => "Could not connect to local ML backend: " . $e->getMessage(),
+            ]);
+        }
+    }
+
     public function deleteModel()
     {
         $filename = $this->request->getPost('filename');
