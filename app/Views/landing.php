@@ -28,9 +28,9 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
 
     <style>
         :root {
-            --primary: #5D5FEF;
-            --primary-dark: #4A4CD4;
-            --secondary: #B1B8ED;
+            --primary: #438EB9;
+            --primary-dark: #222A2D;
+            --secondary: #E8F2F8;
             --dark: #1A1A2E;
             --light: #F8F9FA;
             --radius: 4px;

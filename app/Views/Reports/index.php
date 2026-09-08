@@ -5,7 +5,7 @@
 <?= $this->section('styles') ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-    .report-hero { background: linear-gradient(135deg, #5D5FEF 0%, #a29bfe 100%); border-radius: 4px; color: white; padding: 32px 40px; margin-bottom: 28px; position: relative; overflow: hidden; }
+    .report-hero { background: linear-gradient(135deg, #438EB9 0%, #2B7DBC 100%); border-radius: 4px; color: white; padding: 32px 40px; margin-bottom: 28px; position: relative; overflow: hidden; }
     .report-hero::after { content: ''; position: absolute; top: -60%; right: -5%; width: 280px; height: 280px; background: rgba(255,255,255,0.08); border-radius: 50%; }
     .glass-card { background: var(--card-bg); backdrop-filter: blur(10px); border: 1px solid var(--card-border); border-radius: 4px; box-shadow: 0 6px 24px rgba(31,38,135,0.06); transition: transform .2s, box-shadow .2s; }
     .glass-card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(31,38,135,0.1); }
@@ -152,7 +152,7 @@
             </div>
             <div style="max-height: 200px; overflow-y: auto;">
                 <?php
-                $catColors = ['#5D5FEF', '#2ED573', '#FFA502', '#FF4757', '#1E90FF', '#a29bfe', '#fd79a8', '#00cec9', '#d63031', '#e84393', '#ffeaa7'];
+                $catColors = ['#438EB9', '#2ED573', '#FFA502', '#FF4757', '#1E90FF', '#a29bfe', '#fd79a8', '#00cec9', '#d63031', '#e84393', '#ffeaa7'];
                 $idx = 0;
                 $catSum = array_sum($report['categories'] ?? []) ?: 1;
                 foreach ($report['categories'] as $name => $val):
@@ -227,7 +227,7 @@
             </thead>
             <tbody>
                 <?php
-                $colors2 = ['#5D5FEF','#2ED573','#FFA502','#FF4757','#1E90FF'];
+                $colors2 = ['#438EB9','#2ED573','#FFA502','#FF4757','#1E90FF'];
                 foreach ($report['top_counterparties'] as $i => $cp):
                     $c = $colors2[$i % 5];
                 ?>
@@ -293,7 +293,7 @@ new Chart(document.getElementById('dailyFlowChart'), {
 
 const catData = <?= json_encode(array_values(array_filter($report['categories'] ?? []))) ?>;
 const catLabels = <?= json_encode(array_keys(array_filter($report['categories'] ?? []))) ?>;
-const paletteColors = ['#5D5FEF', '#2ED573', '#FFA502', '#FF4757', '#1E90FF', '#a29bfe', '#fd79a8', '#00cec9', '#d63031', '#e84393', '#ffeaa7'];
+const paletteColors = ['#438EB9', '#2ED573', '#FFA502', '#FF4757', '#1E90FF', '#a29bfe', '#fd79a8', '#00cec9', '#d63031', '#e84393', '#ffeaa7'];
 
 if (catData.length > 0) {
     new Chart(document.getElementById('catDonut'), {

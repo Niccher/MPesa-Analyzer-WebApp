@@ -26,7 +26,7 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <style>
-        :root { --primary: #5D5FEF; --primary-dark: #4A4CD4; --secondary: #B1B8ED; --dark: #1A1A2E; --light: #F8F9FA; --radius: 4px; }
+        :root { --primary: #438EB9; --primary-dark: #222A2D; --secondary: #E8F2F8; --dark: #1A1A2E; --light: #F8F9FA; --radius: 4px; }
         body { font-family: 'Outfit', sans-serif; background-color: var(--light); color: var(--dark); }
         .navbar { padding: 1.25rem 0; background: transparent; transition: all 0.3s ease; }
         .navbar.scrolled { background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); padding: 0.75rem 0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }

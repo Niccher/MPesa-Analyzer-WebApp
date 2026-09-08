@@ -9,7 +9,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        :root { --primary: #5D5FEF; --bg-gradient: linear-gradient(135deg, #B1B8ED 0%, #8E96E0 100%); }
+        :root { --primary: #438EB9; --bg-gradient: linear-gradient(135deg, #E8F2F8 0%, #438EB9 100%); }
         body { font-family: 'Outfit', sans-serif; background: var(--bg-gradient); height: 100vh; margin: 0; display: flex; align-items: center; justify-content: center; }
         .error-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 4px; padding: 3rem; max-width: 480px; width: 90%; text-align: center; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12); animation: fadeIn 0.6s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }

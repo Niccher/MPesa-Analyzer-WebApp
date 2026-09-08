@@ -322,7 +322,7 @@ usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
                         </thead>
                         <tbody>
                             <?php 
-                            $colors = ['#5D5FEF', '#2ED573', '#FFA502', '#FF4757', '#1E90FF'];
+                            $colors = ['#438EB9', '#2ED573', '#FFA502', '#FF4757', '#1E90FF'];
                             foreach ($top_counterparties as $index => $entity): 
                                 $color = $colors[$index % count($colors)];
                                 $isIncoming = in_array(strtolower($entity->sms_direction ?? ''), ['incoming', 'received', 'money_in', 'in']);

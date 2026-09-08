@@ -10,9 +10,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root {
-            --primary: #5D5FEF;
-            --primary-dark: #4A4CD4;
-            --secondary: #B1B8ED;
+            --primary: #438EB9;
+            --primary-dark: #222A2D;
+            --secondary: #E8F2F8;
             --dark: #1A1A2E;
             --light: #F8F9FA;
             --radius: 4px;

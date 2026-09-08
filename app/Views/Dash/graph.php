@@ -26,7 +26,7 @@
     }
 
     .analytics-header {
-        background: linear-gradient(135deg, #5D5FEF 0%, #a29bfe 100%);
+        background: linear-gradient(135deg, #438EB9 0%, #2B7DBC 100%);
         border-radius: 4px;
         color: white;
         padding: 40px;
@@ -234,7 +234,7 @@
                         <table class="table table-sm table-borderless align-middle mb-0">
                             <tbody>
                                 <?php 
-                                $colors = ['#5D5FEF', '#2ED573', '#FFA502', '#FF4757', '#1E90FF', '#a29bfe', '#fd79a8'];
+                                $colors = ['#438EB9', '#2ED573', '#FFA502', '#FF4757', '#1E90FF', '#a29bfe', '#fd79a8'];
                                 $idx = 0;
                                 $total = array_sum($analytics['categories'] ?? []) ?: 1;
                                 foreach (array_filter($analytics['categories'] ?? []) as $cat => $val): 
@@ -356,7 +356,7 @@
 
 <?= $this->section('scripts') ?>
 <script>
-    const primaryColor = '#5D5FEF';
+    const primaryColor = '#438EB9';
     const successColor = '#2ED573';
     const dangerColor = '#FF4757';
     const warningColor = '#FFA502';
