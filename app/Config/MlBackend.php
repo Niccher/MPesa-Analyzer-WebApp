@@ -15,6 +15,18 @@ class MlBackend extends BaseConfig
     {
         parent::__construct();
 
-        $this->baseUrl = rtrim((string) env('ML_BACKEND_URL', 'http://ml-mpesa-analyzer:9050'), '/');
+        $dbUrl = '';
+        try {
+            $db = \Config\Database::connect();
+            if ($db->tableExists('tbl_Settings')) {
+                $row = $db->table('tbl_Settings')->where('`key`', 'ml_backend_url')->get()->getRow();
+                if ($row && !empty($row->value)) {
+                    $dbUrl = trim((string)$row->value);
+                }
+            }
+        } catch (\Throwable $e) {}
+
+        $url = $dbUrl !== '' ? $dbUrl : (string) env('ML_BACKEND_URL', 'http://ml-mpesa-analyzer:9050');
+        $this->baseUrl = rtrim($url, '/');
     }
 }

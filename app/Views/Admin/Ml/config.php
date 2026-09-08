@@ -46,6 +46,19 @@
 
             <form id="configForm">
                 <?= csrf_field() ?>
+
+                <!-- ML Backend Service URL -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <label class="cfg-label" for="ml_backend_url"><i class="fa-solid fa-network-wired me-1"></i> ML Backend Service Endpoint URL</label>
+                        <div class="input-group">
+                            <span class="input-group-text cfg-ico"><i class="fa-solid fa-link"></i></span>
+                            <input type="text" class="form-control" id="ml_backend_url" name="ml_backend_url" value="<?= esc($ml_backend_url ?? config('MlBackend')->baseUrl) ?>" placeholder="http://ml-mpesa-analyzer:9050">
+                        </div>
+                        <div class="cfg-desc mt-1">The HTTP endpoint where the WebApp connects to the Python ML microservice (e.g., <code>http://ml-mpesa-analyzer:9050</code> or Railway internal URL).</div>
+                    </div>
+                </div>
+
                 <input type="hidden" name="llm_gemini_api_key" id="key_gemini" value="<?= esc($cfg['llm_gemini_api_key'] ?? '') ?>">
                 <input type="hidden" name="llm_deepseek_api_key" id="key_deepseek" value="<?= esc($cfg['llm_deepseek_api_key'] ?? '') ?>">
                 <input type="hidden" name="llm_openai_api_key" id="key_openai" value="<?= esc($cfg['llm_openai_api_key'] ?? '') ?>">

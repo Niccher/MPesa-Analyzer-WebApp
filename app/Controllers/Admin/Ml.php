@@ -44,6 +44,7 @@ class Ml extends BaseController
         $data = [
             'bg_color' => '#B1B8ED',
             'status' => $this->fetchStatus(),
+            'ml_backend_url' => (string) config('MlBackend')->baseUrl,
         ];
 
         return view('Admin/Ml/config', $data);
@@ -524,6 +525,21 @@ class Ml extends BaseController
 
     public function saveConfig()
     {
+        $mlBackendUrl = trim((string)$this->request->getPost('ml_backend_url'));
+        if ($mlBackendUrl !== '') {
+            try {
+                $db = \Config\Database::connect();
+                $db->table('tbl_Settings')->upsert([
+                    'key'         => 'ml_backend_url',
+                    'value'       => rtrim($mlBackendUrl, '/'),
+                    'type'        => 'string',
+                    'description' => 'ML Backend Base URL',
+                ]);
+            } catch (\Throwable $e) {
+                log_message('error', 'Failed to save ml_backend_url: ' . $e->getMessage());
+            }
+        }
+
         $payload = [
             'llm_model' => $this->request->getPost('llm_model') ?: null,
             'llm_max_tokens' => $this->request->getPost('llm_max_tokens') !== '' ? (int)$this->request->getPost('llm_max_tokens') : null,
