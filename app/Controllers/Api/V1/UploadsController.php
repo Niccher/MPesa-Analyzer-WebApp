@@ -80,6 +80,8 @@ class UploadsController extends BaseApiController
                 $this->db->table('tbl_Devices')
                     ->where('device_Uuid', $devId)
                     ->update(['device_user_id' => $userId]);
+
+                $this->triggerMlProcessingWebhook($userId);
             }
 
             $this->auditApiCall('upload', $token, $devId, (int) ($parseResult['processed'] ?? 0), ['is_continuation' => $isContinuation]);
@@ -389,5 +391,31 @@ class UploadsController extends BaseApiController
         }
         fclose($output);
         exit;
+    }
+
+    private function triggerMlProcessingWebhook(?int $userId): void
+    {
+        if (!$userId) return;
+        $mlBaseUrl = (string) env('ML_BACKEND_URL', 'http://127.0.0.1:8000');
+        $mlSecret = (string) env('ML_INTERNAL_SECRET', '');
+
+        try {
+            $client = \Config\Services::curlrequest([
+                'base_url' => $mlBaseUrl,
+                'timeout'  => 3,
+            ]);
+
+            $headers = ['Content-Type' => 'application/json'];
+            if (!empty($mlSecret)) {
+                $headers['X-Internal-Secret'] = $mlSecret;
+            }
+
+            $client->post("/process/for-user/{$userId}", [
+                'headers' => $headers,
+                'http_errors' => false,
+            ]);
+        } catch (\Throwable $e) {
+            log_message('warning', 'Could not trigger ML webhook: ' . $e->getMessage());
+        }
     }
 }

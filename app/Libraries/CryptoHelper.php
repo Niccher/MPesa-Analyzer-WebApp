@@ -20,13 +20,24 @@ class CryptoHelper
             throw new \RuntimeException("Payload too short to extract IV");
         }
 
-        $iv = substr($value, 0, 16);
-        $ciphertext = substr($value, 16);
         $options = OPENSSL_RAW_DATA;
 
-        log_message('debug', 'Decrypt input length: ' . strlen($value));
-        log_message('debug', 'Extracted IV: ' . bin2hex($iv));
-        log_message('debug', 'Ciphertext length: ' . strlen($ciphertext));
+        // Attempt AES-256-GCM decryption (12-byte IV header + 16-byte Auth Tag footer)
+        if (strlen($value) > 28) {
+            $ivGcm = substr($value, 0, 12);
+            $tag = substr($value, -16);
+            $ciphertextGcm = substr($value, 12, -16);
+
+            $gcmDec = @openssl_decrypt($ciphertextGcm, 'AES-256-GCM', $this->cryptKey, $options, $ivGcm, $tag);
+            if ($gcmDec !== false) {
+                log_message('debug', 'Decrypted payload using AES-256-GCM');
+                return $gcmDec;
+            }
+        }
+
+        // Fallback to legacy AES-128-CBC decryption
+        $iv = substr($value, 0, 16);
+        $ciphertext = substr($value, 16);
 
         $dec_val = openssl_decrypt($ciphertext, $this->cipherAlgo, $this->cryptKey, $options, $iv);
 
@@ -36,19 +47,18 @@ class CryptoHelper
             throw new \RuntimeException("OpenSSL decrypt failed: " . $error);
         }
 
-        log_message('debug', 'Decrypt output length: ' . strlen($dec_val));
-        log_message('debug', 'Decrypt output first 100 chars: ' . substr($dec_val, 0, 100));
-
+        log_message('debug', 'Decrypted payload using AES-128-CBC fallback');
         return $dec_val;
     }
 
     public function encode_content($value)
     {
-        $iv = openssl_random_pseudo_bytes(16);
+        $iv = openssl_random_pseudo_bytes(12);
         $options = OPENSSL_RAW_DATA;
+        $tag = '';
 
-        $enc_val = openssl_encrypt($value, $this->cipherAlgo, $this->cryptKey, $options, $iv);
+        $enc_val = openssl_encrypt($value, 'AES-256-GCM', $this->cryptKey, $options, $iv, $tag);
 
-        return $iv . $enc_val;
+        return $iv . $enc_val . $tag;
     }
 }

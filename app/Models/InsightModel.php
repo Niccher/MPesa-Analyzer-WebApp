@@ -336,4 +336,58 @@ class InsightModel extends Model
             'tips'  => $tips
         ];
     }
+
+    /**
+     * Subscription & Ghost Fee Insights
+     */
+    public function getSubscriptionInsights(?string $deviceToken = null): array
+    {
+        $recurring = $this->getRecurringPayments($deviceToken);
+        $subscriptions = [];
+
+        foreach ($recurring as $item) {
+            $lastPaid = strtotime($item->last_paid);
+            $nextDueDate = date('Y-m-d', strtotime('+30 days', $lastPaid));
+            $daysLeft = (int)ceil((strtotime($nextDueDate) - time()) / 86400);
+
+            $subscriptions[] = [
+                'counterparty'  => $item->counterparty,
+                'amount'        => (float)$item->amount,
+                'occurrences'   => (int)$item->occurs,
+                'last_paid'     => $item->last_paid,
+                'next_due_date' => $nextDueDate,
+                'days_remaining' => $daysLeft,
+                'status'        => $daysLeft <= 3 ? 'due_soon' : 'active',
+            ];
+        }
+
+        return $subscriptions;
+    }
+
+    /**
+     * Reversal & Refund Reconciliation Summary
+     */
+    public function getReconciliationSummary(?string $deviceToken = null): array
+    {
+        $builder = $this->db->table('tbl_Sms s')
+            ->select('
+                COUNT(CASE WHEN sc.is_reversal = 1 THEN 1 END) as reversal_count,
+                COALESCE(SUM(CASE WHEN sc.is_reversal = 1 THEN sc.amount ELSE 0 END), 0) as total_reversed,
+                COALESCE(SUM(CASE WHEN sc.is_reversal = 0 THEN sc.amount ELSE 0 END), 0) as net_amount
+            ')
+            ->join('tbl_Sms_Classification sc', 'sc.sms_id = s.id', 'left')
+            ->where('s.sms_is_finance', 1);
+
+        if ($deviceToken) {
+            $builder->where('s.sms_owner', $deviceToken);
+        }
+
+        $row = $builder->get()->getRow();
+
+        return [
+            'reversal_count' => (int)($row->reversal_count ?? 0),
+            'total_reversed' => (float)($row->total_reversed ?? 0.0),
+            'net_amount'     => (float)($row->net_amount ?? 0.0),
+        ];
+    }
 }
