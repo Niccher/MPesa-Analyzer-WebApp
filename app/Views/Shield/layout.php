@@ -1,15 +1,20 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title><?= $this->renderSection('title') ?> — Mpesa Analyzer</title>
     <link rel="shortcut icon" type="image/png" href="/favicon.png">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('ace_theme') || 'light';
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
+        })();
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<?= base_url('assets/ace/css/ace.min.css') ?>" rel="stylesheet" />
-    <link href="<?= base_url('assets/ace/css/ace-custom.css') ?>" rel="stylesheet" />
+    <link href="<?= base_url('assets/ace/css/ace-theme.css') ?>" rel="stylesheet" />
     <style>
         :root {
             --primary: #438EB9;
@@ -24,18 +29,27 @@
             --text-muted: #636e72;
             --input-bg: #F3F4F6;
         }
+        [data-bs-theme="dark"] {
+            --card-bg: rgba(30, 41, 59, 0.9);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --input-bg: #1e293b;
+        }
         * { box-sizing: border-box; font-family: 'Outfit', sans-serif; }
         body { font-family: 'Outfit', sans-serif; background: var(--light); color: var(--dark); margin: 0; min-height: 100vh; display: flex; flex-direction: column; }
         .navbar { padding: 1.25rem 0; background: transparent; transition: all 0.3s ease; position: fixed; width: 100%; top: 0; z-index: 1030; }
         .navbar.scrolled { background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); padding: 0.75rem 0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+        [data-bs-theme="dark"] .navbar.scrolled { background: rgba(15, 23, 42, 0.92); }
         .navbar-brand { font-weight: 800; font-size: 1.5rem; letter-spacing: -0.5px; }
-        .nav-link { font-weight: 500; color: var(--dark); transition: color 0.2s; position: relative; }
+        .nav-link { font-weight: 500; transition: color 0.2s; position: relative; }
         .nav-link:hover { color: var(--primary) !important; }
         .btn-primary { background-color: var(--primary); border-color: var(--primary); padding: 0.7rem 1.8rem; font-weight: 600; border-radius: var(--radius); transition: all 0.3s; }
         .btn-primary:hover { background-color: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(93,95,239,0.35); }
         .btn-outline-primary { color: var(--primary); border-color: var(--primary); padding: 0.7rem 1.8rem; font-weight: 600; border-radius: var(--radius); }
         .btn-outline-primary:hover { background-color: var(--primary); color: #fff; transform: translateY(-2px); }
         .auth-section { flex: 1; display: flex; align-items: center; padding: 120px 0 60px; background: linear-gradient(135deg, #fff 0%, var(--secondary) 100%); min-height: 100vh; }
+        [data-bs-theme="dark"] .auth-section { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
         .auth-card { background: var(--card-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 40px 36px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); animation: slideUp 0.6s ease-out; }
         @keyframes slideUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
         .auth-header { text-align: center; margin-bottom: 28px; }
@@ -46,6 +60,7 @@
         .form-label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
         .form-control { width: 100%; padding: 13px 16px; border-radius: var(--radius); border: 2px solid transparent; background: var(--input-bg); font-size: 0.93rem; transition: all 0.3s; color: var(--text-main); }
         .form-control:focus { outline: none; border-color: var(--primary); background: #fff; box-shadow: 0 0 0 4px rgba(93,95,239,0.12); }
+        [data-bs-theme="dark"] .form-control:focus { background: #0f172a; }
         .form-control::placeholder { color: #adb5bd; }
         .btn-primary { width: 100%; padding: 13px; border-radius: var(--radius); border: none; background: var(--primary); color: white; font-size: 1rem; font-weight: 700; cursor: pointer; transition: transform 0.2s, background 0.3s, box-shadow 0.3s; margin-top: 6px; }
         .btn-primary:hover { background: #4A4CD4; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(93,95,239,0.35); }
@@ -83,7 +98,10 @@
                     <li class="nav-item"><a class="nav-link" href="<?= base_url('setup') ?>">Setup</a></li>
                     <li class="nav-item"><a class="nav-link" href="<?= base_url('faq') ?>">FAQ</a></li>
                 </ul>
-                <div class="d-flex gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-outline-secondary btn-sm px-2.5 py-1" id="themeToggleBtn" type="button" title="Toggle Light/Dark Theme">
+                        <i class="fa-solid fa-moon"></i>
+                    </button>
                     <?php $uri = uri_string(); ?>
                     <?php if ($uri === 'register' || strpos($uri, 'magic-link') !== false): ?>
                         <a href="<?= url_to('login') ?>" class="btn btn-outline-primary btn-sm">Sign In</a>
@@ -173,6 +191,32 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         window.addEventListener('scroll', function() { document.querySelector('.navbar').classList.toggle('scrolled', window.scrollY > 50); });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const themeBtn = document.getElementById('themeToggleBtn');
+            const html = document.documentElement;
+
+            function updateIcon(theme) {
+                if (themeBtn) {
+                    const icon = themeBtn.querySelector('i');
+                    if (icon) {
+                        icon.className = theme === 'dark' ? 'fa-solid fa-sun text-warning' : 'fa-solid fa-moon';
+                    }
+                }
+            }
+
+            const currentTheme = localStorage.getItem('ace_theme') || 'light';
+            updateIcon(currentTheme);
+
+            if (themeBtn) {
+                themeBtn.addEventListener('click', function() {
+                    const newTheme = html.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+                    html.setAttribute('data-bs-theme', newTheme);
+                    localStorage.setItem('ace_theme', newTheme);
+                    updateIcon(newTheme);
+                });
+            }
+        });
     </script>
 </body>
 </html>

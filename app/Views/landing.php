@@ -6,7 +6,7 @@ if (file_exists(APPPATH . 'Config/version.json')) {
 $systemVersion = $versionData['version'] ?? '3.2.0';
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -21,10 +21,16 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
     <meta property="og:description" content="Sync all SMS, ML detects financial messages, classifies transactions, visualizes spending.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="<?= base_url() ?>">
-
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('ace_theme') || 'light';
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
+        })();
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<?= base_url('assets/ace/css/ace-theme.css') ?>" rel="stylesheet" />
 
     <style>
         :root {
@@ -40,9 +46,10 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
 
         .navbar { padding: 1.25rem 0; background: transparent; transition: all 0.3s ease; }
         .navbar.scrolled { background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); padding: 0.75rem 0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+        [data-bs-theme="dark"] .navbar.scrolled { background: rgba(15, 23, 42, 0.92); }
         .navbar-brand { font-weight: 800; font-size: 1.5rem; letter-spacing: -0.5px; }
 
-        .nav-link { font-weight: 500; color: var(--dark); transition: color 0.2s; position: relative; }
+        .nav-link { font-weight: 500; transition: color 0.2s; position: relative; }
         .nav-link:hover { color: var(--primary); }
         .nav-link.active { color: var(--primary) !important; }
         .nav-link.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background: var(--primary); border-radius: 1px; }
@@ -53,14 +60,18 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
         .btn-outline-primary:hover { background-color: var(--primary); color: #fff; transform: translateY(-2px); }
 
         .hero-section { padding: 140px 0 100px; background: linear-gradient(135deg, #fff 0%, var(--secondary) 100%); position: relative; overflow: hidden; }
+        [data-bs-theme="dark"] .hero-section { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
         .hero-section::before { content: ''; position: absolute; top: -50%; right: -20%; width: 600px; height: 600px; background: radial-gradient(circle, rgba(93,95,239,0.06) 0%, transparent 70%); border-radius: 50%; }
         .hero-title { font-size: 3.25rem; font-weight: 800; line-height: 1.15; margin-bottom: 1.5rem; letter-spacing: -1px; background: linear-gradient(135deg, var(--primary), #8E91FF); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .hero-img-placeholder { background: rgba(255,255,255,0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.5); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; height: 420px; }
+        [data-bs-theme="dark"] .hero-img-placeholder { background: rgba(30,41,59,0.6); border-color: rgba(255,255,255,0.1); }
 
         .section-title { font-weight: 700; letter-spacing: -0.3px; }
         .glass-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.4); border-radius: var(--radius); padding: 2.5rem; transition: all 0.3s; height: 100%; box-shadow: 0 4px 16px rgba(0,0,0,0.04); }
+        [data-bs-theme="dark"] .glass-card { background: rgba(30, 41, 59, 0.8); border-color: rgba(255,255,255,0.1); }
         .glass-card:hover { transform: translateY(-6px); box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
         .icon-box { width: 56px; height: 56px; background: var(--secondary); color: var(--primary); display: flex; align-items: center; justify-content: center; border-radius: var(--radius); font-size: 1.4rem; margin-bottom: 1.25rem; }
+        [data-bs-theme="dark"] .icon-box { background: rgba(67, 142, 185, 0.2); }
 
         .footer { background: var(--dark); color: #fff; padding: 4rem 0 2rem; }
         .footer a { color: rgba(255,255,255,0.7); text-decoration: none; transition: color 0.2s; }
@@ -87,7 +98,10 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
                     <li class="nav-item"><a class="nav-link" href="<?= base_url('setup') ?>">Setup</a></li>
                     <li class="nav-item"><a class="nav-link" href="<?= base_url('faq') ?>">FAQ</a></li>
                 </ul>
-                <div class="d-flex gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-outline-secondary btn-sm px-2.5 py-1" id="themeToggleBtn" type="button" title="Toggle Light/Dark Theme">
+                        <i class="fa-solid fa-moon"></i>
+                    </button>
                     <a href="<?= url_to('login') ?>" class="btn btn-outline-primary btn-sm">Sign In</a>
                     <a href="<?= url_to('register') ?>" class="btn btn-primary btn-sm">Get Started</a>
                 </div>
@@ -127,7 +141,7 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
         </div>
     </header>
 
-    <section class="py-5 bg-white">
+    <section class="py-5">
         <div class="container py-5">
             <div class="text-center mb-5">
                 <h2 class="section-title h1 mb-3">Why Analyze All SMS?</h2>
@@ -159,7 +173,7 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
         </div>
     </section>
 
-    <section class="py-5 bg-light">
+    <section class="py-5">
         <div class="container py-5">
             <div class="text-center mb-5">
                 <h2 class="section-title h1 mb-3">Three Components, One Platform</h2>
@@ -200,7 +214,7 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
         </div>
     </section>
 
-    <section class="py-5 bg-white">
+    <section class="py-5">
         <div class="container py-5 text-center">
             <div class="bg-primary p-5 rounded-4 shadow-lg text-white" style="border-radius: var(--radius) !important;">
                 <h2 class="fw-bold mb-3">Ready to take control of your finances?</h2>
@@ -267,7 +281,32 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         window.addEventListener('scroll', function() { document.querySelector('.navbar').classList.toggle('scrolled', window.scrollY > 50); });
-        document.querySelectorAll('.nav-link').forEach(function(link) { link.addEventListener('click', function() { document.querySelectorAll('.nav-link').forEach(function(l) { l.classList.remove('active'); }); this.classList.add('active'); }); });
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const themeBtn = document.getElementById('themeToggleBtn');
+            const html = document.documentElement;
+
+            function updateIcon(theme) {
+                if (themeBtn) {
+                    const icon = themeBtn.querySelector('i');
+                    if (icon) {
+                        icon.className = theme === 'dark' ? 'fa-solid fa-sun text-warning' : 'fa-solid fa-moon';
+                    }
+                }
+            }
+
+            const currentTheme = localStorage.getItem('ace_theme') || 'light';
+            updateIcon(currentTheme);
+
+            if (themeBtn) {
+                themeBtn.addEventListener('click', function() {
+                    const newTheme = html.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+                    html.setAttribute('data-bs-theme', newTheme);
+                    localStorage.setItem('ace_theme', newTheme);
+                    updateIcon(newTheme);
+                });
+            }
+        });
     </script>
 </body>
 </html>
