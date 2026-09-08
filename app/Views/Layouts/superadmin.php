@@ -14,6 +14,34 @@ $systemGithub = $versionData['github_url'] ?? 'https://github.com/niccher/Mpesa_
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title><?= $this->renderSection('title') ?? 'Mpesa Analyzer - SuperAdmin' ?></title>
 
+    <!-- Primary Meta Tags -->
+    <meta name="title" content="<?= $this->renderSection('title') ?? 'Financial Analyzer Ecosystem - SuperAdmin' ?>">
+    <meta name="description" content="Universal Multi-Channel Financial Intelligence Suite — SuperAdmin Management System.">
+    <meta name="keywords" content="financial analyzer, mpesa analyzer, admin dashboard, system administration">
+    <meta name="author" content="Niccher / Financial Analyzer Ecosystem">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#438EB9">
+
+    <!-- Mobile & PWA Web App Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FinAnalyzer Admin">
+    <meta name="application-name" content="FinAnalyzer Admin">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- Open Graph / Social Meta Tags -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<?= current_url() ?>">
+    <meta property="og:site_name" content="Financial Analyzer Ecosystem">
+    <meta property="og:title" content="<?= $this->renderSection('title') ?? 'Financial Analyzer Ecosystem' ?>">
+    <meta property="og:description" content="Universal Multi-Channel Financial Intelligence Suite SuperAdmin.">
+    <meta property="og:image" content="<?= base_url('assets/img/logo.png') ?>">
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="<?= $this->renderSection('title') ?? 'Financial Analyzer Ecosystem' ?>">
+    <meta name="twitter:image" content="<?= base_url('assets/img/logo.png') ?>">
+
     <!-- Favicon & PWA Icons -->
     <link rel="icon" type="image/png" sizes="32x32" href="<?= base_url('favicon.png') ?>">
     <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico') ?>">

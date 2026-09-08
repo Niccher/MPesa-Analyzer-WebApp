@@ -14,6 +14,37 @@ $systemGithub = $versionData['github_url'] ?? 'https://github.com/niccher/Mpesa_
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title><?= $this->renderSection('title') ?? 'Mpesa Analyzer' ?></title>
 
+    <!-- Primary Meta Tags -->
+    <meta name="title" content="<?= $this->renderSection('title') ?? 'Financial Analyzer Ecosystem' ?>">
+    <meta name="description" content="Universal Multi-Channel Financial Intelligence Suite — Autonomous transaction categorization, dynamic rules engine, and multi-institution financial analytics.">
+    <meta name="keywords" content="financial analyzer, mpesa analyzer, transaction categorization, multi-channel finance, dynamic rules engine, personal finance manager">
+    <meta name="author" content="Niccher / Financial Analyzer Ecosystem">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#438EB9">
+
+    <!-- Mobile & PWA Web App Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FinAnalyzer">
+    <meta name="application-name" content="FinAnalyzer">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- Open Graph / Social Meta Tags -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<?= current_url() ?>">
+    <meta property="og:site_name" content="Financial Analyzer Ecosystem">
+    <meta property="og:title" content="<?= $this->renderSection('title') ?? 'Financial Analyzer Ecosystem' ?>">
+    <meta property="og:description" content="Universal Multi-Channel Financial Intelligence Suite with AI categorization, dynamic rules engine, and multi-institution telemetry.">
+    <meta property="og:image" content="<?= base_url('assets/img/logo.png') ?>">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<?= $this->renderSection('title') ?? 'Financial Analyzer Ecosystem' ?>">
+    <meta name="twitter:description" content="Universal Multi-Channel Financial Intelligence Suite with AI categorization & dynamic rules engine.">
+    <meta name="twitter:image" content="<?= base_url('assets/img/logo.png') ?>">
+
     <!-- Favicon & PWA Icons -->
     <link rel="icon" type="image/png" sizes="32x32" href="<?= base_url('favicon.png') ?>">
     <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico') ?>">
