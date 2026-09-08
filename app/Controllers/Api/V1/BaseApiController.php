@@ -62,6 +62,27 @@ class BaseApiController extends BaseController
     }
 
     /**
+     * Mandatory authentication helper that requires a valid active user.
+     */
+    protected function requireAuthenticatedUser(): ?User
+    {
+        return $this->getUserFromToken();
+    }
+
+    /**
+     * Verify if a raw token belongs to the given authenticated user.
+     */
+    protected function isTokenOwnedByUser(string $rawToken, User $user): bool
+    {
+        if (empty($rawToken)) {
+            return false;
+        }
+        $deviceModel = new \App\Models\DeviceModel();
+        $ownedTokens = $deviceModel->getUserRawTokens((int)$user->id);
+        return in_array($rawToken, $ownedTokens, true);
+    }
+
+    /**
      * Audit logger helper
      */
     protected function auditApiCall(string $endpoint, string $token, string $deviceUuid, int $processed = 0, array $extra = [])

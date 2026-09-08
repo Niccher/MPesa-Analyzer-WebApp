@@ -41,7 +41,7 @@ class UploadsController extends BaseApiController
 
             $uploadPath = WRITEPATH . 'uploads/payloads/';
             if (!is_dir($uploadPath)) {
-                mkdir($uploadPath, 0777, true);
+                mkdir($uploadPath, 0755, true);
             }
 
             $newName = 'loot_' . $uuid . '.enc';

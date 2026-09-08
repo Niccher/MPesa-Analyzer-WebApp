@@ -10,10 +10,17 @@ class AnalyticsController extends BaseApiController
 {
     public function financialOverview(): ResponseInterface
     {
+        $user = $this->requireAuthenticatedUser();
+        if (!$user) return $this->failUnauthorized('Invalid or expired API token');
+
         $modUpload = new UploadModel();
         $dated = date('Y-m-d H:i:s');
         $token = (string) $this->request->getPost('varUser');
         $devId = (string) $this->request->getPost('varDev');
+
+        if (!empty($token) && !$this->isTokenOwnedByUser($token, $user)) {
+            return $this->failForbidden('Token mismatch for authenticated user');
+        }
 
         try {
             $this->auditApiCall('get/my_financial_overview', $token, $devId);
@@ -35,6 +42,9 @@ class AnalyticsController extends BaseApiController
 
     public function transactionsByCategory(): ResponseInterface
     {
+        $user = $this->requireAuthenticatedUser();
+        if (!$user) return $this->failUnauthorized('Invalid or expired API token');
+
         $modUpload = new UploadModel();
         $dated = date('Y-m-d H:i:s');
         $token = (string) $this->request->getPost('varUser');
@@ -42,6 +52,10 @@ class AnalyticsController extends BaseApiController
         $category = (string) $this->request->getPost('varCategory');
         $page = (int) ($this->request->getPost('varPage') ?: 1);
         $perPage = (int) ($this->request->getPost('varPerPage') ?: 50);
+
+        if (!empty($token) && !$this->isTokenOwnedByUser($token, $user)) {
+            return $this->failForbidden('Token mismatch for authenticated user');
+        }
 
         try {
             $this->auditApiCall('get/my_transactions_by_category', $token, $devId);
@@ -66,10 +80,17 @@ class AnalyticsController extends BaseApiController
 
     public function senderProfiles(): ResponseInterface
     {
+        $user = $this->requireAuthenticatedUser();
+        if (!$user) return $this->failUnauthorized('Invalid or expired API token');
+
         $modUpload = new UploadModel();
         $dated = date('Y-m-d H:i:s');
         $token = (string) $this->request->getPost('varUser');
         $devId = (string) $this->request->getPost('varDev');
+
+        if (!empty($token) && !$this->isTokenOwnedByUser($token, $user)) {
+            return $this->failForbidden('Token mismatch for authenticated user');
+        }
 
         try {
             $this->auditApiCall('get/my_sender_profiles', $token, $devId);
@@ -91,8 +112,12 @@ class AnalyticsController extends BaseApiController
 
     public function financialHealth(): ResponseInterface
     {
+        $user = $this->requireAuthenticatedUser();
+        if (!$user) return $this->failUnauthorized('Invalid or expired API token');
+
         $token = (string) $this->request->getPost('varUser');
         if (empty($token)) return $this->failUnauthorized('User token required');
+        if (!$this->isTokenOwnedByUser($token, $user)) return $this->failForbidden('Token mismatch for authenticated user');
 
         $insights = new InsightModel();
         $scoreData = $insights->getFinancialHealthScore($token);
@@ -107,8 +132,12 @@ class AnalyticsController extends BaseApiController
 
     public function financialAlerts(): ResponseInterface
     {
+        $user = $this->requireAuthenticatedUser();
+        if (!$user) return $this->failUnauthorized('Invalid or expired API token');
+
         $token = (string) $this->request->getPost('varUser');
         if (empty($token)) return $this->failUnauthorized('User token required');
+        if (!$this->isTokenOwnedByUser($token, $user)) return $this->failForbidden('Token mismatch for authenticated user');
 
         $insights = new InsightModel();
         $alerts = $insights->getSmartAlerts($token);
@@ -121,8 +150,12 @@ class AnalyticsController extends BaseApiController
 
     public function financialRecurring(): ResponseInterface
     {
+        $user = $this->requireAuthenticatedUser();
+        if (!$user) return $this->failUnauthorized('Invalid or expired API token');
+
         $token = (string) $this->request->getPost('varUser');
         if (empty($token)) return $this->failUnauthorized('User token required');
+        if (!$this->isTokenOwnedByUser($token, $user)) return $this->failForbidden('Token mismatch for authenticated user');
 
         $insights = new InsightModel();
         $payments = $insights->getRecurringPayments($token);
@@ -135,8 +168,12 @@ class AnalyticsController extends BaseApiController
 
     public function financialTrends(): ResponseInterface
     {
+        $user = $this->requireAuthenticatedUser();
+        if (!$user) return $this->failUnauthorized('Invalid or expired API token');
+
         $token = (string) $this->request->getPost('varUser');
         if (empty($token)) return $this->failUnauthorized('User token required');
+        if (!$this->isTokenOwnedByUser($token, $user)) return $this->failForbidden('Token mismatch for authenticated user');
 
         $insights = new InsightModel();
         $trends = $insights->getSpendingTrends($token);
@@ -149,8 +186,12 @@ class AnalyticsController extends BaseApiController
 
     public function financialInsights(): ResponseInterface
     {
+        $user = $this->requireAuthenticatedUser();
+        if (!$user) return $this->failUnauthorized('Invalid or expired API token');
+
         $token = (string) $this->request->getPost('varUser');
         if (empty($token)) return $this->failUnauthorized('User token required');
+        if (!$this->isTokenOwnedByUser($token, $user)) return $this->failForbidden('Token mismatch for authenticated user');
 
         $insights = new InsightModel();
         $obs = $insights->getAIObservations($token);
