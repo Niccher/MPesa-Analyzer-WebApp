@@ -75,6 +75,61 @@ Full parameter reference: [docs/user/configuration.md](docs/user/configuration.m
 
 ---
 
+## Deployment (Railway & Cloud)
+
+The application ecosystem consists of 3 microservice containers:
+1. **MySQL 8.4 Database Container** (Shared relational database)
+2. **PHP 8.3 WebApp & Mobile API Gateway** (`Niccher/MPesa-Analyzer-WebApp`)
+3. **Python 3.12 ML Microservice** (`Niccher/ML-Mpesa-Analyser`)
+
+### Quick Setup Steps on Railway
+1. Create a new project on Railway and attach a **MySQL** database plugin.
+2. Deploy the **WebApp** repository connected to the MySQL service.
+3. Deploy the **ML Microservice** repository connected to the same MySQL service.
+4. Copy-paste the environment variables below into Railway's **Variables -> Bulk Raw Editor**.
+
+### WebApp Service Environment Variables
+
+**JSON Bulk Import Format:**
+```json
+{
+  "database.default.hostname": "${{MySQL.MYSQLHOST}}",
+  "database.default.database": "${{MySQL.MYSQLDATABASE}}",
+  "database.default.username": "${{MySQL.MYSQLUSER}}",
+  "database.default.password": "${{MySQL.MYSQLPASSWORD}}",
+  "database.default.port": "${{MySQL.MYSQLPORT}}",
+  "database.default.DBDriver": "MySQLi",
+  "ML_BACKEND_URL": "http://ml-mpesa-analyzer:9050",
+  "CI_ENVIRONMENT": "production",
+  "MPESA_CRYPT_KEY": "<YOUR_AES_128_CBC_KEY>",
+  "MPESA_CRYPT_IV": "<YOUR_AES_128_CBC_IV>",
+  "SUPERADMIN_EMAIL": "<YOUR_SUPERADMIN_EMAIL>",
+  "SUPERADMIN_PASSWORD": "<YOUR_SUPERADMIN_PASSWORD>"
+}
+```
+
+**Raw `.env` Format:**
+```env
+database.default.hostname=${{MySQL.MYSQLHOST}}
+database.default.database=${{MySQL.MYSQLDATABASE}}
+database.default.username=${{MySQL.MYSQLUSER}}
+database.default.password=${{MySQL.MYSQLPASSWORD}}
+database.default.port=${{MySQL.MYSQLPORT}}
+database.default.DBDriver=MySQLi
+ML_BACKEND_URL=http://ml-mpesa-analyzer:9050
+CI_ENVIRONMENT=production
+MPESA_CRYPT_KEY=<YOUR_AES_128_CBC_KEY>
+MPESA_CRYPT_IV=<YOUR_AES_128_CBC_IV>
+SUPERADMIN_EMAIL=<YOUR_SUPERADMIN_EMAIL>
+SUPERADMIN_PASSWORD=<YOUR_SUPERADMIN_PASSWORD>
+```
+
+### Post-Deployment Health Probes
+- **WebApp Health**: `GET https://<your-webapp-domain>.up.railway.app/health`
+- **ML Connectivity**: Log in to WebApp Admin $\rightarrow$ **ML Config** and click **Test Endpoint**.
+
+---
+
 ## Something Went Wrong?
 
 - **Port in use on 9002 or 9000**: Change port bindings in `docker-compose.yml`.
