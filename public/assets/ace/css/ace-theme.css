@@ -1,0 +1,531 @@
+/* ==========================================================================
+   Mpesa Analyzer — Native Ace Theme Engine (Bootstrap 5 Compatible)
+   ========================================================================== */
+
+:root {
+    /* Brand Color Tokens */
+    --ace-navy: #438EB9;
+    --ace-dark: #222A2D;
+    --ace-blue: #2B7DBC;
+    --ace-green: #87B87F;
+    --ace-red: #D15B47;
+    --ace-amber: #FFB752;
+    --ace-purple: #967ADC;
+
+    /* Theme Tokens */
+    --primary: #438EB9;
+    --bg-color: #F2F5F8;
+    --card-bg: #FFFFFF;
+    --card-border: #E2E8F0;
+    --text-main: #2D3436;
+    --text-muted: #636E72;
+    --sidebar-width: 240px;
+    --navbar-height: 48px;
+    --border-radius: 4px;
+}
+
+/* Dark Mode Tokens */
+[data-bs-theme="dark"] {
+    --bg-color: #0F172A;
+    --card-bg: #1E293B;
+    --card-border: #334155;
+    --text-main: #F1F5F9;
+    --text-muted: #94A3B8;
+}
+
+/* Reset & Base Typography */
+body {
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg-color) !important;
+    color: var(--text-main) !important;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ==========================================================================
+   1. ACE NAVBAR (HEADER)
+   ========================================================================== */
+.ace-navbar {
+    height: var(--navbar-height);
+    background-color: var(--ace-navy);
+    color: #FFFFFF;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1030;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+}
+
+[data-bs-theme="dark"] .ace-navbar {
+    background-color: var(--ace-dark);
+    border-bottom: 1px solid var(--card-border);
+}
+
+.ace-brand {
+    color: #FFFFFF !important;
+    font-size: 17px;
+    font-weight: 700;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ace-brand:hover {
+    color: #E8F2F8 !important;
+}
+
+.ace-nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ace-nav-btn {
+    background: rgba(255,255,255,0.15);
+    color: #FFFFFF !important;
+    border: none;
+    padding: 4px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    border-radius: var(--border-radius);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s ease;
+}
+
+.ace-nav-btn:hover {
+    background: rgba(255,255,255,0.25);
+}
+
+/* User Dropdown */
+.ace-user-menu {
+    position: relative;
+}
+
+.ace-user-link {
+    color: #FFFFFF !important;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: var(--border-radius);
+}
+
+.ace-user-link:hover {
+    background: rgba(255,255,255,0.12);
+}
+
+.ace-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12px;
+}
+
+/* ==========================================================================
+   2. ACE LAYOUT WRAPPER & SIDEBAR
+   ========================================================================== */
+.ace-layout {
+    display: flex;
+    margin-top: var(--navbar-height);
+    min-height: calc(100vh - var(--navbar-height));
+}
+
+.ace-sidebar {
+    width: var(--sidebar-width);
+    background-color: var(--card-bg);
+    border-right: 1px solid var(--card-border);
+    position: fixed;
+    top: var(--navbar-height);
+    bottom: 0;
+    left: 0;
+    z-index: 1020;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    transition: transform 0.25s ease-in-out;
+}
+
+/* Sidebar Shortcuts Bar */
+.ace-shortcuts {
+    display: flex;
+    gap: 4px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--card-border);
+    background: var(--bg-color);
+}
+
+.ace-shortcut-btn {
+    flex: 1;
+    height: 32px;
+    border: none;
+    border-radius: var(--border-radius);
+    color: #FFFFFF !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    text-decoration: none;
+    transition: opacity 0.2s ease;
+}
+
+.ace-shortcut-btn:hover {
+    opacity: 0.88;
+}
+
+.bg-ace-green { background-color: var(--ace-green); }
+.bg-ace-blue { background-color: var(--ace-blue); }
+.bg-ace-amber { background-color: var(--ace-amber); }
+.bg-ace-red { background-color: var(--ace-red); }
+
+/* Sidebar Navigation Items */
+.ace-nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+}
+
+.ace-nav-item {
+    border-bottom: 1px solid rgba(0,0,0,0.03);
+}
+
+.ace-nav-link {
+    display: flex;
+    align-items: center;
+    height: 42px;
+    padding: 0 16px;
+    color: var(--text-main);
+    font-size: 13.5px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.18s ease;
+}
+
+.ace-nav-link i {
+    width: 24px;
+    font-size: 15px;
+    text-align: center;
+    margin-right: 10px;
+    color: var(--ace-navy);
+    transition: transform 0.18s ease;
+}
+
+[data-bs-theme="dark"] .ace-nav-link i {
+    color: #38BDF8;
+}
+
+.ace-nav-link:hover {
+    background-color: rgba(67, 142, 185, 0.08);
+    color: var(--ace-navy);
+    padding-left: 20px;
+}
+
+.ace-nav-link:hover i {
+    transform: scale(1.15);
+}
+
+.ace-nav-item.active .ace-nav-link {
+    background-color: rgba(67, 142, 185, 0.12);
+    color: var(--ace-navy);
+    font-weight: 700;
+    border-left: 4px solid var(--ace-navy);
+    padding-left: 16px;
+}
+
+[data-bs-theme="dark"] .ace-nav-item.active .ace-nav-link {
+    background-color: rgba(56, 189, 248, 0.15);
+    color: #38BDF8;
+    border-left-color: #38BDF8;
+}
+
+/* Sidebar Toggle Collapse */
+.ace-sidebar-toggle {
+    height: 38px;
+    border-top: 1px solid var(--card-border);
+    background: var(--bg-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+
+.ace-sidebar-toggle:hover {
+    color: var(--ace-navy);
+}
+
+/* ==========================================================================
+   3. MAIN CONTENT AREA & BREADCRUMBS
+   ========================================================================== */
+.ace-main {
+    margin-left: var(--sidebar-width);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    transition: margin-left 0.25s ease-in-out;
+}
+
+.ace-breadcrumbs {
+    height: 40px;
+    background-color: var(--card-bg);
+    border-bottom: 1px solid var(--card-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    font-size: 12.5px;
+}
+
+.ace-breadcrumb-trail {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.ace-breadcrumb-trail li a {
+    color: var(--ace-navy);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.ace-breadcrumb-trail li.active {
+    color: var(--text-muted);
+}
+
+.ace-search-pill {
+    position: relative;
+}
+
+.ace-search-input {
+    border-radius: 20px;
+    border: 1px solid var(--card-border);
+    padding: 4px 12px 4px 28px;
+    font-size: 12px;
+    background: var(--bg-color);
+    color: var(--text-main);
+    outline: none;
+}
+
+.ace-search-input:focus {
+    border-color: var(--ace-navy);
+    background: var(--card-bg);
+}
+
+.ace-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+.ace-content {
+    padding: 20px;
+    flex: 1;
+}
+
+/* ==========================================================================
+   4. CARDS, WIDGET BOXES & INFOBOXES
+   ========================================================================== */
+.widget-box, .glass-card, .card {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    border-radius: var(--border-radius) !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04) !important;
+    margin-bottom: 20px;
+}
+
+.widget-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--card-border);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ace-navy);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+[data-bs-theme="dark"] .widget-header {
+    color: #38BDF8;
+}
+
+.widget-main, .card-body {
+    padding: 16px;
+}
+
+/* Ace Infobox Stat Cards */
+.infobox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.infobox {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-left: 4px solid var(--ace-navy);
+    border-radius: var(--border-radius);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+}
+
+.infobox-green { border-left-color: var(--ace-green); }
+.infobox-red { border-left-color: var(--ace-red); }
+.infobox-amber { border-left-color: var(--ace-amber); }
+.infobox-purple { border-left-color: var(--ace-purple); }
+
+.infobox-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--border-radius);
+    background: var(--bg-color);
+    color: var(--ace-navy);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.infobox-data {
+    flex: 1;
+    min-width: 0;
+}
+
+.infobox-value {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--text-main);
+}
+
+.infobox-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* ==========================================================================
+   5. TABLES, BADGES & FOOTER
+   ========================================================================== */
+.table {
+    color: var(--text-main) !important;
+    border-color: var(--card-border) !important;
+    margin-bottom: 0 !important;
+}
+
+.table thead th {
+    background-color: var(--bg-color) !important;
+    color: var(--text-muted) !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    border-bottom: 2px solid var(--card-border) !important;
+    padding: 10px 14px !important;
+}
+
+.table td {
+    padding: 10px 14px !important;
+    vertical-align: middle !important;
+    border-color: var(--card-border) !important;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(67, 142, 185, 0.04) !important;
+}
+
+.label, .badge-ace {
+    display: inline-block;
+    padding: 0.3em 0.7em;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    color: #FFFFFF;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 3px;
+}
+
+.label-success { background-color: var(--ace-green); }
+.label-warning { background-color: var(--ace-amber); }
+.label-danger { background-color: var(--ace-red); }
+.label-info { background-color: var(--ace-navy); }
+
+.ace-footer {
+    border-top: 1px solid var(--card-border);
+    background-color: var(--card-bg);
+    padding: 14px 20px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+}
+
+/* ==========================================================================
+   6. RESPONSIVE BREAKPOINTS (MOBILE & TABLET FIXES)
+   ========================================================================== */
+@media (max-width: 991.98px) {
+    .ace-sidebar {
+        transform: translateX(-100%);
+    }
+
+    .ace-sidebar.open {
+        transform: translateX(0);
+        box-shadow: 4px 0 20px rgba(0,0,0,0.25);
+    }
+
+    .ace-main {
+        margin-left: 0 !important;
+    }
+
+    .ace-backdrop {
+        position: fixed;
+        top: var(--navbar-height);
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.4);
+        z-index: 1015;
+        display: none;
+    }
+
+    .ace-backdrop.show {
+        display: block;
+    }
+}
