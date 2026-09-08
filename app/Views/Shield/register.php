@@ -19,7 +19,7 @@
         </div>
     <?php endif ?>
 
-    <form action="<?= url_to('register') ?>" method="post">
+    <form action="<?= base_url('register') ?>" method="post">
         <?= csrf_field() ?>
 
         <div class="form-group">
@@ -53,6 +53,7 @@
     </form>
 
     <div class="auth-footer">
-        <p class="mb-1">Already have an account? <a href="<?= url_to('login') ?>">Sign In</a></p>
+        <p class="mb-2">Already have an account? <a href="<?= base_url('login') ?>">Sign In</a></p>
+        <p class="mb-0 small"><a href="<?= base_url('magic-link') ?>" class="text-muted text-decoration-none">Forgot Password?</a> &bull; <a href="<?= base_url('auth/a/show') ?>" class="text-muted text-decoration-none">Verify Account</a></p>
     </div>
 <?= $this->endSection() ?>

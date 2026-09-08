@@ -23,7 +23,7 @@
         <div class="alert alert-success"><?= session('message') ?></div>
     <?php endif ?>
 
-    <form action="<?= url_to('login') ?>" method="post">
+    <form action="<?= base_url('login') ?>" method="post">
         <?= csrf_field() ?>
 
         <div class="form-group">
@@ -34,9 +34,7 @@
         <div class="form-group">
             <div class="d-flex justify-content-between align-items-center mb-1">
                 <label for="floatingPasswordInput" class="form-label mb-0">Password</label>
-                <?php if (setting('Auth.allowMagicLinkLogins')) : ?>
-                    <a href="<?= url_to('magic-link') ?>" class="small text-decoration-none" style="color: var(--primary); font-weight: 500;">Forgot?</a>
-                <?php endif ?>
+                <a href="<?= base_url('magic-link') ?>" class="small text-decoration-none" style="color: var(--primary); font-weight: 600;">Forgot Password?</a>
             </div>
             <input type="password" class="form-control" id="floatingPasswordInput" name="password" inputmode="text" autocomplete="current-password" placeholder="Enter your password" required>
         </div>
@@ -56,6 +54,7 @@
     </form>
 
     <div class="auth-footer">
-        <p class="mb-1">Don't have an account? <a href="<?= url_to('register') ?>">Create one</a></p>
+        <p class="mb-2">Don't have an account? <a href="<?= base_url('register') ?>">Create account</a></p>
+        <p class="mb-0 text-muted small"><a href="<?= base_url('auth/a/show') ?>" class="text-secondary text-decoration-none"><i class="fa-solid fa-key me-1"></i>Account Verification / 2FA</a></p>
     </div>
 <?= $this->endSection() ?>

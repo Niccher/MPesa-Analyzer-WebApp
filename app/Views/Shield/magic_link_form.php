@@ -6,7 +6,7 @@
     <div class="auth-header">
         <div class="brand-icon"><i class="fa-solid fa-key"></i></div>
         <h1>Forgot Password</h1>
-        <p>Enter your email to receive a login link</p>
+        <p>Enter your email to receive a login / password reset link</p>
     </div>
 
     <?php if (session('error')) : ?>
@@ -19,7 +19,7 @@
         </div>
     <?php endif ?>
 
-    <form action="<?= url_to('magic-link') ?>" method="post">
+    <form action="<?= base_url('magic-link') ?>" method="post">
         <?= csrf_field() ?>
 
         <div class="form-group">
@@ -28,11 +28,12 @@
         </div>
 
         <button type="submit" class="btn-primary">
-            <i class="fa-solid fa-paper-plane me-2"></i>Send Magic Link
+            <i class="fa-solid fa-paper-plane me-2"></i>Send Reset Link
         </button>
     </form>
 
     <div class="auth-footer">
-        <p class="mb-1">Remember your password? <a href="<?= url_to('login') ?>">Sign In</a></p>
+        <p class="mb-2">Remember your password? <a href="<?= base_url('login') ?>">Sign In</a></p>
+        <p class="mb-0 small">Don't have an account? <a href="<?= base_url('register') ?>">Create account</a></p>
     </div>
 <?= $this->endSection() ?>
