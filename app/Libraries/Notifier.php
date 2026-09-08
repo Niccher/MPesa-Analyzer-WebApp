@@ -370,7 +370,7 @@ class Notifier
             'SMTPPass'   => $config['smtp_pass'],
             'SMTPPort'   => (int)$config['smtp_port'],
             'SMTPCrypto' => $config['smtp_crypto'] === 'none' ? '' : $config['smtp_crypto'],
-            'SMTPTimeout' => 10,
+            'SMTPTimeout' => 20,
             'wordWrap'   => true,
             'charset'    => 'UTF-8',
             'newline'    => "\r\n",
@@ -406,8 +406,10 @@ class Notifier
             return ['status' => 'success', 'message' => $logMsg];
         }
 
-        $debug = $mail->printDebugger(['headers', 'subject', 'body', 'message']);
-        $msg = is_array($debug) ? implode("\n", $debug) : (string)$debug;
+        $debug = $mail->printDebugger([]);
+        $rawDebug = is_array($debug) ? implode("\n", $debug) : (string)$debug;
+        $cleanDebug = trim(strip_tags($rawDebug));
+        $msg = $cleanDebug ?: 'Unknown SMTP connection error.';
 
         if ($trackingNumber !== '') {
             $msg = '[Tracking: ' . $trackingNumber . '] ' . $msg;
@@ -415,8 +417,11 @@ class Notifier
 
         self::logEmail($trigger, $to, $subject, 'error', $msg);
 
-        if (strpos($config['smtp_host'], 'gmail.com') !== false || strpos($config['smtp_host'], 'google') !== false) {
-            $msg .= "\n\nIf using Gmail: Google no longer accepts regular account passwords for SMTP. Generate a Gmail App Password (Google Account → Security → App passwords) and use it as the SMTP password.";
+        if (strpos($config['from_email'], 'example.com') !== false) {
+            $domain = preg_replace('/^mail\./i', '', $config['smtp_host']);
+            $msg .= "\n\n💡 Tip: Your 'From Email' is currently '" . $config['from_email'] . "'. Mail servers (like " . $config['smtp_host'] . ") typically reject sending from '@example.com'. Change your 'From Email' to an authorized address under @" . ($domain ?: 'yourdomain.com') . " (e.g. info@" . ($domain ?: 'yourdomain.com') . ").";
+        } elseif (strpos($config['smtp_host'], 'gmail.com') !== false || strpos($config['smtp_host'], 'google') !== false) {
+            $msg .= "\n\n💡 Tip for Gmail: Google requires an App Password (Google Account → Security → 2-Step Verification → App passwords).";
         }
 
         return ['status' => 'error', 'message' => 'Failed to send email: ' . $msg];

@@ -38,6 +38,10 @@ foreach ($trigger_meta as $m) {
                                 <div class="card settings-card mb-4">
                                     <div class="card-body p-4">
                                         <h5 class="fw-bold mb-3" style="color: var(--primary);"><i class="fa-solid fa-server me-2"></i> SMTP Configuration</h5>
+                                        <div class="alert alert-info py-2 small mb-3">
+                                            <i class="fa-solid fa-circle-info me-1"></i>
+                                            <strong>Setup Tip:</strong> Use <strong>Port 465 with SSL</strong> (or <strong>Port 587 with TLS</strong>). Ensure your <strong>From Email</strong> uses your domain (e.g. <code>info@chegecache.co.ke</code>), not <code>example.com</code>, so your mail server permits relaying.
+                                        </div>
                                         <form id="smtpForm">
                                             <?= csrf_field() ?>
                                             <div class="row g-3">
