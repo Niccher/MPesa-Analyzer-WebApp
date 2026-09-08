@@ -272,23 +272,26 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
 // Explicit Shield Authentication Routes
 $routes->group('', ['namespace' => '\CodeIgniter\Shield\Controllers'], static function ($routes) {
     // Login/out
-    $routes->get('login', 'LoginController::loginView');
+    $routes->get('login', 'LoginController::loginView', ['as' => 'login']);
     $routes->post('login', 'LoginController::loginAction');
-    $routes->get('logout', 'LoginController::logoutAction');
+    $routes->get('logout', 'LoginController::logoutAction', ['as' => 'logout']);
     
     // Registration
-    $routes->get('register', 'RegisterController::registerView');
+    $routes->get('register', 'RegisterController::registerView', ['as' => 'register']);
     $routes->post('register', 'RegisterController::registerAction');
     
     // Auth Actions (2FA, Email Activation)
-    $routes->get('auth/a/show', 'ActionController::show');
-    $routes->post('auth/a/handle', 'ActionController::handle');
-    $routes->post('auth/a/verify', 'ActionController::verify');
+    $routes->get('auth/a/show', 'ActionController::show', ['as' => 'auth-action-show']);
+    $routes->post('auth/a/handle', 'ActionController::handle', ['as' => 'auth-action-handle']);
+    $routes->post('auth/a/verify', 'ActionController::verify', ['as' => 'auth-action-verify']);
     
-    // Forgot Password / Magic Link
-    $routes->get('magic-link', 'MagicLinkController::loginView');
+    // Forgot Password / Magic Link (support both /magic-link and /login/magic-link)
+    $routes->get('magic-link', 'MagicLinkController::loginView', ['as' => 'magic-link']);
+    $routes->get('login/magic-link', 'MagicLinkController::loginView');
     $routes->post('magic-link', 'MagicLinkController::loginAction');
-    $routes->get('magic-link/verify', 'MagicLinkController::verify');
+    $routes->post('login/magic-link', 'MagicLinkController::loginAction');
+    $routes->get('magic-link/verify', 'MagicLinkController::verify', ['as' => 'verify-magic-link']);
+    $routes->get('login/verify-magic-link', 'MagicLinkController::verify');
 });
 
 /*
