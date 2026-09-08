@@ -6,7 +6,7 @@ use CodeIgniter\API\ResponseTrait;
 
 use CodeIgniter\Model;
 
-class UserModel extends Model
+class AppUserModel extends Model
 {
     use ResponseTrait;
     protected $table = "tbl_users";

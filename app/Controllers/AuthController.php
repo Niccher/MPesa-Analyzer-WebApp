@@ -4,14 +4,14 @@ namespace App\Controllers;
 
 use CodeIgniter\API\ResponseTrait;
 use CodeIgniter\Controller;
-use App\Models\UserModel;
+use App\Models\AppUserModel;
 
 class AuthController extends BaseController
 {
     use ResponseTrait;
 
     public function login(){
-        $mod_user = new UserModel();
+        $mod_user = new AppUserModel();
         //$this->session = session();
         $session = \Config\Services::session();
 
@@ -72,7 +72,7 @@ class AuthController extends BaseController
     }
 
     public function register(){
-        $mod_user = new UserModel();
+        $mod_user = new AppUserModel();
         //helper(['form']);
 
         $dated = date('Y-m-d H:i:s');
@@ -132,7 +132,7 @@ class AuthController extends BaseController
     }
 
     public function user_info(){
-        $mod_user = new UserModel();
+        $mod_user = new AppUserModel();
         $dated = date('Y-m-d H:i:s');
 
         if ($this->request->getPost()){

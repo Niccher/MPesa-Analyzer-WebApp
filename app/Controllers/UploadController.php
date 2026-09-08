@@ -3,7 +3,7 @@
 namespace App\Controllers;
 
 use App\Models\UploadModel;
-use App\Models\UserModel;
+use App\Models\AppUserModel;
 use App\Libraries\CryptoHelper;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\Files\File;
@@ -525,7 +525,7 @@ class UploadController extends BaseController
     public function upload_list_graph(){
         $mod_upload = new UploadModel();
         $mod_cryption = new CryptoHelper();
-        $mod_user = new UserModel();
+        $mod_user = new AppUserModel();
 
         $session = session();
 
