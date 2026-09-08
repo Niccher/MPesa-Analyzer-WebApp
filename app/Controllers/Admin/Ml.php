@@ -540,6 +540,7 @@ class Ml extends BaseController
                     'type'        => 'string',
                     'description' => 'ML Backend Base URL',
                 ]);
+                config('MlBackend')->baseUrl = $mlBackendUrl;
                 $savedUrlOk = true;
             } catch (\Throwable $e) {
                 log_message('error', 'Failed to save ml_backend_url: ' . $e->getMessage());
@@ -614,6 +615,16 @@ class Ml extends BaseController
 
     public function testConnection()
     {
+        $targetMlUrl = trim((string)$this->request->getPost('ml_backend_url'));
+        if ($targetMlUrl !== '') {
+            if (!preg_match('#^https?://#i', $targetMlUrl)) {
+                $targetMlUrl = 'http://' . $targetMlUrl;
+            }
+            $targetMlUrl = rtrim($targetMlUrl, '/');
+        } else {
+            $targetMlUrl = $this->baseUrl();
+        }
+
         $payload = [
             'provider' => $this->request->getPost('provider'),
             'base_url' => $this->request->getPost('base_url'),
@@ -622,7 +633,7 @@ class Ml extends BaseController
         ];
 
         try {
-            $resp = $this->client()->post($this->baseUrl() . '/admin/test_connection', [
+            $resp = $this->client()->post($targetMlUrl . '/admin/test_connection', [
                 'json' => $payload,
                 'timeout' => 15,
             ]);
@@ -631,7 +642,8 @@ class Ml extends BaseController
         } catch (\Throwable $e) {
             return $this->response->setJSON([
                 'status' => 'error',
-                'message' => 'Failed to reach ML backend: ' . $e->getMessage(),
+                'tested_url' => $targetMlUrl,
+                'message' => "Failed to reach ML backend at '{$targetMlUrl}': " . $e->getMessage(),
             ]);
         }
     }

@@ -391,6 +391,10 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Testing...';
         const data = new FormData();
+        const mlUrlInput = document.getElementById('ml_backend_url');
+        if (mlUrlInput && mlUrlInput.value.trim()) {
+            data.append('ml_backend_url', mlUrlInput.value.trim());
+        }
         data.append('provider', providerSelect.value);
         data.append('base_url', extBaseUrlInput.value);
         data.append('api_key', extApiKeyInput.value);
