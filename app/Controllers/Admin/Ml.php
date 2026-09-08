@@ -637,7 +637,15 @@ class Ml extends BaseController
                 'json' => $payload,
                 'timeout' => 15,
             ]);
-            $body = json_decode($resp->getBody(), true);
+            $rawBody = (string)$resp->getBody();
+            $body = json_decode($rawBody, true);
+            if (!is_array($body)) {
+                return $this->response->setJSON([
+                    'status' => 'error',
+                    'tested_url' => $targetMlUrl,
+                    'message' => "ML microservice at '{$targetMlUrl}' returned non-JSON response: " . substr($rawBody, 0, 150),
+                ]);
+            }
             return $this->response->setJSON($body);
         } catch (\Throwable $e) {
             return $this->response->setJSON([
@@ -667,7 +675,16 @@ class Ml extends BaseController
         try {
             $resp = $this->client()->get($url . '/admin/status', ['timeout' => 8]);
             $latency = round((microtime(true) - $start) * 1000);
-            $body = json_decode($resp->getBody(), true);
+            $rawBody = (string)$resp->getBody();
+            $body = json_decode($rawBody, true);
+
+            if (!is_array($body)) {
+                return $this->response->setJSON([
+                    'status' => 'error',
+                    'tested_url' => $url,
+                    'message' => "ML microservice at '{$url}' returned non-JSON response: " . substr($rawBody, 0, 150),
+                ]);
+            }
 
             $dbOk = (bool)($body['db_configured'] ?? false);
             $llamaStatus = $body['llama'] ?? 'unknown';

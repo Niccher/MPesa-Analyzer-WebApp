@@ -385,6 +385,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+async function safeFetchJson(response) {
+    const text = await response.text();
+    if (!text || !text.trim()) {
+        throw new Error(`Server returned an empty response (HTTP ${response.status}).`);
+    }
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        const clean = text.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+        throw new Error(clean.substring(0, 250) || `Server error (HTTP ${response.status}).`);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // ... Provider & Model Toggle logic
     document.getElementById('btnTestConnection')?.addEventListener('click', function() {
         const btn = this;
         if (!providerSelect || !extBaseUrlInput || !extApiKeyInput || !extModelInput) return;
@@ -400,7 +415,7 @@ document.addEventListener('DOMContentLoaded', function() {
         data.append('api_key', extApiKeyInput.value);
         data.append('model', extModelInput.value);
         fetch('<?= base_url('admin/ml/config/test') ?>', { method: 'POST', body: data })
-            .then(r => r.json())
+            .then(r => safeFetchJson(r))
             .then(res => {
                 if (res.status === 'success') {
                     Swal.fire({ title: 'Success!', text: 'Connection verified successfully. The API key is valid.', icon: 'success', confirmButtonText: 'Great' });
@@ -435,7 +450,7 @@ document.addEventListener('DOMContentLoaded', function() {
         data.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
 
         fetch('<?= base_url('admin/ml/config/test-url') ?>', { method: 'POST', body: data })
-            .then(r => r.json())
+            .then(r => safeFetchJson(r))
             .then(res => {
                 if (res.status === 'success') {
                     if (res.db_configured) {
@@ -489,7 +504,7 @@ document.getElementById('configForm')?.addEventListener('submit', function(e) {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
     fetch('<?= base_url('admin/ml/config/save') ?>', { method: 'POST', body: data })
-        .then(r => r.json()).then(res => {
+        .then(r => safeFetchJson(r)).then(res => {
             showAlert('ML Config', res.message, res.status === 'success' ? 'success' : 'danger');
         })
         .catch(err => showAlert('Error', err.message, 'danger'))
@@ -507,7 +522,7 @@ document.getElementById('urlConfigForm')?.addEventListener('submit', function(e)
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
     fetch('<?= base_url('admin/ml/config/save') ?>', { method: 'POST', body: data })
-        .then(r => r.json()).then(res => {
+        .then(r => safeFetchJson(r)).then(res => {
             Swal.fire({
                 title: res.status === 'success' ? 'Endpoint Saved' : 'Save Failed',
                 text: res.message,
