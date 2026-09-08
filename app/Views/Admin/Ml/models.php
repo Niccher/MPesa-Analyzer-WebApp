@@ -55,6 +55,18 @@
                         <div class="alert alert-warning small mb-0">Backend offline — cannot download.</div>
                     <?php else: ?>
                         <div class="mb-2">
+                            <label class="form-label small text-muted mb-1"><i class="fa-solid fa-wand-magic-sparkles me-1 text-primary"></i> Quick Presets (Recommended)</label>
+                            <select id="presetSelect" class="form-select form-select-sm">
+                                <option value="" selected>-- Select a tested Hugging Face model --</option>
+                                <option value="https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf" data-filename="qwen2.5-1.5b-instruct-q4_k_m.gguf">Qwen 2.5 1.5B Instruct Q4_K_M (~1.0 GB) [Fast & Accurate]</option>
+                                <option value="https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf" data-filename="qwen2.5-3b-instruct-q4_k_m.gguf">Qwen 2.5 3B Instruct Q4_K_M (~2.0 GB) [Higher Intelligence]</option>
+                                <option value="https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf" data-filename="Llama-3.2-1B-Instruct-Q4_K_M.gguf">Llama 3.2 1B Instruct Q4_K_M (~800 MB) [Ultralight]</option>
+                                <option value="https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf" data-filename="Llama-3.2-3B-Instruct-Q4_K_M.gguf">Llama 3.2 3B Instruct Q4_K_M (~2.0 GB) [Meta Llama]</option>
+                                <option value="https://huggingface.co/bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf" data-filename="DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf">DeepSeek R1 Distill Qwen 1.5B Q4_K_M (~1.1 GB) [Reasoning]</option>
+                                <option value="https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/main/smollm2-1.7b-instruct-q4_k_m.gguf" data-filename="smollm2-1.7b-instruct-q4_k_m.gguf">SmolLM2 1.7B Instruct Q4_K_M (~1.1 GB) [Compact]</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
                             <input type="url" id="downloadUrl" class="form-control form-control-sm" placeholder="https://huggingface.co/.../model.gguf">
                         </div>
                         <div class="mb-2">
@@ -249,6 +261,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById('uploadProgress').classList.add('d-none');
                     bar.style.width = '0%';
                 });
+        });
+    }
+
+    // Preset Dropdown Handler
+    const presetSelect = document.getElementById('presetSelect');
+    if (presetSelect) {
+        presetSelect.addEventListener('change', function() {
+            const urlInput = document.getElementById('downloadUrl');
+            const filenameInput = document.getElementById('downloadFilename');
+            if (this.value) {
+                if (urlInput) urlInput.value = this.value;
+                const opt = this.options[this.selectedIndex];
+                const fn = opt.getAttribute('data-filename');
+                if (filenameInput && fn) filenameInput.value = fn;
+            }
         });
     }
 

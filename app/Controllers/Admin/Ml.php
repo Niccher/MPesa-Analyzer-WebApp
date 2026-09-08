@@ -635,7 +635,7 @@ class Ml extends BaseController
         try {
             $resp = $this->client()->post($targetMlUrl . '/admin/test_connection', [
                 'json' => $payload,
-                'timeout' => 15,
+                'timeout' => 30,
             ]);
             $rawBody = (string)$resp->getBody();
             $body = json_decode($rawBody, true);
