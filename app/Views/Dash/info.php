@@ -57,27 +57,92 @@
 <?= $this->include('Layouts/_control_center_nav', ['activeTab' => 'tokens']) ?>
 
 <?php if (session()->has('new_token')) : ?>
-    <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
-        <h5 class="alert-heading fw-bold"><i class="fa-solid fa-circle-check"></i> New API Token Generated!</h5>
-        <p>Please copy this token now. For your security, <strong>it will not be shown again</strong>.</p>
-        <hr>
-        <div class="d-flex justify-content-center mb-3">
-            <div id="qrcode" class="bg-white p-2 rounded"></div>
+    <div class="alert alert-success alert-dismissible fade show mb-4 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <h5 class="alert-heading fw-bold mb-0"><i class="fa-solid fa-circle-check"></i> New Mobile Access Token Generated!</h5>
         </div>
-        <div class="p-3 bg-light border text-center font-monospace rounded mb-2 user-select-all" id="rawTokenValue" style="word-break:break-all; font-size:1.1rem; letter-spacing:1px;"><?= session('new_token') ?></div>
-        <p class="mb-0 small text-muted text-center">Scan this QR code with the Android App or paste the token directly inside the device linkage preferences page.</p>
+        <p class="small text-dark mb-3">Please save or scan this token now. For security, the secret token <strong>will not be shown again</strong>.</p>
+        <hr>
+        
+        <div class="row align-items-center g-4 my-2">
+            <!-- QR Code Section -->
+            <div class="col-md-4 text-center">
+                <div class="d-inline-block bg-white p-3 rounded shadow-sm border mb-2">
+                    <div id="qrcode"></div>
+                </div>
+                <div class="small fw-semibold text-secondary"><i class="fa-solid fa-qrcode me-1"></i> Scan with Android App</div>
+            </div>
+            
+            <!-- Credentials & Link Section -->
+            <div class="col-md-8">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-uppercase text-secondary mb-1">Server URL</label>
+                    <div class="input-group input-group-sm mb-1">
+                        <input type="text" class="form-control font-monospace bg-light" id="serverUrlValue" value="<?= base_url() ?>" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('serverUrlValue', this)">
+                            <i class="fa-solid fa-copy me-1"></i> Copy
+                        </button>
+                        <a href="<?= base_url() ?>" target="_blank" class="btn btn-outline-primary">
+                            <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Open
+                        </a>
+                    </div>
+                    <small class="text-muted" style="font-size:0.75rem;">Server address: <a href="<?= base_url() ?>" class="fw-semibold text-decoration-none text-primary" target="_blank"><?= base_url() ?></a></small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-uppercase text-secondary mb-1">Access Token</label>
+                    <div class="input-group input-group-sm mb-1">
+                        <input type="text" class="form-control font-monospace bg-light user-select-all" id="rawTokenValue" value="<?= session('new_token') ?>" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('rawTokenValue', this)">
+                            <i class="fa-solid fa-copy me-1"></i> Copy Token
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="form-label small fw-bold text-uppercase text-secondary mb-1">Full Auto-Link URL</label>
+                    <div class="input-group input-group-sm mb-1">
+                        <input type="text" class="form-control font-monospace bg-light user-select-all" id="fullLinkValue" value="<?= base_url('?token=' . session('new_token')) ?>" readonly>
+                        <button class="btn btn-outline-primary" type="button" onclick="copyToClipboard('fullLinkValue', this)">
+                            <i class="fa-solid fa-link me-1"></i> Copy Link
+                        </button>
+                    </div>
+                    <small class="text-muted" style="font-size:0.75rem;">Direct URL link with token embedded for single-click mobile setup.</small>
+                </div>
+            </div>
+        </div>
+
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            var token = document.getElementById("rawTokenValue").innerText;
+            var qrPayload = JSON.stringify({
+                url: "<?= base_url() ?>",
+                token: "<?= session('new_token') ?>"
+            });
             new QRCode(document.getElementById("qrcode"), {
-                text: token,
-                width: 200,
-                height: 200
+                text: qrPayload,
+                width: 180,
+                height: 180
             });
         });
+
+        function copyToClipboard(elementId, btn) {
+            var copyText = document.getElementById(elementId);
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(copyText.value);
+            
+            var originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> Copied!';
+            btn.classList.add('btn-success');
+            setTimeout(function() {
+                btn.innerHTML = originalHtml;
+                btn.classList.remove('btn-success');
+            }, 2000);
+        }
     </script>
 <?php endif; ?>
 
