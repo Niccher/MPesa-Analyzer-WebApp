@@ -29,10 +29,37 @@
     <div class="card-body p-4">
         <?= view('Admin/Ml/_nav', ['active' => 'config', 'status' => $status]) ?>
 
+        <!-- ML Backend Connection Configuration (Always Accessible) -->
+        <div class="card bg-light border-0 mb-4 p-3 rounded-3">
+            <h6 class="fw-bold mb-2 text-primary"><i class="fa-solid fa-network-wired me-2"></i>ML Microservice Endpoint URL</h6>
+            <form id="urlConfigForm">
+                <?= csrf_field() ?>
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-7 col-lg-8">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0 text-primary"><i class="fa-solid fa-link"></i></span>
+                            <input type="text" class="form-control border-start-0" id="ml_backend_url" name="ml_backend_url" value="<?= esc($ml_backend_url ?? config('MlBackend')->baseUrl) ?>" placeholder="http://ml-mpesa-analyzer:9050">
+                        </div>
+                    </div>
+                    <div class="col-md-5 col-lg-4 d-flex gap-2">
+                        <button class="btn btn-outline-primary fw-semibold flex-fill" type="button" id="btnTestBackendUrl">
+                            <i class="fa-solid fa-plug me-1"></i> Test Endpoint
+                        </button>
+                        <button class="btn btn-primary fw-semibold flex-fill" type="submit" id="btnSaveUrlOnly">
+                            <i class="fa-solid fa-floppy-disk me-1"></i> Save URL
+                        </button>
+                    </div>
+                </div>
+                <div class="cfg-desc mt-2 small text-muted">
+                    The internal or public HTTP address where WebApp connects to the Python ML container (e.g. <code>http://ml-mpesa-analyzer:9050</code> or Railway private network URL).
+                </div>
+            </form>
+        </div>
+
         <?php if (!$status['reachable']): ?>
-            <div class="alert alert-warning mb-0">
+            <div class="alert alert-warning mb-0 p-3">
                 <i class="fa-solid fa-triangle-exclamation me-2"></i>
-                The ML backend is not reachable, so current values cannot be loaded.
+                The ML microservice is currently unreachable at <code><?= esc($ml_backend_url ?? config('MlBackend')->baseUrl) ?></code>. Update and save the URL above, or check container deployment on Railway to load LLM parameters.
             </div>
         <?php else: ?>
             <?php $cfg = $status['app'] ?? []; ?>
@@ -46,21 +73,6 @@
 
             <form id="configForm">
                 <?= csrf_field() ?>
-
-                <!-- ML Backend Service URL -->
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <label class="cfg-label" for="ml_backend_url"><i class="fa-solid fa-network-wired me-1"></i> ML Backend Service Endpoint URL</label>
-                        <div class="input-group">
-                            <span class="input-group-text cfg-ico"><i class="fa-solid fa-link"></i></span>
-                            <input type="text" class="form-control" id="ml_backend_url" name="ml_backend_url" value="<?= esc($ml_backend_url ?? config('MlBackend')->baseUrl) ?>" placeholder="http://ml-mpesa-analyzer:9050">
-                            <button class="btn btn-outline-primary fw-semibold" type="button" id="btnTestBackendUrl">
-                                <i class="fa-solid fa-plug me-1"></i> Test Endpoint
-                            </button>
-                        </div>
-                        <div class="cfg-desc mt-1">The HTTP endpoint where the WebApp connects to the Python ML microservice (e.g., <code>http://ml-mpesa-analyzer:9050</code> or Railway internal URL).</div>
-                    </div>
-                </div>
 
                 <input type="hidden" name="llm_gemini_api_key" id="key_gemini" value="<?= esc($cfg['llm_gemini_api_key'] ?? '') ?>">
                 <input type="hidden" name="llm_deepseek_api_key" id="key_deepseek" value="<?= esc($cfg['llm_deepseek_api_key'] ?? '') ?>">
@@ -474,6 +486,31 @@ document.getElementById('configForm')?.addEventListener('submit', function(e) {
         .finally(() => {
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i> Save Config';
+        });
+});
+
+document.getElementById('urlConfigForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const form = this;
+    const data = new FormData(form);
+    const btn = document.getElementById('btnSaveUrlOnly');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+    fetch('<?= base_url('admin/ml/config/save') ?>', { method: 'POST', body: data })
+        .then(r => r.json()).then(res => {
+            Swal.fire({
+                title: res.status === 'success' ? 'Endpoint Saved' : 'Save Failed',
+                text: res.message,
+                icon: res.status === 'success' ? 'success' : 'error',
+                confirmButtonText: 'OK'
+            }).then(() => {
+                if (res.status === 'success') location.reload();
+            });
+        })
+        .catch(err => Swal.fire({ title: 'Error', text: err.message, icon: 'error' }))
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i> Save URL';
         });
 });
 </script>

@@ -525,6 +525,7 @@ class Ml extends BaseController
 
     public function saveConfig()
     {
+        $savedUrlOk = false;
         $mlBackendUrl = trim((string)$this->request->getPost('ml_backend_url'));
         if ($mlBackendUrl !== '') {
             try {
@@ -535,6 +536,7 @@ class Ml extends BaseController
                     'type'        => 'string',
                     'description' => 'ML Backend Base URL',
                 ]);
+                $savedUrlOk = true;
             } catch (\Throwable $e) {
                 log_message('error', 'Failed to save ml_backend_url: ' . $e->getMessage());
             }
@@ -589,10 +591,16 @@ class Ml extends BaseController
 
             return $this->response->setJSON([
                 'status' => 'success',
-                'message' => 'Config saved. ' . ($body['note'] ?? ''),
+                'message' => 'Config saved successfully. ' . ($body['note'] ?? ''),
                 'applied' => $body['applied'] ?? [],
             ]);
         } catch (\Throwable $e) {
+            if ($savedUrlOk) {
+                return $this->response->setJSON([
+                    'status' => 'success',
+                    'message' => 'ML Backend URL updated to ' . esc($mlBackendUrl) . ' in database settings. (Note: ML microservice is not reachable at this URL).',
+                ]);
+            }
             return $this->response->setJSON([
                 'status' => 'error',
                 'message' => 'Failed to reach ML backend: ' . $e->getMessage(),
