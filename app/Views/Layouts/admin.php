@@ -29,6 +29,7 @@ $systemGithub = $versionData['github_url'] ?? 'https://github.com/niccher/Mpesa_
     <!-- Ace Admin CSS -->
     <link href="<?= base_url('assets/ace/css/ace.min.css') ?>" rel="stylesheet" class="ace-main-stylesheet" id="main-ace-style" />
     <link href="<?= base_url('assets/ace/css/ace-skins.min.css') ?>" rel="stylesheet" />
+    <link href="<?= base_url('assets/ace/css/ace-custom.css') ?>" rel="stylesheet" />
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">

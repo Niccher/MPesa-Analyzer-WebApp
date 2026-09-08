@@ -16,7 +16,7 @@
             <form action="<?= base_url('dashboard/settings/tags/save') ?>" method="POST">
                 <?= csrf_field() ?>
                 <div class="mb-3"><label class="form-label fw-semibold">Name</label><input type="text" name="name" class="form-control" required placeholder="e.g. Groceries"></div>
-                <div class="mb-3"><label class="form-label fw-semibold">Color</label><input type="color" name="color" class="form-control form-control-color" value="#5D5FEF"></div>
+                <div class="mb-3"><label class="form-label fw-semibold">Color</label><input type="color" name="color" class="form-control form-control-color" value="#438EB9"></div>
                 <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold"><i class="fa-solid fa-plus me-1"></i> Create Tag</button>
             </form>
         </div></div>
