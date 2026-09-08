@@ -248,6 +248,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const externalSection = document.getElementById('externalEngineSection');
 
     function toggleEngineSections() {
+        if (!localSection || !externalSection) return;
         const isExternal = document.getElementById('engineExternal')?.checked;
         if (isExternal) {
             localSection.style.display = 'none';
@@ -322,6 +323,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     function toggleModelInput() {
+        if (!extModelSelect || !extModelInput) return;
         if (extModelSelect.value === 'custom') {
             extModelInput.style.display = 'block';
         } else {
@@ -330,7 +332,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     extModelSelect?.addEventListener('change', toggleModelInput);
-    toggleModelInput();
+    if (extModelSelect) {
+        toggleModelInput();
+    }
 
     providerSelect?.addEventListener('change', function() {
         const val = this.value;
@@ -357,7 +361,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     if (providerSelect) {
-        if (!providerSelect.value || (providerSelect.value === 'openai-compatible' && (!extBaseUrlInput.value || extBaseUrlInput.value === ''))) {
+        if (!providerSelect.value || (providerSelect.value === 'openai-compatible' && (!extBaseUrlInput || !extBaseUrlInput.value))) {
             // Default to Gemini on initial page load if unset
             providerSelect.value = 'gemini';
             providerSelect.dispatchEvent(new Event('change'));
@@ -373,6 +377,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     extApiKeyInput?.addEventListener('input', function() {
+        if (!providerSelect) return;
         const val = providerSelect.value;
         if (providerDefaults[val]) {
             const hiddenKeyInput = document.getElementById(providerDefaults[val].keyField);
@@ -382,6 +387,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('btnTestConnection')?.addEventListener('click', function() {
         const btn = this;
+        if (!providerSelect || !extBaseUrlInput || !extApiKeyInput || !extModelInput) return;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Testing...';
         const data = new FormData();
