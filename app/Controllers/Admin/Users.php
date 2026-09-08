@@ -20,11 +20,11 @@ class Users extends BaseController
         $offset = ($page - 1) * $perPage;
 
         $builder = $db->table('users')
-            ->select("users.id, users.username, ai.secret as email, users.active, users.created_at, users.updated_at")
+            ->select("users.id, users.username, MAX(ai.secret) as email, users.active, users.created_at, users.updated_at")
             ->select('GROUP_CONCAT(DISTINCT agu.group) as user_groups')
             ->join('auth_identities ai', "ai.user_id = users.id AND ai.type = 'email_password'", 'left')
             ->join('auth_groups_users agu', 'agu.user_id = users.id', 'left')
-            ->groupBy('users.id')
+            ->groupBy(['users.id', 'users.username', 'users.active', 'users.created_at', 'users.updated_at'])
             ->orderBy('users.id', 'DESC');
 
         if ($search !== '') {

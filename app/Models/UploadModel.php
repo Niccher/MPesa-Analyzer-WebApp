@@ -1173,10 +1173,10 @@ class UploadModel extends Model
         $builder = $this->db->table('tbl_Sender_Profiles sp')
             ->select('
                 sp.sp_number as number,
-                sp.sp_name as name,
-                sp.sp_category as category,
-                sp.sp_is_finance as is_finance,
-                sp.sp_confidence as confidence,
+                MAX(sp.sp_name) as name,
+                MAX(sp.sp_category) as category,
+                MAX(sp.sp_is_finance) as is_finance,
+                MAX(sp.sp_confidence) as confidence,
                 COUNT(s.id) as transaction_count,
                 SUM(a.amount) as total_amount
             ')

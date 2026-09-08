@@ -178,7 +178,7 @@ class HistoryController extends BaseController
                     SELECT COALESCE(sms_category, 'Unclassified') as cat, COUNT(*) as cnt
                     FROM tbl_Sms
                     WHERE sms_loot_source = ?
-                    GROUP BY sms_category
+                    GROUP BY COALESCE(sms_category, 'Unclassified')
                 ", [$uuid])->getResult();
 
                 $categories = [];
