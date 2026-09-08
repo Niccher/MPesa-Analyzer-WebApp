@@ -7,7 +7,7 @@
     .section-head .head-icon {
         width: 42px; height: 42px; border-radius: 4px; flex-shrink: 0;
         display: flex; align-items: center; justify-content: center;
-        background: rgba(93, 95, 239, 0.12); color: var(--primary); font-size: 1.1rem;
+        background: rgba(67, 142, 185, 0.12); color: var(--primary); font-size: 1.1rem;
     }
     .metric {
         display: flex; align-items: center; gap: 0.75rem;
@@ -17,7 +17,7 @@
     .metric-icon {
         width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
         display: flex; align-items: center; justify-content: center;
-        background: rgba(93, 95, 239, 0.12); font-size: 0.95rem;
+        background: rgba(67, 142, 185, 0.12); font-size: 0.95rem;
     }
     .metric-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
     .metric-value { font-weight: 700; color: var(--text-main); font-size: 0.95rem; }
