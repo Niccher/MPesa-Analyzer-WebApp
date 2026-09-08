@@ -14,9 +14,11 @@ $systemGithub = $versionData['github_url'] ?? 'https://github.com/niccher/Mpesa_
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title><?= $this->renderSection('title') ?? 'Mpesa Analyzer - SuperAdmin' ?></title>
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="<?= base_url('favicon.png') ?>">
-    <link rel="apple-touch-icon" href="<?= base_url('favicon.png') ?>">
+    <!-- Favicon & PWA Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= base_url('favicon.png') ?>">
+    <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico') ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?= base_url('apple-touch-icon.png') ?>">
+    <link rel="manifest" href="<?= base_url('site.webmanifest') ?>">
 
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
