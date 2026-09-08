@@ -105,6 +105,12 @@ class CreateTblSms extends Migration
                 'constraint' => 50,
                 'null'       => true,
             ],
+            'sms_category' => [
+                'type'       => 'VARCHAR',
+                'constraint' => 100,
+                'null'       => true,
+                'default'    => 'Unclassified',
+            ],
             'sms_is_transactional' => [
                 'type'       => 'TINYINT',
                 'constraint' => 1,
