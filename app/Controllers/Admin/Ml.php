@@ -719,13 +719,14 @@ class Ml extends BaseController
         try {
             $resp = $this->client()->post($this->baseUrl() . '/admin/models/activate', [
                 'json' => ['filename' => $filename, 'llm_model' => $llmModel ?: null],
-                'timeout' => 10,
+                'timeout' => 30,
             ]);
-            $body = json_decode($resp->getBody(), true);
+            $rawBody = (string)$resp->getBody();
+            $body = json_decode($rawBody, true);
 
-            return $this->response->setJSON([
-                'status' => $body['status'] ?? 'error',
-                'message' => $body['message'] ?? 'Unknown response',
+            return $this->response->setJSON(is_array($body) ? $body : [
+                'status' => 'error',
+                'message' => 'ML backend returned non-JSON response: ' . substr($rawBody, 0, 150),
             ]);
         } catch (\Throwable $e) {
             return $this->response->setJSON([

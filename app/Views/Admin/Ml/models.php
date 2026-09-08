@@ -54,16 +54,17 @@
                     <?php if (!$status['reachable']): ?>
                         <div class="alert alert-warning small mb-0">Backend offline — cannot download.</div>
                     <?php else: ?>
+                        <?php $existingFilenames = array_column($status['models'] ?? [], 'filename'); ?>
                         <div class="mb-2">
                             <label class="form-label small text-muted mb-1"><i class="fa-solid fa-wand-magic-sparkles me-1 text-primary"></i> Quick Presets (Recommended)</label>
                             <select id="presetSelect" class="form-select form-select-sm">
                                 <option value="" selected>-- Select a tested Hugging Face model --</option>
-                                <option value="https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf" data-filename="qwen2.5-1.5b-instruct-q4_k_m.gguf">Qwen 2.5 1.5B Instruct Q4_K_M (~1.0 GB) [Fast & Accurate]</option>
-                                <option value="https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf" data-filename="qwen2.5-3b-instruct-q4_k_m.gguf">Qwen 2.5 3B Instruct Q4_K_M (~2.0 GB) [Higher Intelligence]</option>
-                                <option value="https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf" data-filename="Llama-3.2-1B-Instruct-Q4_K_M.gguf">Llama 3.2 1B Instruct Q4_K_M (~800 MB) [Ultralight]</option>
-                                <option value="https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf" data-filename="Llama-3.2-3B-Instruct-Q4_K_M.gguf">Llama 3.2 3B Instruct Q4_K_M (~2.0 GB) [Meta Llama]</option>
-                                <option value="https://huggingface.co/bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf" data-filename="DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf">DeepSeek R1 Distill Qwen 1.5B Q4_K_M (~1.1 GB) [Reasoning]</option>
-                                <option value="https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/main/smollm2-1.7b-instruct-q4_k_m.gguf" data-filename="smollm2-1.7b-instruct-q4_k_m.gguf">SmolLM2 1.7B Instruct Q4_K_M (~1.1 GB) [Compact]</option>
+                                <option value="https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf" data-filename="qwen2.5-1.5b-instruct-q4_k_m.gguf">Qwen 2.5 1.5B Instruct Q4_K_M (~1.0 GB) <?= in_array('qwen2.5-1.5b-instruct-q4_k_m.gguf', $existingFilenames) ? '✓ [Downloaded]' : '[Fast & Accurate]' ?></option>
+                                <option value="https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf" data-filename="qwen2.5-3b-instruct-q4_k_m.gguf">Qwen 2.5 3B Instruct Q4_K_M (~2.0 GB) <?= in_array('qwen2.5-3b-instruct-q4_k_m.gguf', $existingFilenames) ? '✓ [Downloaded]' : '[Higher Intelligence]' ?></option>
+                                <option value="https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf" data-filename="Llama-3.2-1B-Instruct-Q4_K_M.gguf">Llama 3.2 1B Instruct Q4_K_M (~800 MB) <?= in_array('Llama-3.2-1B-Instruct-Q4_K_M.gguf', $existingFilenames) ? '✓ [Downloaded]' : '[Ultralight]' ?></option>
+                                <option value="https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf" data-filename="Llama-3.2-3B-Instruct-Q4_K_M.gguf">Llama 3.2 3B Instruct Q4_K_M (~2.0 GB) <?= in_array('Llama-3.2-3B-Instruct-Q4_K_M.gguf', $existingFilenames) ? '✓ [Downloaded]' : '[Meta Llama]' ?></option>
+                                <option value="https://huggingface.co/bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf" data-filename="DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf">DeepSeek R1 Distill Qwen 1.5B Q4_K_M (~1.1 GB) <?= in_array('DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf', $existingFilenames) ? '✓ [Downloaded]' : '[Reasoning]' ?></option>
+                                <option value="https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/main/smollm2-1.7b-instruct-q4_k_m.gguf" data-filename="smollm2-1.7b-instruct-q4_k_m.gguf">SmolLM2 1.7B Instruct Q4_K_M (~1.1 GB) <?= in_array('smollm2-1.7b-instruct-q4_k_m.gguf', $existingFilenames) ? '✓ [Downloaded]' : '[Compact]' ?></option>
                             </select>
                         </div>
                         <div class="mb-2">
@@ -389,20 +390,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 cancelButtonText: 'Cancel'
             }).then(result => {
                 if (!result.isConfirmed) return;
-                const data = new FormData();
-                data.append('filename', filename);
-                data.append('llm_model', llmModel);
-                data.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
-                fetch('<?= base_url('admin/ml/models/activate') ?>', { method: 'POST', body: data })
-                    .then(r => safeFetchJson(r))
-                    .then(res => {
-                        if (res.status === 'ok') {
-                            Swal.fire('Model Activated', res.message, 'success').then(() => location.reload());
-                        } else {
-                            Swal.fire('Activation Failed', res.message, 'error');
-                        }
-                    })
-                    .catch(err => Swal.fire('Error', err.message, 'error'));
+                Swal.fire({
+                    title: 'Activating Model...',
+                    text: `Applying "${filename}" and reloading llama.cpp...`,
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+            const data = new FormData();
+            data.append('filename', filename);
+            data.append('llm_model', llmModel);
+            data.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+            fetch('<?= base_url('admin/ml/models/activate') ?>', { method: 'POST', body: data })
+                .then(r => safeFetchJson(r))
+                .then(res => {
+                    if (res.status === 'ok') {
+                        Swal.fire('Model Activated', res.message, 'success').then(() => location.reload());
+                    } else {
+                        Swal.fire('Activation Failed', res.message, 'error');
+                    }
+                })
+                .catch(err => Swal.fire('Error', err.message, 'error'));
             });
         });
     });

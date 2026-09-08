@@ -232,58 +232,128 @@ foreach ($trigger_meta as $m) {
 </div>
 
 <script>
-document.getElementById('smtpForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const body = new FormData(this);
-    fetch('<?= base_url('admin/notifications/save-config') ?>', { method: 'POST', body })
-        .then(r => r.json())
-        .then(res => {
-            if (res.status === 'success') {
-                showAlert('Email Notifications', res.message, 'success');
-            } else {
-                showAlert('Email Notifications', res.message, 'danger');
+async function safeFetchJson(response) {
+    const text = await response.text();
+    if (!text || !text.trim()) {
+        throw new Error(`Server returned empty response (HTTP ${response.status}).`);
+    }
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        const clean = text.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+        throw new Error(clean.substring(0, 250) || `Server error (HTTP ${response.status}).`);
+    }
+}
+
+function showAlert(title, message, type) {
+    const icon = type === 'success' ? 'success' : (type === 'danger' || type === 'error' ? 'error' : 'info');
+    Swal.fire(title, message, icon);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const smtpForm = document.getElementById('smtpForm');
+    if (smtpForm) {
+        smtpForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = this.querySelector('button[type="submit"]');
+            const originalHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+            }
+            const body = new FormData(this);
+            fetch('<?= base_url('admin/notifications/save-config') ?>', { method: 'POST', body })
+                .then(r => safeFetchJson(r))
+                .then(res => {
+                    if (res.status === 'success') {
+                        showAlert('Email Notifications', res.message, 'success');
+                    } else {
+                        showAlert('Email Notifications', res.message, 'danger');
+                    }
+                })
+                .catch(err => showAlert('Error', err.message, 'danger'))
+                .finally(() => {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = originalHtml;
+                    }
+                });
+        });
+    }
+
+    const testEmailForm = document.getElementById('testEmailForm');
+    if (testEmailForm) {
+        testEmailForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const body = new FormData(this);
+            const btn = this.querySelector('button[type="submit"]');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sending...';
+            }
+            fetch('<?= base_url('admin/notifications/send-test-email') ?>', { method: 'POST', body })
+                .then(r => safeFetchJson(r))
+                .then(res => {
+                    const testResult = document.getElementById('testResult');
+                    if (testResult) {
+                        testResult.innerHTML =
+                            '<div class="alert alert-' + (res.status === 'success' ? 'success' : 'danger') + ' py-2 small mb-0">' +
+                            '<i class="fa-solid fa-' + (res.status === 'success' ? 'circle-check' : 'circle-xmark') + ' me-1"></i> ' + res.message + '</div>';
+                    }
+                })
+                .catch(err => {
+                    const testResult = document.getElementById('testResult');
+                    if (testResult) {
+                        testResult.innerHTML = '<div class="alert alert-danger py-2 small mb-0"><i class="fa-solid fa-circle-xmark me-1"></i> ' + err.message + '</div>';
+                    }
+                })
+                .finally(() => {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i> Send Test Email';
+                    }
+                });
+        });
+    }
+
+    const triggersForm = document.getElementById('triggersForm');
+    if (triggersForm) {
+        triggersForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = this.querySelector('button[type="submit"]');
+            const originalHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+            }
+            const body = new FormData(this);
+            fetch('<?= base_url('admin/notifications/save-triggers') ?>', { method: 'POST', body })
+                .then(r => safeFetchJson(r))
+                .then(res => {
+                    if (res.status === 'success') {
+                        showAlert('Email Notifications', res.message, 'success');
+                    } else {
+                        showAlert('Email Notifications', res.message, 'danger');
+                    }
+                })
+                .catch(err => showAlert('Error', err.message, 'danger'))
+                .finally(() => {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = originalHtml;
+                    }
+                });
+        });
+    }
+
+    document.querySelectorAll('[data-toggle-pass]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const input = document.querySelector('input[name="' + btn.dataset.togglePass + '"]');
+            if (input) {
+                input.type = input.type === 'password' ? 'text' : 'password';
+                btn.innerHTML = input.type === 'password' ? '<i class="fa-solid fa-eye"></i>' : '<i class="fa-solid fa-eye-slash"></i>';
             }
         });
-});
-
-document.getElementById('testEmailForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const body = new FormData(this);
-    const btn = this.querySelector('button[type="submit"]');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sending...';
-    fetch('<?= base_url('admin/notifications/send-test-email') ?>', { method: 'POST', body })
-        .then(r => r.json())
-        .then(res => {
-            document.getElementById('testResult').innerHTML =
-                '<div class="alert alert-' + (res.status === 'success' ? 'success' : 'danger') + ' py-2 small mb-0">' +
-                '<i class="fa-solid fa-' + (res.status === 'success' ? 'circle-check' : 'circle-xmark') + ' me-1"></i> ' + res.message + '</div>';
-        })
-        .finally(() => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i> Send Test Email';
-        });
-});
-
-document.getElementById('triggersForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const body = new FormData(this);
-    fetch('<?= base_url('admin/notifications/save-triggers') ?>', { method: 'POST', body })
-        .then(r => r.json())
-        .then(res => {
-            if (res.status === 'success') {
-                showAlert('Email Notifications', res.message, 'success');
-            } else {
-                showAlert('Email Notifications', res.message, 'danger');
-            }
-        });
-});
-
-document.querySelectorAll('[data-toggle-pass]').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const input = document.querySelector('input[name="' + btn.dataset.togglePass + '"]');
-        input.type = input.type === 'password' ? 'text' : 'password';
-        btn.innerHTML = input.type === 'password' ? '<i class="fa-solid fa-eye"></i>' : '<i class="fa-solid fa-eye-slash"></i>';
     });
 });
 </script>
