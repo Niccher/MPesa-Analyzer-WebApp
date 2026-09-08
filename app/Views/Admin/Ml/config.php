@@ -243,6 +243,19 @@
 </div>
 
 <script>
+async function safeFetchJson(response) {
+    const text = await response.text();
+    if (!text || !text.trim()) {
+        throw new Error(`Server returned an empty response (HTTP ${response.status}).`);
+    }
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        const clean = text.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+        throw new Error(clean.substring(0, 250) || `Server error (HTTP ${response.status}).`);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const localSection = document.getElementById('localEngineSection');
     const externalSection = document.getElementById('externalEngineSection');
@@ -385,21 +398,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-async function safeFetchJson(response) {
-    const text = await response.text();
-    if (!text || !text.trim()) {
-        throw new Error(`Server returned an empty response (HTTP ${response.status}).`);
-    }
-    try {
-        return JSON.parse(text);
-    } catch (e) {
-        const clean = text.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
-        throw new Error(clean.substring(0, 250) || `Server error (HTTP ${response.status}).`);
-    }
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    // ... Provider & Model Toggle logic
     document.getElementById('btnTestConnection')?.addEventListener('click', function() {
         const btn = this;
         if (!providerSelect || !extBaseUrlInput || !extApiKeyInput || !extModelInput) return;
@@ -493,50 +491,50 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     });
 
-    toggleEngineSections();
-});
-
-document.getElementById('configForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const form = this;
-    const data = new FormData(form);
-    const btn = form.querySelector('button[type=submit]');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
-    fetch('<?= base_url('admin/ml/config/save') ?>', { method: 'POST', body: data })
-        .then(r => safeFetchJson(r)).then(res => {
-            showAlert('ML Config', res.message, res.status === 'success' ? 'success' : 'danger');
-        })
-        .catch(err => showAlert('Error', err.message, 'danger'))
-        .finally(() => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i> Save Config';
-        });
-});
-
-document.getElementById('urlConfigForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const form = this;
-    const data = new FormData(form);
-    const btn = document.getElementById('btnSaveUrlOnly');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
-    fetch('<?= base_url('admin/ml/config/save') ?>', { method: 'POST', body: data })
-        .then(r => safeFetchJson(r)).then(res => {
-            Swal.fire({
-                title: res.status === 'success' ? 'Endpoint Saved' : 'Save Failed',
-                text: res.message,
-                icon: res.status === 'success' ? 'success' : 'error',
-                confirmButtonText: 'OK'
-            }).then(() => {
-                if (res.status === 'success') location.reload();
+    document.getElementById('configForm')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const form = this;
+        const data = new FormData(form);
+        const btn = form.querySelector('button[type=submit]');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+        fetch('<?= base_url('admin/ml/config/save') ?>', { method: 'POST', body: data })
+            .then(r => safeFetchJson(r)).then(res => {
+                showAlert('ML Config', res.message, res.status === 'success' ? 'success' : 'danger');
+            })
+            .catch(err => showAlert('Error', err.message, 'danger'))
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i> Save Config';
             });
-        })
-        .catch(err => Swal.fire({ title: 'Error', text: err.message, icon: 'error' }))
-        .finally(() => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i> Save URL';
-        });
+    });
+
+    document.getElementById('urlConfigForm')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const form = this;
+        const data = new FormData(form);
+        const btn = document.getElementById('btnSaveUrlOnly');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+        fetch('<?= base_url('admin/ml/config/save') ?>', { method: 'POST', body: data })
+            .then(r => safeFetchJson(r)).then(res => {
+                Swal.fire({
+                    title: res.status === 'success' ? 'Endpoint Saved' : 'Save Failed',
+                    text: res.message,
+                    icon: res.status === 'success' ? 'success' : 'error',
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    if (res.status === 'success') location.reload();
+                });
+            })
+            .catch(err => Swal.fire({ title: 'Error', text: err.message, icon: 'error' }))
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i> Save URL';
+            });
+    });
+
+    toggleEngineSections();
 });
 </script>
 <?= $this->endSection() ?>
