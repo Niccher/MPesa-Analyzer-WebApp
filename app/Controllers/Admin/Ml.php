@@ -528,11 +528,15 @@ class Ml extends BaseController
         $savedUrlOk = false;
         $mlBackendUrl = trim((string)$this->request->getPost('ml_backend_url'));
         if ($mlBackendUrl !== '') {
+            if (!preg_match('#^https?://#i', $mlBackendUrl)) {
+                $mlBackendUrl = 'http://' . $mlBackendUrl;
+            }
+            $mlBackendUrl = rtrim($mlBackendUrl, '/');
             try {
                 $db = \Config\Database::connect();
                 $db->table('tbl_Settings')->upsert([
                     'key'         => 'ml_backend_url',
-                    'value'       => rtrim($mlBackendUrl, '/'),
+                    'value'       => $mlBackendUrl,
                     'type'        => 'string',
                     'description' => 'ML Backend Base URL',
                 ]);
@@ -642,6 +646,9 @@ class Ml extends BaseController
             ]);
         }
 
+        if (!preg_match('#^https?://#i', $url)) {
+            $url = 'http://' . $url;
+        }
         $url = rtrim($url, '/');
         $start = microtime(true);
 

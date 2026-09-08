@@ -27,6 +27,10 @@ class MlBackend extends BaseConfig
         } catch (\Throwable $e) {}
 
         $url = $dbUrl !== '' ? $dbUrl : (string) env('ML_BACKEND_URL', 'http://ml-mpesa-analyzer:9050');
+        $url = trim($url);
+        if ($url !== '' && !preg_match('#^https?://#i', $url)) {
+            $url = 'http://' . $url;
+        }
         $this->baseUrl = rtrim($url, '/');
     }
 }
