@@ -102,12 +102,12 @@
                 $userId = auth()->user()->id;
                 $tokenType = \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN;
                 $uploads = $db->query("
-                    SELECT l.*, COALESCE(NULLIF(NULLIF(l.loot_Created, '2026'), '0'), ls.loot_Created, l.loot_Created) AS loot_Created_resolved
+                    SELECT l.*, COALESCE(CASE WHEN l.loot_Created >= '2000-01-01' THEN l.loot_Created ELSE NULL END, ls.loot_Created, l.loot_Created) AS loot_Created_resolved
                     FROM tbl_Loot l
                     LEFT JOIN tbl_Loot_Summary ls ON ls.loot_Uuid = l.loot_Uuid
                     LEFT JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256) AND i.type = ?
                     WHERE l.loot_user_id = ? OR i.user_id = ?
-                    ORDER BY COALESCE(NULLIF(NULLIF(l.loot_Created, '2026'), '0'), ls.loot_Created, l.loot_Created) DESC LIMIT 1
+                    ORDER BY COALESCE(CASE WHEN l.loot_Created >= '2000-01-01' THEN l.loot_Created ELSE NULL END, ls.loot_Created, l.loot_Created) DESC LIMIT 1
                 ", [$tokenType, $userId, $userId])->getResult();
                 ?>
                 <?php if (!empty($uploads)): ?>

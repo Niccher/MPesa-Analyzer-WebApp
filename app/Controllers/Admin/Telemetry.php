@@ -38,62 +38,38 @@ class Telemetry extends BaseController
         ];
     }
 
+    private static ?array $cachedSpecs = null;
+    private static ?array $cachedMySqlStatic = null;
+
     /**
-     * Gather WebApp Container (PHP/System) metrics.
+     * Gather cached static specs (CPU core count, host RAM total, disk space)
      */
-    private function getWebAppMetrics(): array
+    private function getSystemSpecs(): array
     {
-        // 1. CPU & Load
-        $load = function_exists('sys_getloadavg') ? sys_getloadavg() : [0, 0, 0];
+        if (self::$cachedSpecs !== null) {
+            return self::$cachedSpecs;
+        }
+
         $cpuCores = 1;
         if (is_readable('/proc/cpuinfo')) {
             $cpuinfo = @file_get_contents('/proc/cpuinfo');
             $cpuCores = max(1, substr_count((string)$cpuinfo, 'processor'));
         }
-        $loadPct = $cpuCores > 0 ? min(100, round(($load[0] / $cpuCores) * 100, 1)) : 0;
 
-        // 2. Host & Container RAM
         $memTotalMb = 0;
-        $memAvailMb = 0;
-        $memUsedMb = 0;
         if (is_readable('/proc/meminfo')) {
             $meminfo = @file_get_contents('/proc/meminfo');
-            if ($meminfo) {
-                $lines = explode("\n", $meminfo);
-                $memData = [];
-                foreach ($lines as $line) {
-                    if (str_contains($line, ':')) {
-                        [$k, $v] = explode(':', $line, 2);
-                        $memData[trim($k)] = (int) filter_var($v, FILTER_SANITIZE_NUMBER_INT);
-                    }
-                }
-                if (isset($memData['MemTotal'])) {
-                    $memTotalMb = round($memData['MemTotal'] / 1024, 1);
-                    $avail = $memData['MemAvailable'] ?? $memData['MemFree'] ?? 0;
-                    $memAvailMb = round($avail / 1024, 1);
-                    $memUsedMb = max(0, round($memTotalMb - $memAvailMb, 1));
-                }
+            if ($meminfo && preg_match('/MemTotal:\s+(\d+)\s+kB/', $meminfo, $m)) {
+                $memTotalMb = round((int)$m[1] / 1024, 1);
             }
         }
 
-        // cgroup container memory limit & usage
-        $containerMemUsedMb = null;
         $containerMemLimitMb = null;
-
-        // cgroup v2
-        if (is_readable('/sys/fs/cgroup/memory.current')) {
-            $cur = trim((string) @file_get_contents('/sys/fs/cgroup/memory.current'));
-            if (is_numeric($cur)) $containerMemUsedMb = round($cur / 1048576, 1);
-        }
         if (is_readable('/sys/fs/cgroup/memory.max')) {
             $max = trim((string) @file_get_contents('/sys/fs/cgroup/memory.max'));
-            if (is_numeric($max)) $containerMemLimitMb = round($max / 1048576, 1);
-        }
-
-        // cgroup v1 fallback
-        if ($containerMemUsedMb === null && is_readable('/sys/fs/cgroup/memory/memory.usage_in_bytes')) {
-            $cur = trim((string) @file_get_contents('/sys/fs/cgroup/memory/memory.usage_in_bytes'));
-            if (is_numeric($cur)) $containerMemUsedMb = round($cur / 1048576, 1);
+            if (is_numeric($max) && (float)$max < 9223372036854771712) {
+                $containerMemLimitMb = round($max / 1048576, 1);
+            }
         }
         if ($containerMemLimitMb === null && is_readable('/sys/fs/cgroup/memory/memory.limit_in_bytes')) {
             $max = trim((string) @file_get_contents('/sys/fs/cgroup/memory/memory.limit_in_bytes'));
@@ -102,13 +78,62 @@ class Telemetry extends BaseController
             }
         }
 
+        $rootTotalMb = @disk_total_space('/') ? round(@disk_total_space('/') / 1048576, 1) : 0;
+
+        self::$cachedSpecs = [
+            'cpu_cores'          => $cpuCores,
+            'mem_total_mb'       => $memTotalMb,
+            'container_limit_mb' => $containerMemLimitMb,
+            'root_total_mb'      => $rootTotalMb,
+        ];
+
+        return self::$cachedSpecs;
+    }
+
+    /**
+     * Gather WebApp Container (PHP/System) metrics with low overhead.
+     */
+    private function getWebAppMetrics(): array
+    {
+        $specs = $this->getSystemSpecs();
+        $cpuCores = $specs['cpu_cores'];
+        $memTotalMb = $specs['mem_total_mb'];
+        $containerMemLimitMb = $specs['container_limit_mb'];
+        $rootTotalMb = $specs['root_total_mb'];
+
+        // 1. CPU & Load
+        $load = function_exists('sys_getloadavg') ? sys_getloadavg() : [0, 0, 0];
+        $loadPct = $cpuCores > 0 ? min(100, round(($load[0] / $cpuCores) * 100, 1)) : 0;
+
+        // 2. Dynamic Memory Consumption
+        $memAvailMb = 0;
+        $memUsedMb = 0;
+        if (is_readable('/proc/meminfo')) {
+            $meminfo = @file_get_contents('/proc/meminfo');
+            if ($meminfo) {
+                if (preg_match('/MemAvailable:\s+(\d+)\s+kB/', $meminfo, $m) || preg_match('/MemFree:\s+(\d+)\s+kB/', $meminfo, $m)) {
+                    $memAvailMb = round((int)$m[1] / 1024, 1);
+                    $memUsedMb = max(0, round($memTotalMb - $memAvailMb, 1));
+                }
+            }
+        }
+
+        // cgroup container memory usage
+        $containerMemUsedMb = null;
+        if (is_readable('/sys/fs/cgroup/memory.current')) {
+            $cur = trim((string) @file_get_contents('/sys/fs/cgroup/memory.current'));
+            if (is_numeric($cur)) $containerMemUsedMb = round($cur / 1048576, 1);
+        } elseif (is_readable('/sys/fs/cgroup/memory/memory.usage_in_bytes')) {
+            $cur = trim((string) @file_get_contents('/sys/fs/cgroup/memory/memory.usage_in_bytes'));
+            if (is_numeric($cur)) $containerMemUsedMb = round($cur / 1048576, 1);
+        }
+
         // 3. PHP Engine Memory
         $phpMemAllocatedMb = round(memory_get_usage(true) / 1048576, 1);
         $phpMemPeakMb      = round(memory_get_peak_usage(true) / 1048576, 1);
         $phpMemLimit       = ini_get('memory_limit');
 
         // 4. Disk Storage
-        $rootTotalMb = @disk_total_space('/') ? round(@disk_total_space('/') / 1048576, 1) : 0;
         $rootFreeMb  = @disk_free_space('/') ? round(@disk_free_space('/') / 1048576, 1) : 0;
         $rootUsedMb  = max(0, $rootTotalMb - $rootFreeMb);
         $rootUsedPct = $rootTotalMb > 0 ? round(($rootUsedMb / $rootTotalMb) * 100, 1) : 0;
@@ -120,13 +145,28 @@ class Telemetry extends BaseController
             if ($up) $uptimeSeconds = (int) explode(' ', trim($up))[0];
         }
 
-        // 6. Active sessions count
+        // 6. Active sessions count (cached for 30s to prevent disk thrashing)
         $sessionCount = 0;
-        $sessionPath = WRITEPATH . 'session';
-        if (is_dir($sessionPath)) {
-            $files = @scandir($sessionPath);
-            if ($files) $sessionCount = max(0, count($files) - 2); // subtract . and ..
+        try {
+            $sessionCount = (int) cache()->remember('telemetry_active_sessions', 30, function() {
+                $sessionPath = WRITEPATH . 'session';
+                if (is_dir($sessionPath)) {
+                    $files = @scandir($sessionPath);
+                    if ($files) return max(0, count($files) - 2);
+                }
+                return 0;
+            });
+        } catch (\Throwable) {
+            $sessionCount = 0;
         }
+
+        $effectiveUsedMb = $containerMemUsedMb ?? $memUsedMb;
+        $containerUsedPct = ($containerMemLimitMb && $containerMemLimitMb > 0)
+            ? min(100, round(($effectiveUsedMb / $containerMemLimitMb) * 100, 1))
+            : ($memTotalMb > 0 ? round(($memUsedMb / $memTotalMb) * 100, 1) : 0);
+
+        // OOM Risk warning if container is approaching Railway's limit (>80%)
+        $oomWarning = ($containerMemLimitMb && $containerMemLimitMb > 0) && ($containerUsedPct >= 80);
 
         return [
             'status'             => 'online',
@@ -144,9 +184,10 @@ class Telemetry extends BaseController
                 'host_used_mb'       => $memUsedMb,
                 'host_avail_mb'      => $memAvailMb,
                 'host_used_pct'      => $memTotalMb > 0 ? round(($memUsedMb / $memTotalMb) * 100, 1) : 0,
-                'container_used_mb'  => $containerMemUsedMb ?? $memUsedMb,
+                'container_used_mb'  => $effectiveUsedMb,
                 'container_limit_mb' => $containerMemLimitMb,
-                'container_used_pct' => ($containerMemLimitMb && $containerMemLimitMb > 0) ? min(100, round((($containerMemUsedMb ?? $memUsedMb) / $containerMemLimitMb) * 100, 1)) : ($memTotalMb > 0 ? round(($memUsedMb / $memTotalMb) * 100, 1) : 0),
+                'container_used_pct' => $containerUsedPct,
+                'container_oom_warning' => $oomWarning,
                 'php_allocated_mb'   => $phpMemAllocatedMb,
                 'php_peak_mb'        => $phpMemPeakMb,
                 'php_limit'          => $phpMemLimit,
@@ -167,7 +208,7 @@ class Telemetry extends BaseController
     }
 
     /**
-     * Gather MySQL Database metrics.
+     * Gather MySQL Database metrics with minimal query footprint.
      */
     private function getMySqlMetrics(): array
     {
@@ -176,36 +217,56 @@ class Telemetry extends BaseController
             $db = \Config\Database::connect();
             $schema = $db->database;
 
-            // Ping connection
-            $ping = $db->query('SELECT 1')->getRow();
+            // 1. Static MySQL variables (cached for 10 minutes to avoid reading ~600 rows repeatedly)
+            if (self::$cachedMySqlStatic === null) {
+                try {
+                    $vars = cache()->remember('telemetry_mysql_static_vars', 600, function() use ($db) {
+                        $rows = $db->query("SHOW VARIABLES WHERE Variable_name IN ('max_connections', 'innodb_buffer_pool_size', 'version', 'version_comment')")->getResultArray();
+                        $map = [];
+                        foreach ($rows as $r) {
+                            $map[$r['Variable_name']] = $r['Value'];
+                        }
+                        return $map;
+                    });
+                    self::$cachedMySqlStatic = $vars ?: [];
+                } catch (\Throwable) {
+                    self::$cachedMySqlStatic = [];
+                }
+            }
+            $variables = self::$cachedMySqlStatic;
+
+            // 2. Targeted GLOBAL STATUS (only 11 specific metrics instead of dumping ~500 rows)
+            $statusRows = $db->query(
+                "SHOW GLOBAL STATUS WHERE Variable_name IN (
+                    'Uptime', 'Questions', 'Queries', 'Threads_connected', 'Threads_running',
+                    'Max_used_connections', 'Innodb_buffer_pool_bytes_data', 'Bytes_received',
+                    'Bytes_sent', 'Slow_queries', 'Aborted_connects'
+                )"
+            )->getResultArray();
             $queryLatencyMs = round((microtime(true) - $start) * 1000, 1);
 
-            // Fetch GLOBAL STATUS
-            $statusRows = $db->query('SHOW GLOBAL STATUS')->getResultArray();
             $status = [];
             foreach ($statusRows as $row) {
                 $status[$row['Variable_name']] = $row['Value'];
             }
 
-            // Fetch GLOBAL VARIABLES
-            $varRows = $db->query('SHOW GLOBAL VARIABLES')->getResultArray();
-            $variables = [];
-            foreach ($varRows as $row) {
-                $variables[$row['Variable_name']] = $row['Value'];
-            }
-
-            // Storage & Tables info
-            $statsRow = $db->query(
-                "SELECT
-                    COUNT(*) AS table_count,
-                    ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb,
-                    ROUND(SUM(data_length) / 1024 / 1024, 2) AS data_mb,
-                    ROUND(SUM(index_length) / 1024 / 1024, 2) AS index_mb,
-                    COALESCE(SUM(table_rows), 0) AS approx_rows
-                FROM information_schema.tables
-                WHERE table_schema = ?",
-                [$schema]
-            )->getRowArray();
+            // 3. Storage & Tables info (cached for 60 seconds to avoid locking metadata)
+            $statsRow = [];
+            try {
+                $statsRow = cache()->remember('telemetry_mysql_db_stats_' . $schema, 60, function() use ($db, $schema) {
+                    return $db->query(
+                        "SELECT
+                            COUNT(*) AS table_count,
+                            ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb,
+                            ROUND(SUM(data_length) / 1024 / 1024, 2) AS data_mb,
+                            ROUND(SUM(index_length) / 1024 / 1024, 2) AS index_mb,
+                            COALESCE(SUM(table_rows), 0) AS approx_rows
+                        FROM information_schema.tables
+                        WHERE table_schema = ?",
+                        [$schema]
+                    )->getRowArray() ?: [];
+                });
+            } catch (\Throwable) {}
 
             $uptime = (int) ($status['Uptime'] ?? 0);
             $questions = (int) ($status['Questions'] ?? $status['Queries'] ?? 0);
@@ -245,10 +306,12 @@ class Telemetry extends BaseController
                     'max'          => $maxConn,
                     'used_pct'     => $connPct,
                     'max_used'     => (int) ($status['Max_used_connections'] ?? $connected),
+                    'aborted'      => (int) ($status['Aborted_connects'] ?? 0),
                 ],
                 'throughput' => [
                     'questions'    => $questions,
                     'qps'          => $qps,
+                    'slow_queries' => (int) ($status['Slow_queries'] ?? 0),
                     'bytes_received_mb' => $bytesRecvMb,
                     'bytes_sent_mb'     => $bytesSentMb,
                 ],

@@ -50,6 +50,12 @@
         background: rgba(255,255,255,0.04);
         border: 1px solid rgba(255,255,255,0.08);
     }
+    .telemetry-sparkline {
+        height: 28px;
+        width: 100%;
+        overflow: visible;
+        display: block;
+    }
 </style>
 <?= $this->endSection() ?>
 
@@ -59,7 +65,7 @@
         <h2 class="fw-bold mb-1" style="color: var(--primary);">
             <i class="fa-solid fa-chart-line me-2"></i> Container Telemetry
         </h2>
-        <p class="text-secondary mb-0">Live resource utilization across WebApp, MySQL, and ML Inference containers.</p>
+        <p class="text-secondary mb-0">Low-overhead live resource monitoring across WebApp, MySQL, and ML Inference containers.</p>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
         <div class="d-flex align-items-center gap-2 bg-body-tertiary px-3 py-1 rounded border small">
@@ -68,9 +74,9 @@
             <span class="text-muted" style="font-size: 0.75rem;" id="lastUpdatedText">Just now</span>
         </div>
         <select class="form-select form-select-sm w-auto" id="pollIntervalSelect" title="Auto-refresh rate">
-            <option value="3000" selected>Refresh: 3s</option>
-            <option value="5000">Refresh: 5s</option>
+            <option value="5000" selected>Refresh: 5s (Optimal)</option>
             <option value="10000">Refresh: 10s</option>
+            <option value="30000">Refresh: 30s</option>
             <option value="0">Paused</option>
         </select>
         <button class="btn btn-sm btn-primary rounded-pill px-3" id="manualRefreshBtn">
@@ -88,22 +94,35 @@ $mysql = $metrics['mysql'] ?? [];
 $ml = $metrics['ml'] ?? [];
 ?>
 
-<!-- Quick Overview KPIs -->
+<!-- Quick Overview KPIs with Live Sparklines -->
 <div class="row g-3 mb-4">
     <!-- WebApp Container -->
     <div class="col-md-4">
         <div class="card telemetry-card p-3 h-100">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <span class="text-muted small fw-bold text-uppercase"><i class="fa-brands fa-php me-1 text-primary"></i> WebApp Container</span>
-                <span class="badge bg-success metric-badge" id="kpiWebStatus"><?= esc($web['status'] ?? 'online') ?></span>
+                <div class="d-flex gap-1 align-items-center">
+                    <span class="badge bg-danger metric-badge <?= !empty($web['memory']['container_oom_warning']) ? '' : 'd-none' ?>" id="kpiWebOomBadge" title="Approaching Railway memory limit">
+                        <i class="fa-solid fa-triangle-exclamation"></i> 80%+ OOM Risk
+                    </span>
+                    <span class="badge bg-success metric-badge" id="kpiWebStatus"><?= esc($web['status'] ?? 'online') ?></span>
+                </div>
             </div>
             <div class="d-flex align-items-baseline gap-2 mb-2">
                 <h3 class="fw-bold mb-0" id="kpiWebCpu"><?= esc($web['cpu']['load_pct'] ?? 0) ?>%</h3>
                 <span class="text-muted small">CPU Load</span>
             </div>
-            <div class="small text-muted d-flex justify-content-between">
+            <div class="small text-muted d-flex justify-content-between mb-2">
                 <span>RAM: <strong id="kpiWebRam"><?= number_format($web['memory']['container_used_mb'] ?? 0) ?> MB</strong></span>
                 <span>Uptime: <strong id="kpiWebUptime"><?= esc($web['uptime_formatted'] ?? '0s') ?></strong></span>
+            </div>
+            <!-- Live CPU Sparkline -->
+            <div class="pt-2 border-top">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-muted" style="font-size: 0.7rem;">CPU Load Trend</span>
+                    <span class="text-muted font-monospace" style="font-size: 0.7rem;" id="sparkWebCpuVal"><?= esc($web['cpu']['load_pct'] ?? 0) ?>%</span>
+                </div>
+                <svg id="sparkWebCpu" class="telemetry-sparkline"></svg>
             </div>
         </div>
     </div>
@@ -119,9 +138,17 @@ $ml = $metrics['ml'] ?? [];
                 <h3 class="fw-bold mb-0" id="kpiMysqlConn"><?= esc($mysql['connections']['connected'] ?? 0) ?></h3>
                 <span class="text-muted small">Connections (<?= esc($mysql['connections']['used_pct'] ?? 0) ?>%)</span>
             </div>
-            <div class="small text-muted d-flex justify-content-between">
+            <div class="small text-muted d-flex justify-content-between mb-2">
                 <span>QPS: <strong id="kpiMysqlQps"><?= esc($mysql['throughput']['qps'] ?? 0) ?></strong></span>
                 <span>DB Size: <strong id="kpiMysqlDbSize"><?= number_format($mysql['database_size_mb'] ?? 0, 1) ?> MB</strong></span>
+            </div>
+            <!-- Live QPS Sparkline -->
+            <div class="pt-2 border-top">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-muted" style="font-size: 0.7rem;">QPS Throughput Trend</span>
+                    <span class="text-muted font-monospace" style="font-size: 0.7rem;" id="sparkMysqlQpsVal"><?= esc($mysql['throughput']['qps'] ?? 0) ?> QPS</span>
+                </div>
+                <svg id="sparkMysqlQps" class="telemetry-sparkline"></svg>
             </div>
         </div>
     </div>
@@ -139,9 +166,17 @@ $ml = $metrics['ml'] ?? [];
                 </h3>
                 <span class="text-muted small" id="kpiMlLatency">(<?= esc($ml['latency_ms'] ?? 0) ?> ms API latency)</span>
             </div>
-            <div class="small text-muted d-flex justify-content-between">
-                <span>Active Model: <strong id="kpiMlModel" class="text-truncate" style="max-width: 140px;"><?= esc($ml['inference']['active_model'] ?? 'None') ?></strong></span>
+            <div class="small text-muted d-flex justify-content-between mb-2">
+                <span>Active: <strong id="kpiMlModel" class="text-truncate" style="max-width: 130px;"><?= esc($ml['inference']['active_model'] ?? 'None') ?></strong></span>
                 <span>Queued: <strong id="kpiMlQueue"><?= esc($ml['queue']['active_jobs'] ?? 0) ?> active</strong></span>
+            </div>
+            <!-- Live Latency Sparkline -->
+            <div class="pt-2 border-top">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-muted" style="font-size: 0.7rem;">Inference Latency Trend</span>
+                    <span class="text-muted font-monospace" style="font-size: 0.7rem;" id="sparkMlLatencyVal"><?= esc($ml['latency_ms'] ?? 0) ?> ms</span>
+                </div>
+                <svg id="sparkMlLatency" class="telemetry-sparkline"></svg>
             </div>
         </div>
     </div>
@@ -281,6 +316,15 @@ $ml = $metrics['ml'] ?? [];
                         <div class="col-4 stat-pill">
                             <div>I/O Received</div>
                             <strong class="text-dark" id="mysqlRecv"><?= number_format($mysql['throughput']['bytes_received_mb'] ?? 0, 1) ?> MB</strong>
+                        </div>
+                    <div class="row g-2 text-center small text-muted mt-1">
+                        <div class="col-6 stat-pill">
+                            <div>Slow Queries (Unindexed)</div>
+                            <strong class="text-dark <?= !empty($mysql['throughput']['slow_queries']) ? 'text-danger' : '' ?>" id="mysqlSlowQ"><?= number_format($mysql['throughput']['slow_queries'] ?? 0) ?></strong>
+                        </div>
+                        <div class="col-6 stat-pill">
+                            <div>Aborted Connects</div>
+                            <strong class="text-dark" id="mysqlAbortedConnects"><?= number_format($mysql['connections']['aborted'] ?? 0) ?></strong>
                         </div>
                     </div>
                 </div>
@@ -443,7 +487,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let pollTimer = null;
-    let pollInterval = 3000;
+    let pollInterval = 5000; // Optimal 5s polling rate (low container overhead)
+
+    // Rolling history buffers for real-time client-side sparklines (max 20 points)
+    const MAX_HISTORY = 20;
+    const historyWebCpu = [];
+    const historyMysqlQps = [];
+    const historyMlLatency = [];
 
     const intervalSelect = document.getElementById('pollIntervalSelect');
     const manualRefreshBtn = document.getElementById('manualRefreshBtn');
@@ -458,6 +508,48 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    // Lightweight client-side SVG sparkline renderer (zero external dependencies)
+    function drawSparkline(svgId, dataPoints, minVal = 0, maxVal = null, strokeColor = '#438EB9', fillColor = 'rgba(67, 142, 185, 0.15)') {
+        const svg = document.getElementById(svgId);
+        if (!svg) return;
+        const width = svg.clientWidth || 160;
+        const height = 28;
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+        if (!dataPoints || dataPoints.length === 0) {
+            svg.innerHTML = '';
+            return;
+        }
+
+        if (dataPoints.length === 1) {
+            svg.innerHTML = `<circle cx="${width - 5}" cy="${height / 2}" r="3" fill="${strokeColor}" />`;
+            return;
+        }
+
+        let min = minVal !== null ? minVal : Math.min(...dataPoints);
+        let max = maxVal !== null ? maxVal : Math.max(...dataPoints);
+        if (max <= min) max = min + 1;
+
+        const points = dataPoints.map((val, idx) => {
+            const x = (idx / (dataPoints.length - 1)) * (width - 8) + 4;
+            const normalized = Math.max(0, Math.min(1, (val - min) / (max - min)));
+            const y = (height - 6) - (normalized * (height - 10)) + 3;
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        });
+
+        const polyline = points.join(' ');
+        const firstX = points[0].split(',')[0];
+        const lastX = points[points.length - 1].split(',')[0];
+        const polygon = `${firstX},${height} ` + polyline + ` ${lastX},${height}`;
+        const lastPt = points[points.length - 1].split(',');
+
+        svg.innerHTML = `
+            <polygon points="${polygon}" fill="${fillColor}" />
+            <polyline points="${polyline}" fill="none" stroke="${strokeColor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="3" fill="${strokeColor}" />
+        `;
     }
 
     function fetchTelemetry() {
@@ -501,6 +593,25 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('kpiWebRam').textContent = Math.round(webRamUsed).toLocaleString() + ' MB';
         document.getElementById('kpiWebUptime').textContent = web.uptime_formatted || '0s';
 
+        // OOM Risk warning badge
+        const kpiWebOomBadge = document.getElementById('kpiWebOomBadge');
+        if (kpiWebOomBadge) {
+            if (web.memory?.container_oom_warning) {
+                kpiWebOomBadge.classList.remove('d-none');
+            } else {
+                kpiWebOomBadge.classList.add('d-none');
+            }
+        }
+
+        // WebApp CPU Sparkline
+        historyWebCpu.push(webCpuPct);
+        if (historyWebCpu.length > MAX_HISTORY) historyWebCpu.shift();
+        const sparkCpuColor = webCpuPct > 85 ? '#dc3545' : (webCpuPct > 65 ? '#ffc107' : '#0d6efd');
+        const sparkCpuFill = webCpuPct > 85 ? 'rgba(220, 53, 69, 0.15)' : 'rgba(13, 110, 253, 0.12)';
+        drawSparkline('sparkWebCpu', historyWebCpu, 0, 100, sparkCpuColor, sparkCpuFill);
+        const sparkWebCpuVal = document.getElementById('sparkWebCpuVal');
+        if (sparkWebCpuVal) sparkWebCpuVal.textContent = webCpuPct + '%';
+
         document.getElementById('webCpuPctText').textContent = webCpuPct + '%';
         const webCpuBar = document.getElementById('webCpuBar');
         if (webCpuBar) {
@@ -523,9 +634,33 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2. MySQL Container
         const mysqlConn = mysql.connections?.connected || 0;
         const mysqlConnPct = mysql.connections?.used_pct || 0;
+        const mysqlQps = mysql.throughput?.qps || 0;
         document.getElementById('kpiMysqlConn').textContent = mysqlConn;
-        document.getElementById('kpiMysqlQps').textContent = mysql.throughput?.qps || 0;
+        document.getElementById('kpiMysqlQps').textContent = mysqlQps;
         document.getElementById('kpiMysqlDbSize').textContent = (mysql.database_size_mb || 0).toFixed(1) + ' MB';
+
+        // MySQL QPS Sparkline
+        historyMysqlQps.push(mysqlQps);
+        if (historyMysqlQps.length > MAX_HISTORY) historyMysqlQps.shift();
+        drawSparkline('sparkMysqlQps', historyMysqlQps, 0, null, '#0dcaf0', 'rgba(13, 202, 240, 0.12)');
+        const sparkMysqlQpsVal = document.getElementById('sparkMysqlQpsVal');
+        if (sparkMysqlQpsVal) sparkMysqlQpsVal.textContent = mysqlQps + ' QPS';
+
+        // Slow Queries & Aborted Connects
+        const slowQ = mysql.throughput?.slow_queries || 0;
+        const abortedConn = mysql.connections?.aborted || 0;
+        const kpiMysqlSlowQ = document.getElementById('kpiMysqlSlowQ');
+        if (kpiMysqlSlowQ) {
+            kpiMysqlSlowQ.textContent = slowQ;
+            kpiMysqlSlowQ.className = slowQ > 0 ? 'text-danger fw-bold' : 'text-dark';
+        }
+        const mysqlSlowQ = document.getElementById('mysqlSlowQ');
+        if (mysqlSlowQ) {
+            mysqlSlowQ.textContent = slowQ;
+            mysqlSlowQ.className = 'text-dark ' + (slowQ > 0 ? 'text-danger' : '');
+        }
+        const mysqlAbortedConnects = document.getElementById('mysqlAbortedConnects');
+        if (mysqlAbortedConnects) mysqlAbortedConnects.textContent = abortedConn;
 
         document.getElementById('mysqlConnText').textContent = mysqlConn + ' / ' + (mysql.connections?.max || 151) + ' (' + mysqlConnPct + '%)';
         const mysqlConnBar = document.getElementById('mysqlConnBar');
@@ -536,7 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('mysqlLatency').textContent = (mysql.latency_ms || 0) + ' ms';
 
         document.getElementById('mysqlTotalQ').textContent = (mysql.throughput?.questions || 0).toLocaleString();
-        document.getElementById('mysqlQps').textContent = mysql.throughput?.qps || 0;
+        document.getElementById('mysqlQps').textContent = mysqlQps;
         document.getElementById('mysqlRecv').textContent = (mysql.throughput?.bytes_received_mb || 0).toFixed(1) + ' MB';
 
         const bpDataMb = mysql.buffer_pool?.data_mb || 0;
@@ -550,6 +685,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 3. ML Engine Container
         const mlOnline = ml.status === 'online';
+        const mlLatency = ml.latency_ms || 0;
         const kpiMlStatus = document.getElementById('kpiMlStatus');
         if (kpiMlStatus) {
             kpiMlStatus.textContent = mlOnline ? 'online' : 'offline';
@@ -564,8 +700,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         document.getElementById('kpiMlMode').textContent = ml.gpu?.has_gpu ? 'GPU' : 'CPU';
-        document.getElementById('kpiMlLatency').textContent = '(' + (ml.latency_ms || 0) + ' ms API latency)';
-        document.getElementById('mlLatencyBadge').textContent = 'API: ' + (ml.latency_ms || 0) + ' ms';
+        document.getElementById('kpiMlLatency').textContent = '(' + mlLatency + ' ms API latency)';
+        document.getElementById('mlLatencyBadge').textContent = 'API: ' + mlLatency + ' ms';
+
+        // ML Latency Sparkline
+        historyMlLatency.push(mlLatency);
+        if (historyMlLatency.length > MAX_HISTORY) historyMlLatency.shift();
+        drawSparkline('sparkMlLatency', historyMlLatency, 0, null, '#ffc107', 'rgba(255, 193, 7, 0.15)');
+        const sparkMlLatencyVal = document.getElementById('sparkMlLatencyVal');
+        if (sparkMlLatencyVal) sparkMlLatencyVal.textContent = mlLatency + ' ms';
 
         document.getElementById('kpiMlModel').textContent = ml.inference?.active_model || 'None';
         document.getElementById('kpiMlQueue').textContent = (ml.queue?.active_jobs || 0) + ' active';
@@ -659,6 +802,17 @@ document.addEventListener('DOMContentLoaded', () => {
             fetchTelemetry();
         }
     });
+
+    // Initial render of first sparkline point from preloaded PHP data
+    const initialWebCpu = <?= json_encode($web['cpu']['load_pct'] ?? 0) ?>;
+    const initialMysqlQps = <?= json_encode($mysql['throughput']['qps'] ?? 0) ?>;
+    const initialMlLat = <?= json_encode($ml['latency_ms'] ?? 0) ?>;
+    historyWebCpu.push(initialWebCpu);
+    historyMysqlQps.push(initialMysqlQps);
+    historyMlLatency.push(initialMlLat);
+    drawSparkline('sparkWebCpu', historyWebCpu, 0, 100, '#0d6efd', 'rgba(13, 110, 253, 0.12)');
+    drawSparkline('sparkMysqlQps', historyMysqlQps, 0, null, '#0dcaf0', 'rgba(13, 202, 240, 0.12)');
+    drawSparkline('sparkMlLatency', historyMlLatency, 0, null, '#ffc107', 'rgba(255, 193, 7, 0.15)');
 
     // Start polling on load
     resetTimer();

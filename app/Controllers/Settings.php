@@ -188,7 +188,7 @@ class Settings extends BaseController
         ", [$tokenType, $userId, $userId])->getRow()->cnt ?? 0);
 
         $oldestUploadRow = $db->query("
-            SELECT MIN(COALESCE(NULLIF(NULLIF(l.loot_Created, '2026'), '0'), ls.loot_Created, l.loot_Created)) as oldest
+            SELECT MIN(COALESCE(CASE WHEN l.loot_Created >= '2000-01-01' THEN l.loot_Created ELSE NULL END, ls.loot_Created, l.loot_Created)) as oldest
             FROM tbl_Loot l
             LEFT JOIN tbl_Loot_Summary ls ON ls.loot_Uuid = l.loot_Uuid
             LEFT JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256) AND i.type = ?

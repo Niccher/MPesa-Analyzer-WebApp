@@ -51,8 +51,8 @@ class DeviceModel extends Model
                 MAX(d.device_Created_At) AS device_Created_At,
                 MAX(d.device_ip) AS device_ip,
                 COUNT(l.loot_Id) AS upload_count,
-                MIN(COALESCE(NULLIF(NULLIF(l.loot_Created, '2026'), '0'), ls.loot_Created, l.loot_Created)) AS first_upload,
-                MAX(COALESCE(NULLIF(NULLIF(l.loot_Created, '2026'), '0'), ls.loot_Created, l.loot_Created)) AS last_upload
+                MIN(COALESCE(CASE WHEN l.loot_Created >= '2000-01-01' THEN l.loot_Created ELSE NULL END, ls.loot_Created, l.loot_Created)) AS first_upload,
+                MAX(COALESCE(CASE WHEN l.loot_Created >= '2000-01-01' THEN l.loot_Created ELSE NULL END, ls.loot_Created, l.loot_Created)) AS last_upload
             FROM (
                 SELECT device_Uuid FROM tbl_Devices WHERE device_Uuid IN ({$placeholders})
                 UNION
@@ -184,8 +184,8 @@ class DeviceModel extends Model
         $stats = $db->query("
             SELECT
                 COUNT(l.loot_Id) AS upload_count,
-                MIN(COALESCE(NULLIF(NULLIF(l.loot_Created, '2026'), '0'), ls.loot_Created, l.loot_Created)) AS first_upload,
-                MAX(COALESCE(NULLIF(NULLIF(l.loot_Created, '2026'), '0'), ls.loot_Created, l.loot_Created)) AS last_upload,
+                MIN(COALESCE(CASE WHEN l.loot_Created >= '2000-01-01' THEN l.loot_Created ELSE NULL END, ls.loot_Created, l.loot_Created)) AS first_upload,
+                MAX(COALESCE(CASE WHEN l.loot_Created >= '2000-01-01' THEN l.loot_Created ELSE NULL END, ls.loot_Created, l.loot_Created)) AS last_upload,
                 COALESCE(SUM(ls.info_All), 0) AS sms_total
             FROM tbl_Loot l
             LEFT JOIN tbl_Loot_Summary ls ON ls.loot_Uuid = l.loot_Uuid
@@ -345,10 +345,10 @@ class DeviceModel extends Model
                 MAX(d.device_ip) AS device_ip,
                 MAX(d.device_user_id) AS device_user_id,
                 MAX(u.username) AS username,
-                MAX(ai.name) AS email,
+                MAX(ai.secret) AS email,
                 COUNT(l.loot_Id) AS upload_count,
-                MIN(COALESCE(NULLIF(NULLIF(l.loot_Created, '2026'), '0'), ls.loot_Created, l.loot_Created)) AS first_upload,
-                MAX(COALESCE(NULLIF(NULLIF(l.loot_Created, '2026'), '0'), ls.loot_Created, l.loot_Created)) AS last_upload
+                MIN(COALESCE(CASE WHEN l.loot_Created >= '2000-01-01' THEN l.loot_Created ELSE NULL END, ls.loot_Created, l.loot_Created)) AS first_upload,
+                MAX(COALESCE(CASE WHEN l.loot_Created >= '2000-01-01' THEN l.loot_Created ELSE NULL END, ls.loot_Created, l.loot_Created)) AS last_upload
             FROM tbl_Devices d
             LEFT JOIN users u ON u.id = d.device_user_id
             LEFT JOIN auth_identities ai ON ai.user_id = d.device_user_id AND ai.type = 'email_password'
@@ -362,11 +362,11 @@ class DeviceModel extends Model
             SELECT
                 l.loot_Device AS device_Uuid,
                 MAX(u.username) AS username,
-                MAX(ai.name) AS email,
+                MAX(ai.secret) AS email,
                 MAX(l.loot_user_id) AS device_user_id,
                 COUNT(*) AS upload_count,
-                MIN(COALESCE(NULLIF(NULLIF(l.loot_Created, '2026'), '0'), ls.loot_Created, l.loot_Created)) AS first_upload,
-                MAX(COALESCE(NULLIF(NULLIF(l.loot_Created, '2026'), '0'), ls.loot_Created, l.loot_Created)) AS last_upload
+                MIN(COALESCE(CASE WHEN l.loot_Created >= '2000-01-01' THEN l.loot_Created ELSE NULL END, ls.loot_Created, l.loot_Created)) AS first_upload,
+                MAX(COALESCE(CASE WHEN l.loot_Created >= '2000-01-01' THEN l.loot_Created ELSE NULL END, ls.loot_Created, l.loot_Created)) AS last_upload
             FROM tbl_Loot l
             LEFT JOIN tbl_Loot_Summary ls ON ls.loot_Uuid = l.loot_Uuid
             LEFT JOIN users u ON u.id = l.loot_user_id
