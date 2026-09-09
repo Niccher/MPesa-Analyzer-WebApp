@@ -160,10 +160,15 @@ class Telemetry extends BaseController
             $sessionCount = 0;
         }
 
+        $cpuIdlePct = max(0, round(100 - $loadPct, 1));
         $effectiveUsedMb = $containerMemUsedMb ?? $memUsedMb;
         $containerUsedPct = ($containerMemLimitMb && $containerMemLimitMb > 0)
             ? min(100, round(($effectiveUsedMb / $containerMemLimitMb) * 100, 1))
             : ($memTotalMb > 0 ? round(($memUsedMb / $memTotalMb) * 100, 1) : 0);
+
+        $containerFreeMb = ($containerMemLimitMb && $containerMemLimitMb > 0)
+            ? max(0, round($containerMemLimitMb - $effectiveUsedMb, 1))
+            : ($memTotalMb > 0 ? max(0, round($memTotalMb - $memUsedMb, 1)) : 0);
 
         // OOM Risk warning if container is approaching Railway's limit (>80%)
         $oomWarning = ($containerMemLimitMb && $containerMemLimitMb > 0) && ($containerUsedPct >= 80);
@@ -178,6 +183,7 @@ class Telemetry extends BaseController
                 'load_5m'  => round($load[1], 2),
                 'load_15m' => round($load[2], 2),
                 'load_pct' => $loadPct,
+                'idle_pct' => $cpuIdlePct,
             ],
             'memory' => [
                 'host_total_mb'      => $memTotalMb,
@@ -186,6 +192,7 @@ class Telemetry extends BaseController
                 'host_used_pct'      => $memTotalMb > 0 ? round(($memUsedMb / $memTotalMb) * 100, 1) : 0,
                 'container_used_mb'  => $effectiveUsedMb,
                 'container_limit_mb' => $containerMemLimitMb,
+                'container_free_mb'  => $containerFreeMb,
                 'container_used_pct' => $containerUsedPct,
                 'container_oom_warning' => $oomWarning,
                 'php_allocated_mb'   => $phpMemAllocatedMb,
@@ -197,6 +204,7 @@ class Telemetry extends BaseController
                 'used_mb'  => $rootUsedMb,
                 'free_mb'  => $rootFreeMb,
                 'used_pct' => $rootUsedPct,
+                'free_pct' => max(0, round(100 - $rootUsedPct, 1)),
             ],
             'runtime' => [
                 'php_version' => PHP_VERSION,
@@ -235,12 +243,12 @@ class Telemetry extends BaseController
             }
             $variables = self::$cachedMySqlStatic;
 
-            // 2. Targeted GLOBAL STATUS (only 11 specific metrics instead of dumping ~500 rows)
+            // 2. Targeted GLOBAL STATUS (only 9 critical metrics instead of dumping ~500 rows)
             $statusRows = $db->query(
                 "SHOW GLOBAL STATUS WHERE Variable_name IN (
                     'Uptime', 'Questions', 'Queries', 'Threads_connected', 'Threads_running',
-                    'Max_used_connections', 'Innodb_buffer_pool_bytes_data', 'Bytes_received',
-                    'Bytes_sent', 'Slow_queries', 'Aborted_connects'
+                    'Max_used_connections', 'Innodb_buffer_pool_bytes_data',
+                    'Slow_queries', 'Aborted_connects'
                 )"
             )->getResultArray();
             $queryLatencyMs = round((microtime(true) - $start) * 1000, 1);
@@ -277,6 +285,7 @@ class Telemetry extends BaseController
             $running   = (int) ($status['Threads_running'] ?? 0);
             $maxConn   = (int) ($variables['max_connections'] ?? 151);
             $connPct   = $maxConn > 0 ? min(100, round(($connected / $maxConn) * 100, 1)) : 0;
+            $freeConn  = max(0, $maxConn - $connected);
 
             // InnoDB Buffer Pool
             $bpSize = (int) ($variables['innodb_buffer_pool_size'] ?? 134217728);
@@ -284,10 +293,7 @@ class Telemetry extends BaseController
             $bpSizeMb = round($bpSize / 1048576, 1);
             $bpDataMb = round($bpData / 1048576, 1);
             $bpUsedPct = $bpSize > 0 ? min(100, round(($bpData / $bpSize) * 100, 1)) : 0;
-
-            // Network I/O
-            $bytesRecvMb = round(((float)($status['Bytes_received'] ?? 0)) / 1048576, 2);
-            $bytesSentMb = round(((float)($status['Bytes_sent'] ?? 0)) / 1048576, 2);
+            $bpFreeMb = max(0, round($bpSizeMb - $bpDataMb, 1));
 
             return [
                 'status'           => 'online',
@@ -302,6 +308,7 @@ class Telemetry extends BaseController
                 'approx_rows'      => (int) ($statsRow['approx_rows'] ?? 0),
                 'connections' => [
                     'connected'    => $connected,
+                    'free'         => $freeConn,
                     'running'      => $running,
                     'max'          => $maxConn,
                     'used_pct'     => $connPct,
@@ -312,12 +319,11 @@ class Telemetry extends BaseController
                     'questions'    => $questions,
                     'qps'          => $qps,
                     'slow_queries' => (int) ($status['Slow_queries'] ?? 0),
-                    'bytes_received_mb' => $bytesRecvMb,
-                    'bytes_sent_mb'     => $bytesSentMb,
                 ],
                 'buffer_pool' => [
                     'size_mb'      => $bpSizeMb,
                     'data_mb'      => $bpDataMb,
+                    'free_mb'      => $bpFreeMb,
                     'used_pct'     => $bpUsedPct,
                 ]
             ];
