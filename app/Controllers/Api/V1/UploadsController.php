@@ -26,17 +26,20 @@ class UploadsController extends BaseApiController
             return $this->fail('Method not allowed', 405);
         }
 
-        $token = (string) $this->request->getPost('varUser');
-        $devId = (string) $this->request->getPost('varDev');
-        $isContinuation = $this->request->getPost('is_continuation') === 'true';
+        $token = (string) ($this->request->getPost('varUser') ?: $this->request->getPost('varToken'));
+        $devId = (string) ($this->request->getPost('varDev') ?: $this->request->getPost('varDevId'));
+        $isContinuation = $this->request->getPost('is_continuation') === 'true' || $this->request->getPost('varBatch') === '1';
 
         $user = $this->getUserFromToken();
         $userId = $user ? (int)$user->id : null;
 
         try {
-            $file = $this->request->getFile('loot_file');
-            if ($file === null || !$file->isValid()) {
-                throw new \RuntimeException('No valid file uploaded');
+            $file = $this->request->getFile('loot_file') ?? $this->request->getFile('varLoot');
+            if ($file === null) {
+                throw new \RuntimeException('No file uploaded: expected loot_file or varLoot multipart');
+            }
+            if (!$file->isValid()) {
+                throw new \RuntimeException('Invalid file uploaded: ' . $file->getErrorString() . ' (code ' . $file->getError() . ')');
             }
 
             $uploadPath = WRITEPATH . 'uploads/payloads/';
