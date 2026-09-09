@@ -11,7 +11,7 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>Setup Guide — Mpesa Analyzer</title>
-    <meta name="description" content="Complete setup guide for Mpesa Analyzer. Learn how to install the Android app, generate tokens, link devices, and run ML analysis. Step-by-step instructions.">
+    <meta name="description" content="Step-by-step setup guide for Mpesa Analyzer. Deploy web dashboard, pair Android app via CameraX QR scanner, activate local GGUF model presets, and sync SMS.">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="<?= base_url('setup') ?>">
 
@@ -22,7 +22,7 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
     <link rel="manifest" href="<?= base_url('site.webmanifest?v=' . $systemVersion) ?>">
 
     <meta property="og:title" content="Setup Guide — Mpesa Analyzer">
-    <meta property="og:description" content="Step-by-step guide to set up Mpesa Analyzer: Android app, device linking, ML analysis.">
+    <meta property="og:description" content="Deploy web app, pair Android companion with CameraX QR, configure local GGUF models.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="<?= base_url('setup') ?>">
     <meta property="og:image" content="<?= base_url('assets/img/logo.png') ?>">
@@ -40,7 +40,7 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
     <link href="<?= base_url('assets/ace/css/ace-theme.css') ?>" rel="stylesheet" />
 
     <style>
-        :root { --primary: #438EB9; --primary-dark: #222A2D; --secondary: #E8F2F8; --dark: #1A1A2E; --light: #F8F9FA; --radius: 4px; }
+        :root { --primary: #438EB9; --primary-dark: #222A2D; --secondary: #E8F2F8; --dark: #1A1A2E; --light: #F8F9FA; --radius: 6px; }
         body { font-family: 'Outfit', sans-serif; background-color: var(--light); color: var(--dark); }
         .navbar { padding: 1.25rem 0; background: transparent; transition: all 0.3s ease; }
         .navbar.scrolled { background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); padding: 0.75rem 0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
@@ -51,22 +51,18 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
         .nav-link.active { position: relative; }
         .nav-link.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background: var(--primary); border-radius: 1px; }
         .btn-primary { background-color: var(--primary); border-color: var(--primary); padding: 0.7rem 1.8rem; font-weight: 600; border-radius: var(--radius); transition: all 0.3s; }
-        .btn-primary:hover { background-color: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(93,95,239,0.35); }
+        .btn-primary:hover { background-color: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(67,142,185,0.35); }
         .btn-outline-primary { color: var(--primary); border-color: var(--primary); padding: 0.7rem 1.8rem; font-weight: 600; border-radius: var(--radius); }
         .btn-outline-primary:hover { background-color: var(--primary); color: #fff; transform: translateY(-2px); }
         .page-header { padding: 120px 0 60px; background: linear-gradient(135deg, #fff 0%, var(--secondary) 100%); }
         [data-bs-theme="dark"] .page-header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
         .glass-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.4); border-radius: var(--radius); padding: 2.5rem; transition: all 0.3s; box-shadow: 0 4px 16px rgba(0,0,0,0.04); }
         [data-bs-theme="dark"] .glass-card { background: rgba(30, 41, 59, 0.8); border-color: rgba(255,255,255,0.1); }
-        .glass-card:hover { transform: translateY(-6px); box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
-        .icon-box { width: 56px; height: 56px; background: var(--secondary); color: var(--primary); display: flex; align-items: center; justify-content: center; border-radius: var(--radius); font-size: 1.4rem; margin-bottom: 1.25rem; flex-shrink: 0; }
-        [data-bs-theme="dark"] .icon-box { background: rgba(67, 142, 185, 0.2); }
-        .step-number { width: 44px; height: 44px; background: var(--primary); color: #fff; border-radius: var(--radius); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.2rem; flex-shrink: 0; }
+        .glass-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
+        .step-number { width: 44px; height: 44px; background: var(--primary); color: #fff; border-radius: var(--radius); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem; flex-shrink: 0; }
         .footer { background: var(--dark); color: #fff; padding: 4rem 0 2rem; }
         .footer a { color: rgba(255,255,255,0.7); text-decoration: none; transition: color 0.2s; }
         .footer a:hover { color: #fff; }
-        code { background: #eef0ff; color: var(--primary); padding: 2px 6px; border-radius: 3px; font-size: 0.85em; }
-        [data-bs-theme="dark"] code { background: #1e293b; color: #38bdf8; }
         @media (max-width: 768px) { .page-header { padding: 100px 0 40px; } }
     </style>
 </head>
@@ -103,10 +99,10 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
         <div class="container">
             <div class="text-center">
                 <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-2 mb-3 fw-semibold">
-                    <i class="fa-solid fa-book-open me-1"></i> Full System Guide
+                    <i class="fa-solid fa-book-open me-1"></i> Fast-Track Implementation Guide
                 </span>
                 <h1 class="fw-800 mb-3" style="font-size: 2.75rem; font-weight: 800; letter-spacing: -0.5px;">Setup Guide</h1>
-                <p class="lead text-muted mx-auto mb-0" style="max-width: 600px;">Get the entire Mpesa Analyzer system running — from creating your account to viewing your first AI-classified transaction.</p>
+                <p class="lead text-muted mx-auto mb-0" style="max-width: 620px;">Deploy the WebApp, pair your Android device via CameraX QR, configure local GGUF models, and unlock automated financial intelligence in 4 easy steps.</p>
             </div>
         </div>
     </section>
@@ -116,194 +112,82 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
             <div class="row justify-content-center">
                 <div class="col-lg-8">
                     <div class="glass-card p-4 p-lg-5">
+                        
+                        <!-- Step 1 -->
                         <div class="d-flex gap-4 mb-5">
                             <span class="step-number">1</span>
                             <div>
-                                <h4 class="fw-bold mb-2">Create Your Account</h4>
-                                <p class="text-muted mb-3">The first step is to register on the Mpesa Analyzer web platform. This will be your central hub for managing devices, viewing analytics, and configuring settings.</p>
+                                <h4 class="fw-bold mb-2">Deploy & Register Web Dashboard</h4>
+                                <p class="text-muted mb-3">Launch the platform on your infrastructure (Docker Compose or cloud host such as Railway) and register your administrative account.</p>
                                 <ol class="text-muted small" style="line-height: 2;">
-                                    <li>Navigate to <a href="<?= url_to('register') ?>" class="fw-semibold">the registration page</a></li>
-                                    <li>Enter your <strong>email address</strong> — use a valid one for account recovery</li>
-                                    <li>Choose a <strong>username</strong> that will identify you in the dashboard</li>
-                                    <li>Create a <strong>strong password</strong> (at least 8 characters with mixed case and numbers)</li>
-                                    <li>Confirm your password and submit the form</li>
-                                    <li>Check your email for a verification link (if email activation is enabled)</li>
+                                    <li>If running self-hosted, clone repository and configure your <code>.env</code> database credentials.</li>
+                                    <li>Run <code>docker compose up -d</code> to spin up WebApp (port <code>8080</code>), MySQL (port <code>3306</code>), and ML Service (port <code>9050</code>).</li>
+                                    <li>Navigate to <a href="<?= url_to('register') ?>" class="fw-semibold">the Registration Page</a> and create your master account.</li>
+                                    <li>Log into the dashboard to access the Control Center.</li>
                                 </ol>
                                 <div class="bg-light p-3 rounded-3 small">
-                                    <i class="fa-solid fa-lightbulb text-warning me-2"></i>
-                                    <strong>Tip:</strong> Use the same email you'll access the dashboard from. You can link multiple devices to a single account.
+                                    <i class="fa-solid fa-circle-info text-primary me-2"></i>
+                                    <strong>Tip:</strong> The web dashboard includes automatic schema migration on startup.
                                 </div>
                             </div>
                         </div>
 
+                        <!-- Step 2 -->
                         <div class="d-flex gap-4 mb-5">
                             <span class="step-number">2</span>
                             <div>
-                                <h4 class="fw-bold mb-2">Install the Android App</h4>
-                                <p class="text-muted mb-3">The Mpesa Analyzer Android companion app handles SMS collection on your phone. It runs in the background and automatically forwards financial SMS to the backend.</p>
+                                <h4 class="fw-bold mb-2">Install Companion App & Pair via QR Code</h4>
+                                <p class="text-muted mb-3">Install the Android companion APK and pair it seamlessly with your account using the vertical CameraX barcode scanner.</p>
                                 <ol class="text-muted small" style="line-height: 2;">
-                                    <li>Get the latest APK from the <a href="<?= base_url('android-app') ?>" class="fw-semibold">Android App page</a> or your distribution channel</li>
-                                    <li>On your Android phone, enable <strong>Install from Unknown Sources</strong> (Settings → Security)</li>
-                                    <li>Open the downloaded APK file and tap <strong>Install</strong></li>
-                                    <li>Grant the <strong>SMS permission</strong> when prompted — this is required to read M-Pesa messages</li>
-                                    <li>Grant <strong>Notification access</strong> if you want real-time sync of new SMS</li>
-                                    <li>Open the app and note the device identifier screen</li>
+                                    <li>Download and install the APK on your Android device (Android 8.0+ supported).</li>
+                                    <li>In the WebApp dashboard, navigate to <strong>Control Center &rarr; Devices</strong>.</li>
+                                    <li>Click <strong>Pair New Device</strong> to generate a unique pairing QR code with your encrypted server token.</li>
+                                    <li>Open the Android app, tap <strong>Scan Pairing QR</strong>, and align the camera view with your screen.</li>
+                                    <li>The app automatically saves the server URL, performs cryptographic handshake, and stores the token securely.</li>
                                 </ol>
                                 <div class="bg-light p-3 rounded-3 small">
-                                    <i class="fa-solid fa-lightbulb text-warning me-2"></i>
-                                    <strong>Tip:</strong> The app requires Android 6.0 (API 23) or higher. It has been tested on Samsung, Tecno, Infinix, and Xiaomi devices.
+                                    <i class="fa-solid fa-shield-halved text-success me-2"></i>
+                                    <strong>Security:</strong> The server stores only the SHA-256 hash of your device token. You can revoke any device instantly from the dashboard.
                                 </div>
                             </div>
                         </div>
 
+                        <!-- Step 3 -->
                         <div class="d-flex gap-4 mb-5">
                             <span class="step-number">3</span>
                             <div>
-                                <h4 class="fw-bold mb-2">Generate an Access Token</h4>
-                                <p class="text-muted mb-3">The access token securely links your Android app to your web account. It's generated from the dashboard and entered into the phone app.</p>
+                                <h4 class="fw-bold mb-2">Activate Local GGUF Model Preset</h4>
+                                <p class="text-muted mb-3">Enable local semantic reasoning via the ML management console without needing external LLM APIs.</p>
                                 <ol class="text-muted small" style="line-height: 2;">
-                                    <li>Log in to the web dashboard at <a href="<?= url_to('login') ?>" class="fw-semibold">/login</a></li>
-                                    <li>Navigate to <strong>Info</strong> in the sidebar menu</li>
-                                    <li>In the <strong>API Token</strong> section, click <strong>Generate Token</strong></li>
-                                    <li><strong>Copy the 12-character token immediately</strong> — it will be shown at the top of the page</li>
-                                    <li>The token is a short alphanumeric string (e.g., <code>aB1cD2eF3g4h</code>)</li>
+                                    <li>In the WebApp sidebar, go to <strong>Admin &rarr; ML Management &rarr; Models</strong>.</li>
+                                    <li>Review available model presets (e.g. <strong>Qwen 2.5 3B Instruct Q4_K_M</strong>).</li>
+                                    <li>Click <strong>Download / Activate</strong> — the system verifies disk space and memory headroom before initializing.</li>
+                                    <li>Verify model status in <strong>Admin &rarr; Telemetry</strong> to confirm <code>llama-server</code> process health and RSS memory usage.</li>
                                 </ol>
-                                <div class="bg-danger bg-opacity-10 p-3 rounded-3 small text-danger">
-                                    <i class="fa-solid fa-shield me-2"></i>
-                                    <strong>Security Note:</strong> Never share your access token. It provides full access to your financial data. If compromised, nullify it immediately from the Info page.
+                                <div class="bg-light p-3 rounded-3 small">
+                                    <i class="fa-solid fa-bolt text-warning me-2"></i>
+                                    <strong>Performance:</strong> The ML microservice uses AVX2 CPU vectorization automatically, running efficiently even on standard 4-core VPS instances.
                                 </div>
                             </div>
                         </div>
 
-                        <div class="d-flex gap-4 mb-5">
+                        <!-- Step 4 -->
+                        <div class="d-flex gap-4">
                             <span class="step-number">4</span>
                             <div>
-                                <h4 class="fw-bold mb-2">Link Your Android App</h4>
-                                <p class="text-muted mb-3">Authorize the Android app to upload data under your account by pasting the token inside the app settings.</p>
+                                <h4 class="fw-bold mb-2">Sync SMS & Run Semantic Analysis</h4>
+                                <p class="text-muted mb-3">Initiate your initial SMS batch upload and generate your structured financial ledger.</p>
                                 <ol class="text-muted small" style="line-height: 2;">
-                                    <li>Open the Mpesa Analyzer app on your Android device</li>
-                                    <li>Navigate to the **Settings** or link prompt screen</li>
-                                    <li>Paste the <strong>12-character Access Token</strong> you copied in step 3</li>
-                                    <li>Click **Save / Link** — the app will perform a handshake and confirm connection with the backend</li>
-                                    <li>The device is now fully linked and authorized to upload encrypted payloads</li>
-                                </ol>
-                                <div class="bg-light p-3 rounded-3 small">
-                                    <i class="fa-solid fa-lightbulb text-warning me-2"></i>
-                                    <strong>Tip:</strong> You can link one active device token at a time. Each generated token automatically revokes any previous sessions for security.
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="d-flex gap-4 mb-5">
-                            <span class="step-number">5</span>
-                            <div>
-                                <h4 class="fw-bold mb-2">Synchronize SMS</h4>
-                                <p class="text-muted mb-3">Once linked, the Android app will begin uploading SMS. On first install, it can scan historically received SMS. New messages are synced in real time.</p>
-                                <ol class="text-muted small" style="line-height: 2;">
-                                    <li>Ensure your phone has an active internet connection (Wi-Fi or mobile data)</li>
-                                    <li>Open the Android app — it will show sync status and message count</li>
-                                    <li>For first-time setup, tap <strong>Sync History</strong> to upload previously received M-Pesa SMS</li>
-                                    <li>The app processes SMS in batches to minimize battery/data impact</li>
-                                    <li>On the web dashboard, the <strong>Transactions</strong> page will begin populating</li>
-                                    <li>You can monitor sync progress from the dashboard home screen</li>
+                                    <li>On the Android app, tap <strong>Sync SMS History</strong> to queue existing mobile money messages into local SQLite.</li>
+                                    <li>WorkManager batches and AES-256 encrypts the payload, transmitting it to <code>/api/v1/upload</code>.</li>
+                                    <li>In the WebApp dashboard, click <strong>Rescan / Analyze</strong> to trigger the semantic classification cycle.</li>
+                                    <li>Monitor the live modal progress dialog as messages are categorized into sent, received, utilities, airtime, and Fuliza.</li>
+                                    <li>Explore your interactive spending charts, financial health score, and exportable ledgers.</li>
                                 </ol>
                             </div>
                         </div>
 
-                        <div class="d-flex gap-4 mb-5">
-                            <span class="step-number">6</span>
-                            <div>
-                                <h4 class="fw-bold mb-2">Run ML Analysis</h4>
-                                <p class="text-muted mb-3">After SMS are uploaded, the ML backend classifies senders and extracts structured transaction data. With auto-processing enabled this happens automatically; you can also trigger it manually.</p>
-                                <ol class="text-muted small" style="line-height: 2;">
-                                    <li>New SMS are processed automatically by the background poller, or click the <strong>Analyze</strong> button on the dashboard to run a cycle now</li>
-                                    <li>Known finance senders (M-Pesa, banks, SACCOs…) are recognised instantly; unknown senders are classified by the local LLM</li>
-                                    <li>Processing is batched, so hundreds of messages are handled in a few calls rather than one-by-one</li>
-                                    <li>Track progress in the top bar; completed runs appear in <strong>History → ML Jobs</strong> with a full summary</li>
-                                    <li>Once complete, your analytics, charts, and reports are populated</li>
-                                </ol>
-                                <div class="bg-light p-3 rounded-3 small">
-                                    <i class="fa-solid fa-lightbulb text-warning me-2"></i>
-                                    <strong>Tip:</strong> The <strong>Rescan</strong> button processes only new/unprocessed SMS. The <strong>Full</strong> button clears existing analysis and re-classifies everything. If processing ever pauses, an admin can toggle <strong>Auto Jobs</strong> from the ML console.
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="d-flex gap-4">
-                            <span class="step-number">7</span>
-                            <div>
-                                <h4 class="fw-bold mb-2">Explore Your Dashboard</h4>
-                                <p class="text-muted mb-3">With SMS uploaded and classified, the full dashboard becomes active. Here's what you can do:</p>
-                                <div class="row g-2">
-                                    <div class="col-sm-6">
-                                        <div class="bg-light p-3 rounded-3 small">
-                                            <strong><i class="fa-solid fa-house text-primary me-1"></i> Home</strong>
-                                            <p class="mb-0 text-muted">Financial overview, balance, health score, top counterparties, and smart alerts.</p>
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <div class="bg-light p-3 rounded-3 small">
-                                            <strong><i class="fa-solid fa-chart-pie text-primary me-1"></i> Analytics</strong>
-                                            <p class="mb-0 text-muted">Interactive charts for spending, income, Fuliza usage, and category breakdowns.</p>
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <div class="bg-light p-3 rounded-3 small">
-                                            <strong><i class="fa-solid fa-magnifying-glass text-primary me-1"></i> Search</strong>
-                                            <p class="mb-0 text-muted">Full-text search across all transactions with filters by date, category, amount, and counterparty.</p>
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <div class="bg-light p-3 rounded-3 small">
-                                            <strong><i class="fa-solid fa-timeline text-primary me-1"></i> History</strong>
-                                            <p class="mb-0 text-muted">Upload History plus an <strong>ML Jobs</strong> tab — every run with a click-through summary (good/bad SMS, senders, model).</p>
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <div class="bg-light p-3 rounded-3 small">
-                                            <strong><i class="fa-solid fa-bullseye text-primary me-1"></i> Budget</strong>
-                                            <p class="mb-0 text-muted">Set monthly budgets per category and get alerts when approaching or exceeding limits.</p>
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <div class="bg-light p-3 rounded-3 small">
-                                            <strong><i class="fa-solid fa-ban text-primary me-1"></i> Blocklist</strong>
-                                            <p class="mb-0 text-muted">Blocked / Allowed / Unknown sender tabs. Pre-selected good senders show as Allowed automatically.</p>
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <div class="bg-light p-3 rounded-3 small">
-                                            <strong><i class="fa-solid fa-database text-primary me-1"></i> Data Management</strong>
-                                            <p class="mb-0 text-muted">Export, purge old data, and <strong>delete non-finance SMS</strong> (type DELETE to confirm) while keeping finance data.</p>
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <div class="bg-light p-3 rounded-3 small">
-                                            <strong><i class="fa-solid fa-gear text-primary me-1"></i> Info &amp; Auth</strong>
-                                            <p class="mb-0 text-muted">Manage devices and access tokens — generate and revoke the tokens that link your phone.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="py-5 bg-white">
-        <div class="container py-2 text-center">
-            <div class="bg-primary p-5 rounded-4 shadow-lg text-white" style="border-radius: var(--radius) !important;">
-                <h2 class="fw-bold mb-3">Ready to get started?</h2>
-                <p class="mb-4 opacity-75 fs-5">Create your account and begin your financial intelligence journey.</p>
-                <div class="d-flex justify-content-center gap-3 flex-wrap">
-                    <a href="<?= url_to('register') ?>" class="btn btn-light btn-lg px-5 text-primary fw-bold shadow-sm">
-                        <i class="fa-solid fa-user-plus me-2"></i>Create Free Account
-                    </a>
-                    <a href="<?= url_to('login') ?>" class="btn btn-outline-light btn-lg px-5 fw-bold">
-                        <i class="fa-solid fa-arrow-right-to-bracket me-2"></i>Sign In
-                    </a>
                 </div>
             </div>
         </div>
@@ -314,7 +198,7 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
             <div class="row g-4">
                 <div class="col-md-5">
                     <h4 class="text-white fw-bold mb-3"><i class="fa-solid fa-wallet me-2"></i>Mpesa Analyzer</h4>
-                    <p class="opacity-75 small">AI-powered financial intelligence platform.</p>
+                    <p class="opacity-75 small">AI-powered financial intelligence platform. Android app, local GGUF classification microservice, and interactive web dashboard.</p>
                 </div>
                 <div class="col-md-2">
                     <h6 class="text-white fw-bold mb-3">Platform</h6>
@@ -337,9 +221,9 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
                     <div class="d-flex flex-wrap gap-1 small opacity-75">
                         <span class="badge bg-light text-dark">CodeIgniter 4</span>
                         <span class="badge bg-light text-dark">FastAPI</span>
-                        <span class="badge bg-light text-dark">LLM</span>
-                        <span class="badge bg-light text-dark">MySQL</span>
-                        <span class="badge bg-light text-dark">Bootstrap 5</span>
+                        <span class="badge bg-light text-dark">Llama.cpp</span>
+                        <span class="badge bg-light text-dark">Qwen 2.5</span>
+                        <span class="badge bg-light text-dark">CameraX</span>
                         <span class="badge bg-light text-dark">Docker</span>
                     </div>
                 </div>
@@ -383,4 +267,4 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
         });
     </script>
 </body>
-</html>
+</html>\n

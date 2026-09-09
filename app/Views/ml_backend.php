@@ -11,7 +11,7 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>ML Backend — Mpesa Analyzer</title>
-    <meta name="description" content="The Mpesa Analyzer ML backend uses a local LLM to classify SMS senders and extract transactions. FastAPI service with model, prompt and job management.">
+    <meta name="description" content="The Mpesa Analyzer ML backend runs local GGUF LLMs (Qwen 2.5 via Llama.cpp) with CPU AVX2 and GPU support. FastAPI microservice on port 9050 with telemetry, model presets, and semantic extraction.">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="<?= base_url('ml-backend') ?>">
 
@@ -22,7 +22,7 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
     <link rel="manifest" href="<?= base_url('site.webmanifest?v=' . $systemVersion) ?>">
 
     <meta property="og:title" content="ML Backend — Mpesa Analyzer">
-    <meta property="og:description" content="Local LLM classifies M-Pesa SMS senders and extracts transactions. FastAPI service at :9050.">
+    <meta property="og:description" content="Local GGUF LLM inference engine running via Llama.cpp and FastAPI on port 9050.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="<?= base_url('ml-backend') ?>">
     <meta property="og:image" content="<?= base_url('assets/img/logo.png') ?>">
@@ -40,7 +40,7 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
     <link href="<?= base_url('assets/ace/css/ace-theme.css') ?>" rel="stylesheet" />
 
     <style>
-        :root { --primary: #438EB9; --primary-dark: #222A2D; --secondary: #E8F2F8; --dark: #1A1A2E; --light: #F8F9FA; --radius: 4px; }
+        :root { --primary: #438EB9; --primary-dark: #222A2D; --secondary: #E8F2F8; --dark: #1A1A2E; --light: #F8F9FA; --radius: 6px; }
         body { font-family: 'Outfit', sans-serif; background-color: var(--light); color: var(--dark); }
         .navbar { padding: 1.25rem 0; background: transparent; transition: all 0.3s ease; }
         .navbar.scrolled { background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); padding: 0.75rem 0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
@@ -51,7 +51,7 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
         .nav-link.active { position: relative; }
         .nav-link.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background: var(--primary); border-radius: 1px; }
         .btn-primary { background-color: var(--primary); border-color: var(--primary); padding: 0.7rem 1.8rem; font-weight: 600; border-radius: var(--radius); transition: all 0.3s; }
-        .btn-primary:hover { background-color: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(93,95,239,0.35); }
+        .btn-primary:hover { background-color: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(67,142,185,0.35); }
         .btn-outline-primary { color: var(--primary); border-color: var(--primary); padding: 0.7rem 1.8rem; font-weight: 600; border-radius: var(--radius); }
         .btn-outline-primary:hover { background-color: var(--primary); color: #fff; transform: translateY(-2px); }
         .page-header { padding: 120px 0 60px; background: linear-gradient(135deg, #fff 0%, var(--secondary) 100%); }
@@ -64,8 +64,6 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
         .footer { background: var(--dark); color: #fff; padding: 4rem 0 2rem; }
         .footer a { color: rgba(255,255,255,0.7); text-decoration: none; transition: color 0.2s; }
         .footer a:hover { color: #fff; }
-        code { background: #eef0ff; color: var(--primary); padding: 2px 6px; border-radius: 3px; font-size: 0.85em; }
-        [data-bs-theme="dark"] code { background: #1e293b; color: #38bdf8; }
         @media (max-width: 768px) { .page-header { padding: 100px 0 40px; } }
     </style>
 </head>
@@ -103,23 +101,37 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
             <div class="row align-items-center g-4">
                 <div class="col-lg-6">
                     <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-2 mb-3 fw-semibold">
-                        <i class="fa-solid fa-microchip me-1"></i> AI Engine
+                        <i class="fa-solid fa-microchip me-1"></i> Autonomous AI Microservice (v<?= esc($systemVersion) ?>)
                     </span>
-                    <h1 class="fw-800 mb-3" style="font-size: 2.75rem; font-weight: 800; letter-spacing: -0.5px;">ML Backend</h1>
+                    <h1 class="fw-800 mb-3" style="font-size: 2.75rem; font-weight: 800; letter-spacing: -0.5px;">ML Backend Engine</h1>
                     <p class="lead text-muted mb-4" style="line-height: 1.7;">
-                        The intelligence layer of Mpesa Analyzer. A FastAPI microservice running a local Large Language Model (Qwen2.5 1.5B via llama.cpp) that reads raw SMS text, determines if a sender is finance-related, and extracts structured transaction data — all without rigid parsing rules.
+                        High-performance FastAPI service running local GGUF Large Language Models (such as <strong>Qwen 2.5 3B Instruct</strong>) via <code>llama.cpp</code>. Employs <strong>AVX2 vectorization</strong>, dynamic prompt versioning, live container telemetry, and two-stage heuristic + semantic parsing without external API fees.
                     </p>
-                    <div class="d-flex gap-2 flex-wrap">
-                        <span class="badge bg-light text-dark border px-3 py-2"><i class="fa-brands fa-python me-1"></i>FastAPI</span>
-                        <span class="badge bg-light text-dark border px-3 py-2"><i class="fa-solid fa-brain me-1"></i>Local LLM</span>
-                        <span class="badge bg-light text-dark border px-3 py-2"><i class="fa-solid fa-database me-1"></i>MySQL</span>
-                        <span class="badge bg-light text-dark border px-3 py-2"><i class="fa-brands fa-docker me-1"></i>Docker</span>
+                    <div class="d-flex gap-2 flex-wrap mb-4">
+                        <span class="badge bg-light text-dark border px-3 py-2"><i class="fa-brands fa-python me-1"></i>FastAPI 0.110+</span>
+                        <span class="badge bg-light text-dark border px-3 py-2"><i class="fa-solid fa-brain me-1"></i>Llama.cpp Engine</span>
+                        <span class="badge bg-light text-dark border px-3 py-2"><i class="fa-solid fa-bolt me-1"></i>AVX2 / OpenMP</span>
+                        <span class="badge bg-light text-dark border px-3 py-2"><i class="fa-solid fa-gauge-high me-1"></i>Live Telemetry</span>
+                    </div>
+                    <div class="d-flex flex-wrap gap-3">
+                        <a href="<?= base_url('setup') ?>" class="btn btn-primary btn-lg px-4">
+                            <i class="fa-solid fa-download me-2"></i>Model Setup Guide
+                        </a>
+                        <a href="<?= base_url('faq') ?>" class="btn btn-outline-primary btn-lg px-4">
+                            <i class="fa-solid fa-circle-question me-2"></i>Hardware Specs
+                        </a>
                     </div>
                 </div>
                 <div class="col-lg-6">
-                    <div class="glass-card text-center p-5">
-                        <i class="fa-solid fa-microchip fa-6x text-primary opacity-25 mb-3"></i>
-                        <p class="text-muted small mb-0">FastAPI LLM Inference Service on <code>:9050</code></p>
+                    <div class="glass-card text-center p-5 shadow-sm">
+                        <div class="d-flex justify-content-center gap-2 mb-3 flex-wrap">
+                            <span class="badge bg-primary bg-opacity-10 text-primary border px-2.5 py-1.5"><i class="fa-solid fa-server me-1"></i> Port 9050</span>
+                            <span class="badge bg-success bg-opacity-10 text-success border px-2.5 py-1.5"><i class="fa-solid fa-memory me-1"></i> GGUF Quantized</span>
+                            <span class="badge bg-info bg-opacity-10 text-info border px-2.5 py-1.5"><i class="fa-solid fa-shield me-1"></i> 100% On-Premise</span>
+                        </div>
+                        <i class="fa-solid fa-microchip fa-6x text-primary opacity-50 mb-3"></i>
+                        <h5 class="fw-bold mb-1">Local Inference Microservice</h5>
+                        <p class="text-muted small mb-0">FastAPI Worker + llama-server Daemon Process</p>
                     </div>
                 </div>
             </div>
@@ -129,21 +141,21 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
     <section class="py-5 bg-white">
         <div class="container py-4">
             <div class="text-center mb-5">
-                <h2 class="fw-bold h1 mb-3">Why an LLM Instead of Regex?</h2>
-                <p class="text-muted mx-auto" style="max-width: 650px;">Traditional parsers struggle when SMS formats change. An LLM understands meaning, not just patterns.</p>
+                <h2 class="fw-bold h1 mb-3">Why Local LLMs Beat Regex Rules</h2>
+                <p class="text-muted mx-auto" style="max-width: 650px;">Traditional regex parsers fail as formats change. A localized LLM understands human syntax, slang, and evolving banking formats.</p>
             </div>
             <div class="row g-4">
                 <div class="col-md-6">
                     <div class="glass-card">
                         <div class="d-flex gap-3 mb-3">
-                            <div class="icon-box" style="width: 48px; height: 48px; font-size: 1.1rem;"><i class="fa-solid fa-wrench"></i></div>
+                            <div class="icon-box" style="width: 48px; height: 48px; font-size: 1.1rem;"><i class="fa-solid fa-ban text-danger"></i></div>
                             <div>
-                                <h5 class="fw-bold">Regex Approach (Traditional)</h5>
+                                <h5 class="fw-bold">Brittle Regex Parsers</h5>
                                 <ul class="text-muted small mb-0 mt-2">
-                                    <li class="mb-1">Requires manual patterns for each SMS template</li>
-                                    <li class="mb-1">Breaks when Safaricom updates their format</li>
-                                    <li class="mb-1">Cannot detect new transaction types</li>
-                                    <li class="mb-1">Hard to maintain across different senders</li>
+                                    <li class="mb-1.5">Crash when Safaricom alters spacing, words, or adds new disclosures.</li>
+                                    <li class="mb-1.5">Incapable of parsing new financial institutions (e.g. SACCOs, micro-lenders).</li>
+                                    <li class="mb-1.5">Zero context awareness — cannot distinguish transaction notes from amounts.</li>
+                                    <li class="mb-1.5">High maintenance burden with dozens of error-prone regular expressions.</li>
                                 </ul>
                             </div>
                         </div>
@@ -152,14 +164,14 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
                 <div class="col-md-6">
                     <div class="glass-card">
                         <div class="d-flex gap-3 mb-3">
-                            <div class="icon-box" style="width: 48px; height: 48px; font-size: 1.1rem;"><i class="fa-solid fa-brain"></i></div>
+                            <div class="icon-box" style="width: 48px; height: 48px; font-size: 1.1rem;"><i class="fa-solid fa-wand-magic-sparkles text-primary"></i></div>
                             <div>
-                                <h5 class="fw-bold">LLM Approach (Mpesa Analyzer)</h5>
+                                <h5 class="fw-bold">Semantic GGUF LLM Engine</h5>
                                 <ul class="text-muted small mb-0 mt-2">
-                                    <li class="mb-1">Understands semantic meaning, not just text patterns</li>
-                                    <li class="mb-1">Adapts to format changes automatically</li>
-                                    <li class="mb-1">Detects new and emerging transaction types</li>
-                                    <li class="mb-1">Single model handles all financial SMS sources</li>
+                                    <li class="mb-1.5">Infers semantic intent across English, Swahili, and Sheng terminology.</li>
+                                    <li class="mb-1.5">Adapts seamlessly to new templates and unexpected transaction types.</li>
+                                    <li class="mb-1.5">Extracts structured JSON: counterparty, amount, fees, balance, and timestamps.</li>
+                                    <li class="mb-1.5">100% private and on-premise — zero API keys or per-token fees.</li>
                                 </ul>
                             </div>
                         </div>
@@ -169,39 +181,39 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
         </div>
     </section>
 
-    <section class="py-5 bg-light">
+    <section class="py-5">
         <div class="container py-4">
             <div class="text-center mb-5">
-                <h2 class="fw-bold h1 mb-3">Classification Pipeline</h2>
-                <p class="text-muted mx-auto" style="max-width: 600px;">How a raw SMS becomes a structured transaction in your dashboard.</p>
+                <h2 class="fw-bold h1 mb-3">Two-Stage Processing Architecture</h2>
+                <p class="text-muted mx-auto" style="max-width: 600px;">Maximizing throughput by pairing lightning-fast heuristics with deep semantic reasoning.</p>
             </div>
             <div class="row g-4">
                 <div class="col-md-3 col-6">
                     <div class="glass-card text-center">
                         <div class="icon-box mx-auto"><i class="fa-solid fa-inbox"></i></div>
-                        <h6 class="fw-bold">1. Raw SMS</h6>
-                        <p class="text-muted small mb-0">"Ksh 500.00 sent to John Doe on 15/1/2026 at 10:30..."</p>
+                        <h6 class="fw-bold">1. Raw Loot Batch</h6>
+                        <p class="text-muted small mb-0">Encrypted SMS batches are ingested from the Android queue into <code>tbl_Loot</code>.</p>
                     </div>
                 </div>
                 <div class="col-md-3 col-6">
                     <div class="glass-card text-center">
-                        <div class="icon-box mx-auto"><i class="fa-solid fa-filter-circle-xmark"></i></div>
-                        <h6 class="fw-bold">2. Sender Classification</h6>
-                        <p class="text-muted small mb-0">Known finance senders (M-Pesa, banks, SACCOs…) are recognised instantly; unknown senders are classified by the LLM.</p>
+                        <div class="icon-box mx-auto"><i class="fa-solid fa-filter"></i></div>
+                        <h6 class="fw-bold">2. Pre-Classification</h6>
+                        <p class="text-muted small mb-0">Verified financial senders (MPESA, banks) are identified instantly in sub-milliseconds.</p>
                     </div>
                 </div>
                 <div class="col-md-3 col-6">
                     <div class="glass-card text-center">
-                        <div class="icon-box mx-auto"><i class="fa-solid fa-cubes"></i></div>
-                        <h6 class="fw-bold">3. Extraction</h6>
-                        <p class="text-muted small mb-0">Amount, counterparty, category, timestamp, new balance, transaction code extracted from finance SMS.</p>
+                        <div class="icon-box mx-auto"><i class="fa-solid fa-microchip"></i></div>
+                        <h6 class="fw-bold">3. GGUF Extraction</h6>
+                        <p class="text-muted small mb-0">The local Qwen model extracts structured fields into standard JSON under strict temperature controls.</p>
                     </div>
                 </div>
                 <div class="col-md-3 col-6">
                     <div class="glass-card text-center">
-                        <div class="icon-box mx-auto"><i class="fa-solid fa-chart-simple"></i></div>
-                        <h6 class="fw-bold">4. Canonical Storage</h6>
-                        <p class="text-muted small mb-0">One record per SMS in tbl_Sms carries both classification and parsed fields. Dashboards query it instantly.</p>
+                        <div class="icon-box mx-auto"><i class="fa-solid fa-database"></i></div>
+                        <h6 class="fw-bold">4. Normalized Ledger</h6>
+                        <p class="text-muted small mb-0">Transactions are committed into <code>tbl_Transactions</code> with full audit logs and job metrics.</p>
                     </div>
                 </div>
             </div>
@@ -210,98 +222,52 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
 
     <section class="py-5 bg-white">
         <div class="container py-4">
-            <div class="row g-4">
-                <div class="col-lg-6">
-                    <h2 class="fw-bold h1 mb-4">What the ML Extracts</h2>
-                    <div class="glass-card">
-                        <div class="d-flex gap-3 mb-3">
-                            <div class="icon-box" style="width: 48px; height: 48px; font-size: 1.1rem;"><i class="fa-solid fa-tag"></i></div>
-                            <div><h6 class="fw-bold">Transaction Category</h6><p class="text-muted small mb-0">Send money, receive, airtime, data bundles, Fuliza, M-Shwari, KCB M-Pesa, utilities, bill payments, till number, paybill, withdrawal, deposit, savings, and more.</p></div>
-                        </div>
-                        <div class="d-flex gap-3 mb-3">
-                            <div class="icon-box" style="width: 48px; height: 48px; font-size: 1.1rem;"><i class="fa-solid fa-user"></i></div>
-                            <div><h6 class="fw-bold">Counterparty</h6><p class="text-muted small mb-0">The person, business, or organization on the other side of the transaction. Extracted from the SMS context.</p></div>
-                        </div>
-                        <div class="d-flex gap-3 mb-3">
-                            <div class="icon-box" style="width: 48px; height: 48px; font-size: 1.1rem;"><i class="fa-solid fa-coins"></i></div>
-                            <div><h6 class="fw-bold">Amount & Balance</h6><p class="text-muted small mb-0">Transaction amount, whether it's a debit or credit, and the resulting account balance after the transaction.</p></div>
-                        </div>
-                        <div class="d-flex gap-3">
-                            <div class="icon-box" style="width: 48px; height: 48px; font-size: 1.1rem;"><i class="fa-solid fa-calendar"></i></div>
-                            <div><h6 class="fw-bold">Date & Time</h6><p class="text-muted small mb-0">Transaction timestamp extracted and normalized for consistent reporting and chronological analysis.</p></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-6">
-                    <h2 class="fw-bold h1 mb-4">Smart Alerts & Insights</h2>
-                    <div class="glass-card">
-                        <p class="text-muted small mb-3">Beyond classification, the ML backend analyzes patterns and generates proactive alerts:</p>
-                        <div class="d-flex gap-3 mb-3">
-                            <div class="icon-box" style="width: 48px; height: 48px; font-size: 1.1rem; background: #fee2e2; color: #dc2626;"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                            <div><h6 class="fw-bold">Low Balance Warning</h6><p class="text-muted small mb-0">Notifies you when your M-Pesa balance drops below a configurable threshold.</p></div>
-                        </div>
-                        <div class="d-flex gap-3 mb-3">
-                            <div class="icon-box" style="width: 48px; height: 48px; font-size: 1.1rem; background: #fef3c7; color: #d97706;"><i class="fa-solid fa-shield-halved"></i></div>
-                            <div><h6 class="fw-bold">Unusual Activity</h6><p class="text-muted small mb-0">Flags transactions that deviate from your typical spending patterns, amount ranges, or counterparties.</p></div>
-                        </div>
-                        <div class="d-flex gap-3 mb-3">
-                            <div class="icon-box" style="width: 48px; height: 48px; font-size: 1.1rem; background: #dbeafe; color: #2563eb;"><i class="fa-solid fa-percent"></i></div>
-                            <div><h6 class="fw-bold">Fuliza Utilization</h6><p class="text-muted small mb-0">Tracks Fuliza overdraft usage and remaining limit, alerting you when utilization is high.</p></div>
-                        </div>
-                        <div class="d-flex gap-3">
-                            <div class="icon-box" style="width: 48px; height: 48px; font-size: 1.1rem; background: #d1fae5; color: #059669;"><i class="fa-solid fa-heart-pulse"></i></div>
-                            <div><h6 class="fw-bold">Financial Health Score</h6><p class="text-muted small mb-0">A composite score based on 60 days of transaction history, considering income stability, spending patterns, and Fuliza dependency.</p></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="py-5 bg-light">
-        <div class="container py-4">
             <div class="text-center mb-5">
-                <h2 class="fw-bold h1 mb-3">Managed ML Service</h2>
-                <p class="text-muted mx-auto" style="max-width: 650px;">Admins can operate the backend end-to-end from the web console — no SSH or manual config required.</p>
+                <h2 class="fw-bold h1 mb-3">Enterprise Control & Telemetry</h2>
+                <p class="text-muted mx-auto" style="max-width: 650px;">SuperAdmins manage models, tune prompts, and monitor container diagnostics in real time.</p>
             </div>
             <div class="row g-4">
                 <div class="col-md-6">
                     <div class="glass-card">
-                        <h5 class="fw-bold mb-3"><i class="fa-solid fa-play text-primary me-2"></i>Automatic Processing</h5>
+                        <h5 class="fw-bold mb-3"><i class="fa-solid fa-chart-line text-primary me-2"></i>Live Telemetry Endpoint (<code>/admin/telemetry</code>)</h5>
+                        <p class="text-muted small mb-2">Exposes real-time container vitals for high-availability production monitoring:</p>
                         <ul class="text-muted small mb-0">
-                            <li class="mb-1">A background poller automatically processes new SMS on a configurable interval</li>
-                            <li class="mb-1">Admins can <strong>Start / Stop Auto Jobs</strong> — when stopped, no ML jobs run until re-enabled</li>
-                            <li class="mb-1">Jobs can also be triggered on demand per user (Rescan / Analyze)</li>
+                            <li class="mb-1"><strong>Process RSS Headroom:</strong> Tracks exact memory footprints of FastAPI and <code>llama-server</code>.</li>
+                            <li class="mb-1"><strong>Active Model Metrics:</strong> Displays model parameters, quantization level, and context size.</li>
+                            <li class="mb-1"><strong>Health & Uptime:</strong> Instant heartbeat alerts for process crashes or memory pressure.</li>
                         </ul>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="glass-card">
-                        <h5 class="fw-bold mb-3"><i class="fa-solid fa-box-open text-primary me-2"></i>Model Management</h5>
+                        <h5 class="fw-bold mb-3"><i class="fa-solid fa-cubes text-primary me-2"></i>Hugging Face Model Presets</h5>
+                        <p class="text-muted small mb-2">Manage models effortlessly directly through the WebApp dashboard:</p>
                         <ul class="text-muted small mb-0">
-                            <li class="mb-1">Upload, activate and delete GGUF models from the web console</li>
-                            <li class="mb-1">Model metadata (parameters, quantization, context length, architecture) is read automatically from the file</li>
-                            <li class="mb-1">Runtime tuning: context size, prompt batch, GPU layers, temperature — applied on restart</li>
+                            <li class="mb-1"><strong>One-Click Presets:</strong> Pre-configured downloads for Qwen 2.5 1.5B/3B, Llama 3.2, and Mistral.</li>
+                            <li class="mb-1"><strong>Hardware Safeguards:</strong> Verifies disk space and RAM headroom before starting downloads.</li>
+                            <li class="mb-1"><strong>Hot-Switching:</strong> Switch active GGUF models on the fly with graceful daemon restarts.</li>
                         </ul>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="glass-card">
-                        <h5 class="fw-bold mb-3"><i class="fa-solid fa-file-lines text-primary me-2"></i>Prompt Management</h5>
+                        <h5 class="fw-bold mb-3"><i class="fa-solid fa-sliders text-primary me-2"></i>Dynamic Prompt Versioning</h5>
+                        <p class="text-muted small mb-2">Tune system prompts and output schemas without modifying application code:</p>
                         <ul class="text-muted small mb-0">
-                            <li class="mb-1">Classification and extraction prompts are editable and versioned</li>
-                            <li class="mb-1">Saving a prompt creates a new version and makes it active</li>
-                            <li class="mb-1">The hardcoded prompt stays the fallback whenever no DB version exists</li>
+                            <li class="mb-1"><strong>Versioned History:</strong> Every prompt edit creates a traceable snapshot in MySQL.</li>
+                            <li class="mb-1"><strong>Fallback Safeguard:</strong> Automatically falls back to verified defaults if no active DB prompt is set.</li>
+                            <li class="mb-1"><strong>Prompt Optimization:</strong> Adjust instruction framing for specific East African banking formats.</li>
                         </ul>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="glass-card">
-                        <h5 class="fw-bold mb-3"><i class="fa-solid fa-list-check text-primary me-2"></i>Job Metadata & Audit</h5>
+                        <h5 class="fw-bold mb-3"><i class="fa-solid fa-rotate text-primary me-2"></i>Batch Rescan & Full Reset</h5>
+                        <p class="text-muted small mb-2">Reprocess historical data safely with interactive modal dialogs:</p>
                         <ul class="text-muted small mb-0">
-                            <li class="mb-1">Every ML job records rich metadata: all / good / bad / skipped SMS, sender breakdowns, model &amp; LLM tuning, duration, errors</li>
-                            <li class="mb-1">Users see their job runs in the ML Jobs tab of the History page with a per-run summary modal</li>
-                            <li class="mb-1">Admins monitor all jobs with aggregate stats from the ML Jobs console</li>
+                            <li class="mb-1"><strong>Incremental Rescan:</strong> Analyzes newly synced or unclassified SMS batches.</li>
+                            <li class="mb-1"><strong>Full Reset:</strong> Safely clears previous inferences and re-runs current models across all records.</li>
+                            <li class="mb-1"><strong>Live Progress Polling:</strong> Real-time progress bars prevent timeouts during heavy multi-thousand SMS batches.</li>
                         </ul>
                     </div>
                 </div>
@@ -314,7 +280,7 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
             <div class="row g-4">
                 <div class="col-md-5">
                     <h4 class="text-white fw-bold mb-3"><i class="fa-solid fa-wallet me-2"></i>Mpesa Analyzer</h4>
-                    <p class="opacity-75 small">AI-powered financial intelligence platform.</p>
+                    <p class="opacity-75 small">AI-powered financial intelligence platform. Android app, local GGUF classification microservice, and interactive web dashboard.</p>
                 </div>
                 <div class="col-md-2">
                     <h6 class="text-white fw-bold mb-3">Platform</h6>
@@ -335,12 +301,12 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
                 <div class="col-md-3">
                     <h6 class="text-white fw-bold mb-3">Tech Stack</h6>
                     <div class="d-flex flex-wrap gap-1 small opacity-75">
-                        <span class="badge bg-light text-dark">CodeIgniter 4</span>
                         <span class="badge bg-light text-dark">FastAPI</span>
-                        <span class="badge bg-light text-dark">LLM</span>
-                        <span class="badge bg-light text-dark">MySQL</span>
-                        <span class="badge bg-light text-dark">Bootstrap 5</span>
-                        <span class="badge bg-light text-dark">Docker</span>
+                        <span class="badge bg-light text-dark">Llama.cpp</span>
+                        <span class="badge bg-light text-dark">Qwen 2.5</span>
+                        <span class="badge bg-light text-dark">AVX2 / CUDA</span>
+                        <span class="badge bg-light text-dark">MySQL 8.0</span>
+                        <span class="badge bg-light text-dark">CodeIgniter 4</span>
                     </div>
                 </div>
             </div>
@@ -383,4 +349,4 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
         });
     </script>
 </body>
-</html>
+</html>\n
