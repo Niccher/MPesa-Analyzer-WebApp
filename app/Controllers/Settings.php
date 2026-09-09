@@ -181,17 +181,19 @@ class Settings extends BaseController
         $db = \Config\Database::connect();
         $tokenType = \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN;
 
-        $totalUploads = $db->query("
+        $totalUploads = (int) ($db->query("
             SELECT COUNT(*) as cnt FROM tbl_Loot l
-            INNER JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256)
-            WHERE i.user_id = ? AND i.type = ?
-        ", [$userId, $tokenType])->getRow()->cnt ?? 0;
+            LEFT JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256) AND i.type = ?
+            WHERE l.loot_user_id = ? OR i.user_id = ?
+        ", [$tokenType, $userId, $userId])->getRow()->cnt ?? 0);
 
         $oldestUploadRow = $db->query("
-            SELECT MIN(l.loot_Created) as oldest FROM tbl_Loot l
-            INNER JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256)
-            WHERE i.user_id = ? AND i.type = ?
-        ", [$userId, $tokenType])->getRow();
+            SELECT MIN(COALESCE(NULLIF(NULLIF(l.loot_Created, '2026'), '0'), ls.loot_Created, l.loot_Created)) as oldest
+            FROM tbl_Loot l
+            LEFT JOIN tbl_Loot_Summary ls ON ls.loot_Uuid = l.loot_Uuid
+            LEFT JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256) AND i.type = ?
+            WHERE l.loot_user_id = ? OR i.user_id = ?
+        ", [$tokenType, $userId, $userId])->getRow();
         $oldestUpload = $oldestUploadRow->oldest ?? 'N/A';
 
         $nonFinance = $this->nonFinanceCount();

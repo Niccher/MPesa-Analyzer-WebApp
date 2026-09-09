@@ -416,10 +416,36 @@ $systemGithub = $versionData['github_url'] ?? 'https://github.com/niccher/Mpesa_
             if (result.isConfirmed) {
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Scanning...';
-                fetch('<?= $baseUrl ?>dashboard/rescan', { method: 'POST' })
-                    .then(r => r.json())
+                fetch('<?= $baseUrl ?>dashboard/rescan', {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        '<?= csrf_header() ?>': '<?= csrf_hash() ?>'
+                    }
+                })
+                    .then(async r => {
+                        const data = await r.json().catch(() => ({}));
+                        if (!r.ok) {
+                            throw new Error(data.message || ('Server error: ' + r.status));
+                        }
+                        return data;
+                    })
                     .then(data => {
-                        if (data.status === 'started') startPolling();
+                        if (data.status === 'started') {
+                            startPolling();
+                            Swal.fire({
+                                title: 'Rescan Started',
+                                text: data.message || 'Processing will run in the background.',
+                                icon: 'info',
+                                timer: 2500,
+                                showConfirmButton: false
+                            });
+                        } else {
+                            Swal.fire('Scan Notice', data.message || 'Scan could not be started.', 'warning');
+                        }
+                    })
+                    .catch(err => {
+                        Swal.fire('Scan Error', err.message || 'Failed to trigger rescan.', 'error');
                     })
                     .finally(() => {
                         btn.disabled = false;
@@ -443,10 +469,36 @@ $systemGithub = $versionData['github_url'] ?? 'https://github.com/niccher/Mpesa_
             if (result.isConfirmed) {
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Resetting...';
-                fetch('<?= $baseUrl ?>dashboard/rescan/all', { method: 'POST' })
-                    .then(r => r.json())
+                fetch('<?= $baseUrl ?>dashboard/rescan/all', {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        '<?= csrf_header() ?>': '<?= csrf_hash() ?>'
+                    }
+                })
+                    .then(async r => {
+                        const data = await r.json().catch(() => ({}));
+                        if (!r.ok) {
+                            throw new Error(data.message || ('Server error: ' + r.status));
+                        }
+                        return data;
+                    })
                     .then(data => {
-                        if (data.status === 'started') startPolling();
+                        if (data.status === 'started') {
+                            startPolling();
+                            Swal.fire({
+                                title: 'Full Reset Started',
+                                text: data.message || 'Reprocessing from scratch in the background.',
+                                icon: 'info',
+                                timer: 2500,
+                                showConfirmButton: false
+                            });
+                        } else {
+                            Swal.fire('Reset Notice', data.message || 'Reset could not be started.', 'warning');
+                        }
+                    })
+                    .catch(err => {
+                        Swal.fire('Reset Error', err.message || 'Failed to trigger full reset.', 'error');
                     })
                     .finally(() => {
                         btn.disabled = false;

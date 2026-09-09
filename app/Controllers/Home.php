@@ -88,7 +88,7 @@ class Home extends BaseController
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
         curl_setopt($ch, CURLOPT_TIMEOUT,        5);
-        curl_setopt($ch, CURLOPT_POSTFIELDS,     '');
+        curl_setopt($ch, CURLOPT_POSTFIELDS,     '{}');
         curl_setopt($ch, CURLOPT_HTTPHEADER,     ['Content-Type: application/json']);
         @curl_exec($ch);
         $curlErr = curl_error($ch);
@@ -119,13 +119,19 @@ class Home extends BaseController
         $rawTokens = [];
         $tokenRows = $db->query("
             SELECT DISTINCT s.sms_owner AS tk FROM tbl_Sms s
+            WHERE s.sms_user_id = ? AND s.sms_owner IS NOT NULL AND s.sms_owner != ''
+            UNION
+            SELECT DISTINCT l.loot_Owner AS tk FROM tbl_Loot l
+            WHERE l.loot_user_id = ? AND l.loot_Owner IS NOT NULL AND l.loot_Owner != ''
+            UNION
+            SELECT DISTINCT s.sms_owner AS tk FROM tbl_Sms s
             INNER JOIN auth_identities i ON i.secret = SHA2(s.sms_owner, 256)
             WHERE i.user_id = ? AND i.type = ?
             UNION
             SELECT DISTINCT l.loot_Owner AS tk FROM tbl_Loot l
             INNER JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256)
             WHERE i.user_id = ? AND i.type = ?
-        ", [$userId, $tokenType, $userId, $tokenType])->getResult();
+        ", [$userId, $userId, $userId, $tokenType, $userId, $tokenType])->getResult();
 
         foreach ($tokenRows as $r) {
             if (!empty($r->tk)) $rawTokens[] = $r->tk;
@@ -141,20 +147,31 @@ class Home extends BaseController
         $financeSms = 0;
         $uniqueSendersCount = 0;
 
+        // Count all SMS belonging to the user either by owner token or user_id
+        $smsBase = $db->table('tbl_Sms');
+        $smsBase->groupStart();
         if (!empty($rawTokens)) {
-            $total = $db->table('tbl_Sms')
-                ->whereIn('sms_owner', $rawTokens)
-                ->countAllResults();
+            $smsBase->whereIn('sms_owner', $rawTokens)->orWhere('sms_user_id', $userId);
+        } else {
+            $smsBase->where('sms_user_id', $userId);
+        }
+        $smsBase->groupEnd();
+        $total = $smsBase->countAllResults();
 
+        if ($total > 0 || !empty($rawTokens)) {
             // Total unique senders in the inbox data
             $sendersQuery = $db->table('tbl_Sms')
-                ->whereIn('sms_owner', $rawTokens)
-                ->select('COUNT(DISTINCT sms_number) as cnt')
-                ->get()
-                ->getRow();
-            $uniqueSendersCount = (int)($sendersQuery->cnt ?? 0);
+                ->select('COUNT(DISTINCT sms_number) as cnt');
+            $sendersQuery->groupStart();
+            if (!empty($rawTokens)) {
+                $sendersQuery->whereIn('sms_owner', $rawTokens)->orWhere('sms_user_id', $userId);
+            } else {
+                $sendersQuery->where('sms_user_id', $userId);
+            }
+            $sendersQuery->groupEnd();
+            $uniqueSendersCount = (int)($sendersQuery->get()->getRow()->cnt ?? 0);
 
-            if ($db->tableExists('tbl_Sender_Profiles')) {
+            if ($db->tableExists('tbl_Sender_Profiles') && !empty($rawTokens)) {
                 $totalSenders = $db->table('tbl_Sender_Profiles')
                     ->whereIn('sp_owner', $rawTokens)
                     ->countAllResults();
@@ -166,33 +183,46 @@ class Home extends BaseController
             }
 
             if ($db->tableExists('tbl_Sms')) {
-                $financeSms = $db->table('tbl_Sms')
-                    ->whereIn('sms_owner', $rawTokens)
-                    ->where('sms_is_finance', 1)
-                    ->countAllResults();
+                $finQuery = $db->table('tbl_Sms');
+                $finQuery->groupStart();
+                if (!empty($rawTokens)) {
+                    $finQuery->whereIn('sms_owner', $rawTokens)->orWhere('sms_user_id', $userId);
+                } else {
+                    $finQuery->where('sms_user_id', $userId);
+                }
+                $finQuery->groupEnd();
+                $financeSms = $finQuery->where('sms_is_finance', 1)->countAllResults();
             }
 
             // Count SMS classified by the LLM (method = 'llm')
             if ($db->tableExists('tbl_Sms_Classification')) {
-                $llmRow = $db->table('tbl_Sms_Classification sc')
+                $llmQ = $db->table('tbl_Sms_Classification sc')
                     ->select('COUNT(*) as cnt')
-                    ->join('tbl_Sms s', 's.id = sc.sms_id')
-                    ->whereIn('s.sms_owner', $rawTokens)
-                    ->where('sc.method', 'llm')
-                    ->get()
-                    ->getRow();
+                    ->join('tbl_Sms s', 's.id = sc.sms_id');
+                $llmQ->groupStart();
+                if (!empty($rawTokens)) {
+                    $llmQ->whereIn('s.sms_owner', $rawTokens)->orWhere('s.sms_user_id', $userId);
+                } else {
+                    $llmQ->where('s.sms_user_id', $userId);
+                }
+                $llmQ->groupEnd();
+                $llmRow = $llmQ->where('sc.method', 'llm')->get()->getRow();
                 $llmClassified = (int)($llmRow->cnt ?? 0);
             }
 
             // Count per-SMS processing status (populated by FastAPI on some setups)
             if ($db->tableExists('tbl_Sms_Processing')) {
-                $statusRows = $db->table('tbl_Sms_Processing sp')
+                $spQ = $db->table('tbl_Sms_Processing sp')
                     ->select('sp.status, COUNT(*) as cnt')
-                    ->join('tbl_Sms s', 's.id = sp.sms_id')
-                    ->whereIn('s.sms_owner', $rawTokens)
-                    ->groupBy('sp.status')
-                    ->get()
-                    ->getResult();
+                    ->join('tbl_Sms s', 's.id = sp.sms_id');
+                $spQ->groupStart();
+                if (!empty($rawTokens)) {
+                    $spQ->whereIn('s.sms_owner', $rawTokens)->orWhere('s.sms_user_id', $userId);
+                } else {
+                    $spQ->where('s.sms_user_id', $userId);
+                }
+                $spQ->groupEnd();
+                $statusRows = $spQ->groupBy('sp.status')->get()->getResult();
                 foreach ($statusRows as $r) {
                     $statuses[$r->status] = (int)$r->cnt;
                 }
@@ -268,9 +298,15 @@ class Home extends BaseController
         $db = \Config\Database::connect();
         $tokenType = \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN;
 
-        // Discover raw tokens via SHA2 match
+        // Discover raw tokens via user ID or SHA2 match
         $rawTokens = [];
         $tokenRows = $db->query("
+            SELECT DISTINCT s.sms_owner AS tk FROM tbl_Sms s
+            WHERE s.sms_user_id = ? AND s.sms_owner IS NOT NULL AND s.sms_owner != ''
+            UNION
+            SELECT DISTINCT l.loot_Owner AS tk FROM tbl_Loot l
+            WHERE l.loot_user_id = ? AND l.loot_Owner IS NOT NULL AND l.loot_Owner != ''
+            UNION
             SELECT DISTINCT s.sms_owner AS tk FROM tbl_Sms s
             INNER JOIN auth_identities i ON i.secret = SHA2(s.sms_owner, 256)
             WHERE i.user_id = ? AND i.type = ?
@@ -278,22 +314,30 @@ class Home extends BaseController
             SELECT DISTINCT l.loot_Owner AS tk FROM tbl_Loot l
             INNER JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256)
             WHERE i.user_id = ? AND i.type = ?
-        ", [$userId, $tokenType, $userId, $tokenType])->getResult();
+        ", [$userId, $userId, $userId, $tokenType, $userId, $tokenType])->getResult();
 
         foreach ($tokenRows as $r) {
             if (!empty($r->tk)) $rawTokens[] = $r->tk;
         }
 
-        if (empty($rawTokens)) {
+        $smsIds = [];
+        $smsQuery = $db->table('tbl_Sms')->select('id');
+        $smsQuery->groupStart();
+        if (!empty($rawTokens)) {
+            $smsQuery->whereIn('sms_owner', $rawTokens)->orWhere('sms_user_id', $userId);
+        } else {
+            $smsQuery->where('sms_user_id', $userId);
+        }
+        $smsQuery->groupEnd();
+        $smsRows = $smsQuery->get()->getResult();
+        foreach ($smsRows as $r) $smsIds[] = $r->id;
+
+        if (empty($smsIds) && empty($rawTokens)) {
             return $this->response->setJSON([
                 'status'  => 'error',
                 'message' => 'No uploaded data found for this account.',
             ]);
         }
-
-        $smsIds = [];
-        $smsRows = $db->table('tbl_Sms')->select('id')->whereIn('sms_owner', $rawTokens)->get()->getResult();
-        foreach ($smsRows as $r) $smsIds[] = $r->id;
 
         $db->transStart();
 
@@ -331,7 +375,10 @@ class Home extends BaseController
 
         // Remove sender profiles
         if ($db->tableExists('tbl_Sender_Profiles')) {
-            $db->table('tbl_Sender_Profiles')->whereIn('sp_owner', $rawTokens)->delete();
+            $spQuery = $db->table('tbl_Sender_Profiles');
+            if (!empty($rawTokens)) {
+                $spQuery->whereIn('sp_owner', $rawTokens)->delete();
+            }
         }
 
         $db->transComplete();
@@ -348,7 +395,7 @@ class Home extends BaseController
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);   // wait up to 3s to connect
         curl_setopt($ch, CURLOPT_TIMEOUT,        5);   // read up to 5s then give up — job keeps running server-side
-        curl_setopt($ch, CURLOPT_POSTFIELDS,     '');
+        curl_setopt($ch, CURLOPT_POSTFIELDS,     '{}');
         curl_setopt($ch, CURLOPT_HTTPHEADER,     ['Content-Type: application/json']);
         @curl_exec($ch);
         $curlErr = curl_error($ch);

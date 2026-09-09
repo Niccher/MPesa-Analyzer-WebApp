@@ -102,11 +102,13 @@
                 $userId = auth()->user()->id;
                 $tokenType = \CodeIgniter\Shield\Authentication\Authenticators\AccessTokens::ID_TYPE_ACCESS_TOKEN;
                 $uploads = $db->query("
-                    SELECT l.* FROM tbl_Loot l
-                    INNER JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256)
-                    WHERE i.user_id = ? AND i.type = ?
-                    ORDER BY l.loot_Created DESC LIMIT 1
-                ", [$userId, $tokenType])->getResult();
+                    SELECT l.*, COALESCE(NULLIF(NULLIF(l.loot_Created, '2026'), '0'), ls.loot_Created, l.loot_Created) AS loot_Created_resolved
+                    FROM tbl_Loot l
+                    LEFT JOIN tbl_Loot_Summary ls ON ls.loot_Uuid = l.loot_Uuid
+                    LEFT JOIN auth_identities i ON i.secret = SHA2(l.loot_Owner, 256) AND i.type = ?
+                    WHERE l.loot_user_id = ? OR i.user_id = ?
+                    ORDER BY COALESCE(NULLIF(NULLIF(l.loot_Created, '2026'), '0'), ls.loot_Created, l.loot_Created) DESC LIMIT 1
+                ", [$tokenType, $userId, $userId])->getResult();
                 ?>
                 <?php if (!empty($uploads)): ?>
                 <div class="table-responsive mb-3">
@@ -121,7 +123,7 @@
                         <tbody>
                             <?php foreach ($uploads as $upload): ?>
                             <tr>
-                                <td><small class="text-secondary"><?= format_date_display($upload->loot_Created ?? '') ?></small></td>
+                                <td><small class="text-secondary"><?= format_date_display($upload->loot_Created_resolved ?? $upload->loot_Created ?? '') ?></small></td>
                                 <td><small class="fw-semibold text-dark"><?= htmlspecialchars($upload->loot_Name ?? 'N/A') ?></small></td>
                                 <td class="text-end">
                                     <form action="<?= base_url('dashboard/settings/data/delete-upload') ?>" method="POST"

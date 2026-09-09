@@ -7,6 +7,11 @@ if (!function_exists('format_mpesa_date')) {
      */
     function format_mpesa_date($time): string {
         if (empty($time)) return 'N/A';
+
+        // Guard against corrupted epoch year values like 2026 seconds (< 946684800 is before year 2000)
+        if (is_numeric($time) && (int)$time < 946684800) {
+            return 'N/A';
+        }
         
         // Handle millisecond timestamp (common in M-Pesa JS uploads)
         if (is_numeric($time) && $time > 1000000000000) {
@@ -15,7 +20,7 @@ if (!function_exists('format_mpesa_date')) {
             $timestamp = is_numeric($time) ? (int)$time : strtotime($time);
         }
 
-        if (!$timestamp) return 'Invalid Date';
+        if (!$timestamp || $timestamp < 946684800) return 'N/A';
 
         return date('Y, F, l h:i A', $timestamp);
     }
@@ -29,6 +34,11 @@ if (!function_exists('format_date_display')) {
     function format_date_display($time): string {
         if (empty($time)) return 'N/A';
 
+        // Guard against corrupted epoch year values like 2026 seconds (< 946684800 is before year 2000)
+        if (is_numeric($time) && (int)$time < 946684800) {
+            return 'N/A';
+        }
+
         // Handle millisecond timestamp (common in M-Pesa JS uploads)
         if (is_numeric($time) && $time > 1000000000000) {
             $timestamp = (int)($time / 1000);
@@ -36,7 +46,7 @@ if (!function_exists('format_date_display')) {
             $timestamp = is_numeric($time) ? (int)$time : strtotime($time);
         }
 
-        if (!$timestamp) return 'Invalid Date';
+        if (!$timestamp || $timestamp < 946684800) return 'N/A';
 
         return date('D, M d, Y h:i A', $timestamp);
     }
