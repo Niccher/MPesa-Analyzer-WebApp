@@ -280,6 +280,20 @@ $systemGithub = $versionData['github_url'] ?? 'https://github.com/niccher/Mpesa_
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+    <!-- SortableJS -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+
+    <script>
+    window.showAlert = function(title, message, type) {
+        const icon = type === 'success' ? 'success' : (type === 'danger' || type === 'error' ? 'error' : (type === 'warning' ? 'warning' : 'info'));
+        if (typeof Swal !== 'undefined') {
+            Swal.fire(title, message, icon);
+        } else {
+            alert(title + ': ' + message);
+        }
+    };
+    </script>
+
     <?php $baseUrl = base_url(); ?>
 
     <!-- Mobile Drawer & Theme Toggle Logic -->
@@ -379,12 +393,26 @@ $systemGithub = $versionData['github_url'] ?? 'https://github.com/niccher/Mpesa_
                 const total = data.total || 0;
                 const processed = data.processed || 0;
                 const isTerminal = data.job && ['done', 'error', 'failed', 'cancelled', 'disabled', 'completed'].includes(data.job.status);
+                const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+
+                // Update modal progress elements if present
+                const pBar = document.getElementById('modalScanProgressBar');
+                const pPct = document.getElementById('modalScanPercent');
+                const pTotal = document.getElementById('modalScanTotal');
+                const pProcessed = document.getElementById('modalScanProcessed');
+                const pClassified = document.getElementById('modalScanClassified');
+                const pStatus = document.getElementById('modalScanStatusLabel');
+                if (pBar) pBar.style.width = pct + '%';
+                if (pPct) pPct.textContent = pct + '%';
+                if (pTotal) pTotal.textContent = total.toLocaleString();
+                if (pProcessed) pProcessed.textContent = processed.toLocaleString();
+                if (pClassified) pClassified.textContent = (data.llm_classified || 0).toLocaleString();
+                if (pStatus) pStatus.textContent = 'Status: ' + (data.job?.status || data.status || 'Running');
 
                 if (isTerminal) {
                     stopPolling();
                     setBadgeState(data.job.status === 'completed' || data.job.status === 'done' ? 'complete' : 'failed', processed + ' processed');
                 } else if (data.running) {
-                    const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
                     setBadgeState('scanning', pct + '% - ' + processed + '/' + total);
                 } else {
                     setBadgeState('idle', 'No scan running');
@@ -529,6 +557,90 @@ $systemGithub = $versionData['github_url'] ?? 'https://github.com/niccher/Mpesa_
                             </li>
                         <?php endforeach; ?>
                     </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scan Progress Modal -->
+    <div class="modal fade" id="scanProgressModal" tabindex="-1" aria-labelledby="scanProgressModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-primary" id="scanProgressModalLabel">
+                        <i class="fa-solid fa-microchip me-2"></i> SMS Analysis Progress
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small text-muted fw-semibold" id="modalScanStatusLabel">Status: Idle</span>
+                        <span class="badge bg-primary rounded-pill px-3 py-1 fw-bold" id="modalScanPercent">0%</span>
+                    </div>
+                    <div class="progress mb-3" style="height: 10px; border-radius: 5px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="modalScanProgressBar" style="width: 0%;"></div>
+                    </div>
+                    <div class="row g-2 text-center small mb-2">
+                        <div class="col-4">
+                            <div class="p-2 border rounded bg-light">
+                                <div class="text-muted" style="font-size: 0.75rem;">Processed</div>
+                                <div class="fw-bold fs-6" id="modalScanProcessed">0</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 border rounded bg-light">
+                                <div class="text-muted" style="font-size: 0.75rem;">Total SMS</div>
+                                <div class="fw-bold fs-6" id="modalScanTotal">0</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 border rounded bg-light">
+                                <div class="text-muted" style="font-size: 0.75rem;">Classified</div>
+                                <div class="fw-bold fs-6 text-success" id="modalScanClassified">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0 d-flex justify-content-between">
+                    <a href="<?= $baseUrl ?>dashboard/history/jobs" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                        <i class="fa-solid fa-list-check me-1"></i> Full Job History
+                    </a>
+                    <button type="button" class="btn btn-sm btn-secondary rounded-pill px-3" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Docs Modal -->
+    <div class="modal fade" id="docsModal" tabindex="-1" aria-labelledby="docsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-primary" id="docsModalLabel">
+                        <i class="fa-solid fa-book-open me-2"></i> System Documentation
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="card h-100 border p-3">
+                                <h6 class="fw-bold text-primary"><i class="fa-solid fa-circle-question me-2"></i>FAQ &amp; Knowledge Base</h6>
+                                <p class="text-muted small mb-2">Answers to common questions about SMS parsing, privacy, and sync features.</p>
+                                <a href="<?= base_url('faq') ?>" class="btn btn-sm btn-outline-primary rounded-pill align-self-start mt-auto">Open FAQ</a>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100 border p-3">
+                                <h6 class="fw-bold text-primary"><i class="fa-solid fa-microchip me-2"></i>ML Classification Engine</h6>
+                                <p class="text-muted small mb-2">Details on local GGUF models, classification pipelines, and token usage.</p>
+                                <a href="<?= base_url('dashboard/history/jobs') ?>" class="btn btn-sm btn-outline-primary rounded-pill align-self-start mt-auto">View ML Jobs</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-sm btn-secondary rounded-pill px-3" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>

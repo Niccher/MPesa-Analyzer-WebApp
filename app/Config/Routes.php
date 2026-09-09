@@ -268,6 +268,10 @@ $routes->group('admin', ['filter' => ['session', 'admin']], function ($routes) {
     $routes->get('audit', 'Admin\Audit::index');
     $routes->get('audit/export', 'Admin\Audit::export');
 
+    // Container Telemetry
+    $routes->get('telemetry', 'Admin\Telemetry::index');
+    $routes->get('telemetry/live', 'Admin\Telemetry::live');
+
     // Migration runner (protected by MIGRATE_KEY env var)
     $routes->get('migrate', 'Admin\Migrate::index');
     $routes->get('migrate/status', 'Admin\Migrate::status');

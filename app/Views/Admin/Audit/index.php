@@ -118,9 +118,9 @@
                                     };
                                     $meta = $entry['metadata'] ? json_decode($entry['metadata'], true) : [];
                                 ?>
-                                    <tr class="audit-row" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-html="true" 
+                                    <tr class="audit-row" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-html="true" 
                                         data-bs-title="<strong>Metadata</strong>" 
-                                        data-bs-content="<?= esc(json_encode($meta, JSON_PRETTY_PRINT)) ?>">
+                                        data-metadata="<?= esc(json_encode($meta, JSON_PRETTY_PRINT), 'attr') ?>">
                                         <td>
                                             <small><?= esc($entry['created_at']) ?></small>
                                         </td>
@@ -189,7 +189,20 @@
 document.addEventListener('DOMContentLoaded', function() {
     var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
     popoverTriggerList.map(function(el) {
-        return new bootstrap.Popover(el);
+        return new bootstrap.Popover(el, {
+            content: function() {
+                var raw = el.getAttribute('data-metadata') || '';
+                if (!raw || raw === '[]' || raw === '{}') {
+                    return '<span class="text-muted fst-italic">No metadata</span>';
+                }
+                var escaped = raw
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;");
+                return '<pre class="mb-0 small text-wrap font-monospace" style="max-height: 250px; overflow-y: auto;">' + escaped + '</pre>';
+            }
+        });
     });
 
     // Copy metadata

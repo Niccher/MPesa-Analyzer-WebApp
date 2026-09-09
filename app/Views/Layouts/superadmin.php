@@ -191,6 +191,13 @@ $systemGithub = $versionData['github_url'] ?? 'https://github.com/niccher/Mpesa_
                         <span class="ace-nav-text">Audit Trail</span>
                     </a>
                 </li>
+
+                <li class="ace-nav-item <?= strpos($currentURL, 'admin/telemetry') !== false ? 'active' : '' ?>">
+                    <a href="<?= base_url('admin/telemetry') ?>" class="ace-nav-link">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span class="ace-nav-text">Container Telemetry</span>
+                    </a>
+                </li>
             </ul>
 
             <div class="p-3 border-top mt-auto">
@@ -229,6 +236,16 @@ $systemGithub = $versionData['github_url'] ?? 'https://github.com/niccher/Mpesa_
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+    window.showAlert = function(title, message, type) {
+        const icon = type === 'success' ? 'success' : (type === 'danger' || type === 'error' ? 'error' : (type === 'warning' ? 'warning' : 'info'));
+        if (typeof Swal !== 'undefined') {
+            Swal.fire(title, message, icon);
+        } else {
+            alert(title + ': ' + message);
+        }
+    };
+    </script>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {

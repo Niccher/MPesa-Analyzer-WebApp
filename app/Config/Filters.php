@@ -70,7 +70,10 @@ class Filters extends BaseConfig
      * 'isLoggedIn' => ['before' => ['account/*', 'profiles/*']]
      */
     public array $filters = [
-        'user-area' => ['before' => ['dashboard', 'dashboard/*']],
+        'user-area' => [
+            'before' => ['dashboard', 'dashboard/*'],
+            'except' => ['dashboard/rescan', 'dashboard/rescan/*'],
+        ],
         'json'      => ['before' => ['api/v1/*'], 'after' => ['api/v1/*']],
     ];
 }

@@ -468,7 +468,7 @@ usort($alerts, fn($a, $b) => $a['level'] === 'danger' ? -1 : 1);
         
         // SortableJS Logic for Dashboard Widgets
         const grid = document.getElementById('dashboardGrid');
-        if (grid) {
+        if (grid && typeof Sortable !== 'undefined') {
             const sortable = Sortable.create(grid, {
                 animation: 150,
                 handle: '.card', // Drag handles are the cards themselves
