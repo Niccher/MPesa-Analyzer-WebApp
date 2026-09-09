@@ -14,12 +14,20 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
     <meta name="description" content="Complete setup guide for Mpesa Analyzer. Learn how to install the Android app, generate tokens, link devices, and run ML analysis. Step-by-step instructions.">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="<?= base_url('setup') ?>">
-    <link rel="icon" type="image/png" href="<?= base_url('favicon.png') ?>">
-    <link rel="apple-touch-icon" href="<?= base_url('favicon.png') ?>">
+
+    <!-- Favicon & PWA Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= base_url('favicon.png?v=' . $systemVersion) ?>">
+    <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico?v=' . $systemVersion) ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?= base_url('apple-touch-icon.png?v=' . $systemVersion) ?>">
+    <link rel="manifest" href="<?= base_url('site.webmanifest?v=' . $systemVersion) ?>">
+
     <meta property="og:title" content="Setup Guide — Mpesa Analyzer">
     <meta property="og:description" content="Step-by-step guide to set up Mpesa Analyzer: Android app, device linking, ML analysis.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="<?= base_url('setup') ?>">
+    <meta property="og:image" content="<?= base_url('assets/img/logo.png') ?>">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="<?= base_url('assets/img/logo.png') ?>">
     <script>
         (function() {
             const savedTheme = localStorage.getItem('ace_theme') || 'light';

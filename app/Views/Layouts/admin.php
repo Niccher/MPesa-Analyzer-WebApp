@@ -46,10 +46,10 @@ $systemGithub = $versionData['github_url'] ?? 'https://github.com/niccher/Mpesa_
     <meta name="twitter:image" content="<?= base_url('assets/img/logo.png') ?>">
 
     <!-- Favicon & PWA Icons -->
-    <link rel="icon" type="image/png" sizes="32x32" href="<?= base_url('favicon.png') ?>">
-    <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico') ?>">
-    <link rel="apple-touch-icon" sizes="180x180" href="<?= base_url('apple-touch-icon.png') ?>">
-    <link rel="manifest" href="<?= base_url('site.webmanifest') ?>">
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= base_url('favicon.png?v=' . $systemVersion) ?>">
+    <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico?v=' . $systemVersion) ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?= base_url('apple-touch-icon.png?v=' . $systemVersion) ?>">
+    <link rel="manifest" href="<?= base_url('site.webmanifest?v=' . $systemVersion) ?>">
 
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">

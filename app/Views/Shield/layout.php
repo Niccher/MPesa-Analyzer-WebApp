@@ -13,10 +13,10 @@
     <meta name="application-name" content="FinAnalyzer Auth">
 
     <!-- Favicon & PWA Icons -->
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="manifest" href="/site.webmanifest">
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= base_url('favicon.png?v=3.2.0') ?>">
+    <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico?v=3.2.0') ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?= base_url('apple-touch-icon.png?v=3.2.0') ?>">
+    <link rel="manifest" href="<?= base_url('site.webmanifest?v=3.2.0') ?>">
     <script>
         (function() {
             const savedTheme = localStorage.getItem('ace_theme') || 'light';

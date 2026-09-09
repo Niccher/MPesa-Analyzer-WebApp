@@ -14,12 +14,20 @@ $systemVersion = $versionData['version'] ?? '3.2.0';
     <meta name="description" content="Download the Mpesa Analyzer Android app. Automatically syncs SMS, detects financial messages, and forwards them securely to the ML backend for classification.">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="<?= base_url('android-app') ?>">
-    <link rel="icon" type="image/png" href="<?= base_url('favicon.png') ?>">
-    <link rel="apple-touch-icon" href="<?= base_url('favicon.png') ?>">
+
+    <!-- Favicon & PWA Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= base_url('favicon.png?v=' . $systemVersion) ?>">
+    <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico?v=' . $systemVersion) ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?= base_url('apple-touch-icon.png?v=' . $systemVersion) ?>">
+    <link rel="manifest" href="<?= base_url('site.webmanifest?v=' . $systemVersion) ?>">
+
     <meta property="og:title" content="Android App — Mpesa Analyzer">
     <meta property="og:description" content="Sync your SMS automatically. The companion app detects and forwards financial messages to the ML backend.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="<?= base_url('android-app') ?>">
+    <meta property="og:image" content="<?= base_url('assets/img/logo.png') ?>">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="<?= base_url('assets/img/logo.png') ?>">
     <script>
         (function() {
             const savedTheme = localStorage.getItem('ace_theme') || 'light';
